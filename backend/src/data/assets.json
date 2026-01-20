@@ -1,0 +1,5 @@
+[
+  { "id": "1", "symbol": "AAPL", "name": "Apple Inc.", "category": "Equity" },
+  { "id": "2", "symbol": "GOOGL", "name": "Alphabet Inc.", "category": "Equity" },
+  { "id": "3", "symbol": "BTC", "name": "Bitcoin", "category": "Crypto" }
+]

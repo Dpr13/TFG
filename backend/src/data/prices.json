@@ -1,0 +1,28 @@
+[
+  { "assetId": "1", "date": "2024-01-01", "price": 180.25, "currency": "USD" },
+  { "assetId": "1", "date": "2024-01-02", "price": 182.50, "currency": "USD" },
+  { "assetId": "1", "date": "2024-01-03", "price": 181.75, "currency": "USD" },
+  { "assetId": "1", "date": "2024-01-04", "price": 183.00, "currency": "USD" },
+  { "assetId": "1", "date": "2024-01-05", "price": 185.20, "currency": "USD" },
+  { "assetId": "1", "date": "2024-01-08", "price": 186.50, "currency": "USD" },
+  { "assetId": "1", "date": "2024-01-09", "price": 184.90, "currency": "USD" },
+  { "assetId": "1", "date": "2024-01-10", "price": 187.30, "currency": "USD" },
+  
+  { "assetId": "2", "date": "2024-01-01", "price": 140.50, "currency": "USD" },
+  { "assetId": "2", "date": "2024-01-02", "price": 142.00, "currency": "USD" },
+  { "assetId": "2", "date": "2024-01-03", "price": 141.25, "currency": "USD" },
+  { "assetId": "2", "date": "2024-01-04", "price": 143.75, "currency": "USD" },
+  { "assetId": "2", "date": "2024-01-05", "price": 145.10, "currency": "USD" },
+  { "assetId": "2", "date": "2024-01-08", "price": 146.20, "currency": "USD" },
+  { "assetId": "2", "date": "2024-01-09", "price": 144.80, "currency": "USD" },
+  { "assetId": "2", "date": "2024-01-10", "price": 147.50, "currency": "USD" },
+  
+  { "assetId": "3", "date": "2024-01-01", "price": 42500.00, "currency": "USD" },
+  { "assetId": "3", "date": "2024-01-02", "price": 43200.00, "currency": "USD" },
+  { "assetId": "3", "date": "2024-01-03", "price": 42800.00, "currency": "USD" },
+  { "assetId": "3", "date": "2024-01-04", "price": 44100.00, "currency": "USD" },
+  { "assetId": "3", "date": "2024-01-05", "price": 45000.00, "currency": "USD" },
+  { "assetId": "3", "date": "2024-01-08", "price": 44500.00, "currency": "USD" },
+  { "assetId": "3", "date": "2024-01-09", "price": 43800.00, "currency": "USD" },
+  { "assetId": "3", "date": "2024-01-10", "price": 45500.00, "currency": "USD" }
+]
