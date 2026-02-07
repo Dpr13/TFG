@@ -1,0 +1,230 @@
+import axios from 'axios';
+import { MarketDataProvider } from './interfaces/MarketDataProvider';
+
+/**
+ * Alpha Vantage API response types
+ */
+interface AlphaVantageTimeSeriesDaily {
+  'Time Series (Daily)': {
+    [date: string]: {
+      '1. open': string;
+      '2. high': string;
+      '3. low': string;
+      '4. close': string;
+      '5. volume': string;
+    };
+  };
+  'Meta Data'?: {
+    '2. Symbol': string;
+    [key: string]: string;
+  };
+  'Error Message'?: string;
+  'Note'?: string;
+}
+
+interface AlphaVantageDigitalCurrency {
+  'Time Series (Digital Currency Daily)': {
+    [date: string]: {
+      '1. open': string;
+      '2. high': string;
+      '3. low': string;
+      '4. close': string;
+      '5. volume': string;
+      '1a. open (USD)'?: string;
+      '2a. high (USD)'?: string;
+      '3a. low (USD)'?: string;
+      '4a. close (USD)'?: string;
+    };
+  };
+  'Meta Data'?: {
+    '2. Digital Currency Code': string;
+    [key: string]: string;
+  };
+  'Error Message'?: string;
+  'Note'?: string;
+}
+
+/**
+ * Alpha Vantage implementation of MarketDataProvider
+ * Fetches real market data from Alpha Vantage API
+ * Requires ALPHA_VANTAGE_API_KEY environment variable
+ * Supports both stocks and cryptocurrencies
+ */
+export class AlphaVantageMarketDataProvider implements MarketDataProvider {
+  private readonly apiKey: string;
+  private readonly baseUrl = 'https://www.alphavantage.co/query';
+  private readonly cryptoSymbols = ['BTC', 'ETH', 'BITCOIN', 'ETHEREUM'];
+
+  constructor(apiKey: string) {
+    if (!apiKey) {
+      throw new Error('Alpha Vantage API key is required');
+    }
+    this.apiKey = apiKey;
+  }
+
+  /**
+   * Check if symbol is a cryptocurrency
+   */
+  private isCrypto(symbol: string): boolean {
+    return this.cryptoSymbols.includes(symbol.toUpperCase());
+  }
+
+  /**
+   * Get historical daily prices from Alpha Vantage API
+   * @param symbol - Stock symbol (e.g., 'AAPL', 'GOOGL') or crypto (e.g., 'BTC', 'ETH')
+   * @returns Array of historical prices ordered by date, or null if not found
+   */
+  async getHistoricalPrices(
+    symbol: string
+  ): Promise<Array<{ date: string; close: number }> | null> {
+    const isCrypto = this.isCrypto(symbol);
+    
+    if (isCrypto) {
+      return this.getCryptoPrices(symbol);
+    }
+    
+    return this.getStockPrices(symbol);
+  }
+
+  /**
+   * Get cryptocurrency prices
+   */
+  private async getCryptoPrices(
+    symbol: string
+  ): Promise<Array<{ date: string; close: number }> | null> {
+    try {
+      const response = await axios.get<AlphaVantageDigitalCurrency>(
+        this.baseUrl,
+        {
+          params: {
+            function: 'DIGITAL_CURRENCY_DAILY',
+            symbol: symbol.toUpperCase(),
+            market: 'USD',
+            apikey: this.apiKey,
+          },
+          timeout: 10000,
+        }
+      );
+
+      if (response.data['Error Message']) {
+        console.error(
+          `Alpha Vantage API error for ${symbol}: ${response.data['Error Message']}`
+        );
+        return null;
+      }
+
+      if (response.data['Note']) {
+        console.warn(
+          `Alpha Vantage API rate limit warning: ${response.data['Note']}`
+        );
+        throw new Error('API rate limit reached. Please try again later.');
+      }
+
+      const timeSeries = response.data['Time Series (Digital Currency Daily)'];
+
+      if (!timeSeries) {
+        console.error(`No cryptocurrency data found for symbol: ${symbol}`);
+        return null;
+      }
+
+      const prices = Object.entries(timeSeries).map(([date, values]) => ({
+        date,
+        close: parseFloat(values['4a. close (USD)'] || values['4. close']),
+      }));
+
+      prices.sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+
+      return prices;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error(
+          `HTTP error fetching crypto data from Alpha Vantage for ${symbol}:`,
+          error.message
+        );
+        throw new Error(
+          `Failed to fetch crypto data from Alpha Vantage: ${error.message}`
+        );
+      }
+      console.error(
+        `Unexpected error fetching crypto data for ${symbol}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get stock prices
+   */
+  private async getStockPrices(
+    symbol: string
+  ): Promise<Array<{ date: string; close: number }> | null> {
+    try {
+      const response = await axios.get<AlphaVantageTimeSeriesDaily>(
+        this.baseUrl,
+        {
+          params: {
+            function: 'TIME_SERIES_DAILY',
+            symbol: symbol.toUpperCase(),
+            apikey: this.apiKey,
+            outputsize: 'compact', // Last 100 data points, use 'full' for 20+ years
+          },
+          timeout: 10000, // 10 seconds timeout
+        }
+      );
+
+      // Check for API errors
+      if (response.data['Error Message']) {
+        console.error(
+          `Alpha Vantage API error for ${symbol}: ${response.data['Error Message']}`
+        );
+        return null;
+      }
+
+      // Check for API rate limit
+      if (response.data['Note']) {
+        console.warn(
+          `Alpha Vantage API rate limit warning: ${response.data['Note']}`
+        );
+        throw new Error('API rate limit reached. Please try again later.');
+      }
+
+      const timeSeries = response.data['Time Series (Daily)'];
+
+      if (!timeSeries) {
+        console.error(`No time series data found for symbol: ${symbol}`);
+        return null;
+      }
+
+      // Transform API response to standard format
+      const prices = Object.entries(timeSeries).map(([date, values]) => ({
+        date,
+        close: parseFloat(values['4. close']),
+      }));
+
+      // Sort by date ascending (oldest first)
+      prices.sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+
+      return prices;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error(
+          `HTTP error fetching data from Alpha Vantage for ${symbol}:`,
+          error.message
+        );
+        throw new Error(
+          `Failed to fetch data from Alpha Vantage: ${error.message}`
+        );
+      }
+      console.error(
+        `Unexpected error fetching data for ${symbol}:`,
+        error
+      );
+      throw error;
+    }
+  }
+}

@@ -1,5 +1,8 @@
 [
   { "id": "1", "symbol": "AAPL", "name": "Apple Inc.", "category": "Equity" },
   { "id": "2", "symbol": "GOOGL", "name": "Alphabet Inc.", "category": "Equity" },
-  { "id": "3", "symbol": "BTC", "name": "Bitcoin", "category": "Crypto" }
+  { "id": "3", "symbol": "BTC", "name": "Bitcoin", "category": "Crypto" },
+  { "id": "4", "symbol": "MSFT", "name": "Microsoft Corporation", "category": "Equity" },
+  { "id": "5", "symbol": "AMZN", "name": "Amazon.com Inc.", "category": "Equity" },
+  { "id": "6", "symbol": "TSLA", "name": "Tesla Inc.", "category": "Equity" }
 ]
