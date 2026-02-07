@@ -1,35 +1,35 @@
-import { MarketDataRepository } from '../repositories/marketData.repository';
-import { Price } from '../models/price';
+import { MarketDataProvider } from '../providers/interfaces/MarketDataProvider';
+import { ProviderFactory } from '../providers/ProviderFactory';
 
 /**
  * Service layer for price history operations
  * Contains business logic (minimal for now, prepared for future risk calculations)
+ * Uses MarketDataProvider for data access (mock or external API)
  */
 export class PriceService {
+  private provider: MarketDataProvider;
+
+  constructor(provider?: MarketDataProvider) {
+    // Use injected provider or get from factory
+    this.provider = provider || ProviderFactory.getMarketDataProvider();
+  }
+
   /**
    * Get price history for a given symbol
    * Returns prices ordered by date
    */
-  static getPriceHistory(symbol: string): {
+  async getPriceHistory(symbol: string): Promise<{
     symbol: string;
     prices: Array<{ date: string; close: number }>;
-  } | null {
-    const asset = MarketDataRepository.getAssetBySymbol(symbol);
-    
-    if (!asset) {
+  } | null> {
+    const prices = await this.provider.getHistoricalPrices(symbol);
+
+    if (!prices) {
       return null;
     }
 
-    const priceHistory = MarketDataRepository.getPriceHistoryBySymbol(symbol);
-
-    // Transform to response format
-    const prices = priceHistory.map((p: Price) => ({
-      date: p.date,
-      close: p.price,
-    }));
-
     return {
-      symbol: asset.symbol,
+      symbol: symbol.toUpperCase(),
       prices,
     };
   }
