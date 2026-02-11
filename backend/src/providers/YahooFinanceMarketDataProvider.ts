@@ -64,20 +64,50 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
   /**
    * Get historical prices from Yahoo Finance API
    * @param symbol - Stock symbol (e.g., 'AAPL', 'GOOGL') or crypto (e.g., 'BTC', 'ETH')
+   * @param interval - Interval (e.g., '1min', '5min', '1h', '1d')
    * @returns Array of historical prices ordered by date, or null if not found
    */
   async getHistoricalPrices(
-    symbol: string
+    symbol: string,
+    interval?: string
   ): Promise<Array<{ date: string; close: number }> | null> {
     try {
       const yahooSymbol = this.getYahooSymbol(symbol);
-      
+      // Validar y mapear intervalos soportados por Yahoo Finance
+      const allowedIntervals = ['1m','2m','5m','15m','30m','60m','90m','1d','5d','1wk','1mo','3mo'];
+      // Mapear intervalos de usuario a los de Yahoo
+      const intervalMap: Record<string, string> = {
+        '1min': '1m',
+        '2min': '2m',
+        '5min': '5m',
+        '15min': '15m',
+        '30min': '30m',
+        '1h': '60m',
+        '1d': '1d',
+        '5h': '5h',
+        '1wk': '1wk',
+        '1mo': '1mo'
+      };
+      let yfInterval = '1d';
+      if (interval && intervalMap[interval]) {
+        yfInterval = intervalMap[interval];
+      }
+      if (!allowedIntervals.includes(yfInterval)) {
+        yfInterval = '1d';
+      }
+
+      // Ajustar el rango según el intervalo
+      let range = '1y';
+      if (yfInterval.endsWith('m')) {
+        range = '5d'; // Yahoo limita los datos intradía a los últimos 5 días
+      }
+
       const response = await axios.get<YahooFinanceChartResponse>(
         `${this.baseUrl}/${yahooSymbol}`,
         {
           params: {
-            interval: '1d',      // Daily data
-            range: '1y',         // Last year
+            interval: yfInterval,
+            range,
             includePrePost: false
           },
           timeout: 10000,
@@ -103,10 +133,17 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
 
       // Convert timestamps to dates and pair with close prices
       const prices = timestamps
-        .map((timestamp, index) => ({
-          date: new Date(timestamp * 1000).toISOString().split('T')[0],
-          close: closes[index],
-        }))
+        .map((timestamp, index) => {
+          // Si es intradía, mostrar hora
+          const dateObj = new Date(timestamp * 1000);
+          const date = yfInterval.endsWith('m')
+            ? dateObj.toISOString().replace('T', ' ').substring(0, 16)
+            : dateObj.toISOString().split('T')[0];
+          return {
+            date,
+            close: closes[index],
+          };
+        })
         .filter(price => price.close !== null && !isNaN(price.close));
 
       // Sort by date ascending
