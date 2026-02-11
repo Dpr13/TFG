@@ -22,6 +22,26 @@ export interface RiskMetrics {
   maxDrawdown: number;
 
   /**
+   * Sharpe Ratio (rentabilidad ajustada al riesgo)
+   */
+  sharpeRatio?: number;
+
+  /**
+   * Sortino Ratio (rentabilidad ajustada a la volatilidad negativa)
+   */
+  sortinoRatio?: number;
+
+  /**
+   * Value at Risk (VaR) al 95% de confianza
+   */
+  valueAtRisk95?: number;
+
+  /**
+   * Calmar Ratio (rentabilidad media / drawdown máximo)
+   */
+  calmarRatio?: number;
+
+  /**
    * Risk classification based on volatility and drawdown
    */
   riskLevel: RiskLevel;
