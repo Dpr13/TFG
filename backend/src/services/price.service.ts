@@ -15,14 +15,15 @@ export class PriceService {
   }
 
   /**
-   * Get price history for a given symbol
+   * Get price history for a given symbol and interval
    * Returns prices ordered by date
    */
-  async getPriceHistory(symbol: string): Promise<{
+  async getPriceHistory(symbol: string, interval?: string): Promise<{
     symbol: string;
+    interval?: string;
     prices: Array<{ date: string; close: number }>;
   } | null> {
-    const prices = await this.provider.getHistoricalPrices(symbol);
+    const prices = await this.provider.getHistoricalPrices(symbol, interval);
 
     if (!prices) {
       return null;
@@ -30,6 +31,7 @@ export class PriceService {
 
     return {
       symbol: symbol.toUpperCase(),
+      interval,
       prices,
     };
   }

@@ -5,6 +5,10 @@ import {
   calculateVolatility,
   calculateMaxDrawdown,
   classifyRisk,
+  calculateSharpeRatio,
+  calculateSortinoRatio,
+  calculateVaR,
+  calculateCalmarRatio,
 } from '../utils/riskCalculations';
 
 /**
@@ -58,14 +62,25 @@ export class RiskService {
     // 6. Calculate maximum drawdown
     const maxDrawdown = calculateMaxDrawdown(closingPrices);
 
-    // 7. Classify risk level
+
+    // 7. Calcular nuevas métricas de riesgo
+    const sharpeRatio = calculateSharpeRatio(returns);
+    const sortinoRatio = calculateSortinoRatio(returns);
+    const valueAtRisk95 = calculateVaR(returns, 0.95);
+    const calmarRatio = calculateCalmarRatio(returns, closingPrices);
+
+    // 8. Clasificar nivel de riesgo
     const riskLevel = classifyRisk(volatility, maxDrawdown);
 
-    // 8. Build response object
+    // 9. Construir objeto de respuesta
     const riskMetrics: RiskMetrics = {
       symbol: symbol.toUpperCase(),
       volatility: Math.round(volatility * 10000) / 10000, // Round to 4 decimals
       maxDrawdown: Math.round(maxDrawdown * 10000) / 10000, // Round to 4 decimals
+      sharpeRatio: sharpeRatio !== undefined ? Math.round(sharpeRatio * 10000) / 10000 : undefined,
+      sortinoRatio: sortinoRatio !== undefined ? Math.round(sortinoRatio * 10000) / 10000 : undefined,
+      valueAtRisk95: valueAtRisk95 !== undefined ? Math.round(valueAtRisk95 * 10000) / 10000 : undefined,
+      calmarRatio: calmarRatio !== undefined ? Math.round(calmarRatio * 10000) / 10000 : undefined,
       riskLevel,
       dataPoints: prices.length,
       period: {

@@ -175,6 +175,49 @@ Devuelve histórico de precios para un activo específico.
 }
 ```
 
+### GET /api/assets/:symbol/risk
+Devuelve las métricas de riesgo calculadas para un activo financiero.
+
+**Parámetros:**
+- `symbol` (string): Símbolo del activo (ej: AAPL, BTC)
+
+**Respuesta exitosa (200):**
+```json
+{
+  "symbol": "AAPL",
+  "volatility": 0.1825,
+  "maxDrawdown": 0.215,
+  "sharpeRatio": 1.25,
+  "sortinoRatio": 1.8,
+  "valueAtRisk95": 0.045,
+  "calmarRatio": 0.6,
+  "riskLevel": "MEDIUM",
+  "dataPoints": 120,
+  "period": {
+    "start": "2024-01-01",
+    "end": "2024-06-01"
+  }
+}
+```
+
+**Campos de la respuesta:**
+- `volatility`: Volatilidad anualizada (desviación estándar de los retornos diarios, escala anual, decimal)
+- `maxDrawdown`: Máxima caída desde un pico hasta un valle (decimal)
+- `sharpeRatio`: Rentabilidad ajustada al riesgo total (mayor es mejor)
+- `sortinoRatio`: Rentabilidad ajustada solo por la volatilidad negativa (mayor es mejor)
+- `valueAtRisk95`: Pérdida máxima esperada al 95% de confianza (VaR histórico)
+- `calmarRatio`: Rentabilidad media dividida por el drawdown máximo (mayor es mejor)
+- `riskLevel`: Clasificación de riesgo (LOW, MEDIUM, HIGH)
+- `dataPoints`: Número de datos usados en el cálculo
+- `period`: Rango de fechas analizado
+
+**Errores posibles:**
+- 404: Activo no encontrado
+- 422: No hay suficientes datos para calcular métricas
+
+**Notas:**
+- Las métricas pueden variar según el activo y el periodo de datos disponible.
+
 ## 🧪 Testing
 
 Ejecutar tests unitarios:
