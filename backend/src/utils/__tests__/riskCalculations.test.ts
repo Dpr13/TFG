@@ -7,7 +7,92 @@ import {
   calculateMaxDrawdown,
   classifyRisk,
   RISK_THRESHOLDS,
+  calculateSharpeRatio,
+  calculateSortinoRatio,
+  calculateVaR,
+  calculateCalmarRatio,
 } from '../../utils/riskCalculations';
+
+
+describe('New Risk Metrics', () => {
+  describe('calculateSharpeRatio', () => {
+    it('should return 0 for insufficient data', () => {
+      expect(calculateSharpeRatio([])).toBe(0);
+      expect(calculateSharpeRatio([0.01])).toBe(0);
+    });
+    it('should calculate Sharpe ratio for positive returns', () => {
+      const returns = [0.01, 0.02, 0.015, 0.017, 0.013];
+      const sharpe = calculateSharpeRatio(returns);
+      expect(sharpe).toBeGreaterThan(0);
+    });
+    it('should handle risk-free rate', () => {
+      const returns = [0.01, 0.02, 0.015, 0.017, 0.013];
+      const sharpe = calculateSharpeRatio(returns, 0.01);
+      expect(sharpe).toBeLessThan(calculateSharpeRatio(returns));
+    });
+    it('should return 0 if std deviation is 0', () => {
+      const returns = [0.01, 0.01, 0.01];
+      expect(calculateSharpeRatio(returns)).toBe(0);
+    });
+  });
+
+  describe('calculateSortinoRatio', () => {
+    it('should return 0 for insufficient data', () => {
+      expect(calculateSortinoRatio([])).toBe(0);
+      expect(calculateSortinoRatio([0.01])).toBe(0);
+    });
+    it('should calculate Sortino ratio for returns with downside risk', () => {
+      const returns = [0.01, -0.02, 0.015, -0.01, 0.013];
+      const sortino = calculateSortinoRatio(returns);
+      expect(sortino).toBeGreaterThan(0);
+    });
+    it('should handle risk-free rate with downside risk', () => {
+      const returns = [0.01, -0.02, 0.015, -0.01, 0.013];
+      const sortino = calculateSortinoRatio(returns, 0.01);
+      expect(sortino).toBeLessThan(calculateSortinoRatio(returns));
+    });
+    it('should return 0 if no downside deviation', () => {
+      const returns = [0.02, 0.03, 0.025];
+      expect(calculateSortinoRatio(returns)).toBe(0);
+    });
+  });
+
+  describe('calculateVaR', () => {
+    it('should return 0 for empty returns', () => {
+      expect(calculateVaR([])).toBe(0);
+    });
+    it('should calculate VaR at 95% confidence', () => {
+      const returns = [-0.05, -0.02, 0.01, 0.03, -0.01, 0.02, 0.00];
+      const var95 = calculateVaR(returns, 0.95);
+      expect(var95).toBeGreaterThanOrEqual(0);
+    });
+    it('should calculate VaR at 99% confidence', () => {
+      const returns = [-0.10, -0.02, 0.01, 0.03, -0.01, 0.02, 0.00];
+      const var99 = calculateVaR(returns, 0.99);
+      expect(var99).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('calculateCalmarRatio', () => {
+    it('should return 0 if max drawdown is 0', () => {
+      const returns = [0.01, 0.01, 0.01];
+      const prices = [100, 101, 102];
+      expect(calculateCalmarRatio(returns, prices)).toBe(0);
+    });
+    it('should calculate Calmar ratio for positive returns and drawdown', () => {
+      const returns = [0.01, 0.02, 0.015, 0.017, 0.013];
+      const prices = [100, 110, 105, 90, 80, 95];
+      const calmar = calculateCalmarRatio(returns, prices);
+      expect(calmar).toBeGreaterThan(0);
+    });
+    it('should handle negative mean returns', () => {
+      const returns = [-0.01, -0.02, -0.015];
+      const prices = [100, 90, 80];
+      const calmar = calculateCalmarRatio(returns, prices);
+      expect(calmar).toBeLessThan(0);
+    });
+  });
+});
 
 describe('Risk Calculations - Pure Functions', () => {
   describe('calculateReturns', () => {
