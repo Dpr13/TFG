@@ -2,5 +2,5 @@ export interface Asset {
   id: string;
   symbol: string;
   name: string;
-  category?: string;
+  type: 'stock' | 'crypto' | 'forex';
 }
