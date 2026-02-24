@@ -1,7 +1,7 @@
 import prices from '../data/prices.json';
-import assets from '../data/assets.json';
 import { Price } from '../models/price';
 import { Asset } from '../models/asset';
+import { YahooFinanceMarketDataProvider } from '../providers/YahooFinanceMarketDataProvider';
 
 /**
  * Repository layer for market data access
@@ -10,33 +10,83 @@ import { Asset } from '../models/asset';
  */
 export class MarketDataRepository {
   /**
-   * Get all available assets
+   * Centralized map of known asset names and types
    */
-  static getAllAssets(): Asset[] {
-    return assets as Asset[];
+  private static readonly KNOWN_ASSETS: Record<string, { name: string; type: 'stock' | 'crypto' | 'forex' }> = {
+    AAPL:  { name: 'Apple Inc.',                    type: 'stock'  },
+    GOOGL: { name: 'Alphabet Inc.',                 type: 'stock'  },
+    BTC:   { name: 'Bitcoin',                       type: 'crypto' },
+    MSFT:  { name: 'Microsoft Corporation',         type: 'stock'  },
+    AMZN:  { name: 'Amazon.com Inc.',               type: 'stock'  },
+    TSLA:  { name: 'Tesla Inc.',                    type: 'stock'  },
+    KO:    { name: 'The Coca-Cola Company',         type: 'stock'  },
+    JPM:   { name: 'JPMorgan Chase & Co.',          type: 'stock'  },
+    NVDA:  { name: 'NVIDIA Corporation',            type: 'stock'  },
+    META:  { name: 'Meta Platforms Inc.',           type: 'stock'  },
+    NFLX:  { name: 'Netflix Inc.',                  type: 'stock'  },
+    DIS:   { name: 'The Walt Disney Company',       type: 'stock'  },
+    PYPL:  { name: 'PayPal Holdings Inc.',          type: 'stock'  },
+    INTC:  { name: 'Intel Corporation',             type: 'stock'  },
+    AMD:   { name: 'Advanced Micro Devices Inc.',   type: 'stock'  },
+    BA:    { name: 'The Boeing Company',            type: 'stock'  },
+    ETH:   { name: 'Ethereum',                      type: 'crypto' },
+  };
+
+  /**
+   * Get all available assets (suggested/popular assets)
+   */
+  static async getAllAssets(): Promise<Asset[]> {
+    const symbols = ['AAPL', 'GOOGL', 'BTC', 'MSFT', 'AMZN', 'TSLA', 'KO', 'JPM', 'NVDA'];
+    return symbols.map((symbol, idx) => ({
+      id: (idx + 1).toString(),
+      symbol,
+      name: this.KNOWN_ASSETS[symbol]?.name || symbol,
+      type: this.KNOWN_ASSETS[symbol]?.type ?? 'stock',
+    }));
   }
 
   /**
-   * Get asset by symbol
+   * Search for an asset by symbol using Yahoo Finance API
+   * Allows searching any symbol, not just the predefined list
    */
-  static getAssetBySymbol(symbol: string): Asset | undefined {
-    return (assets as Asset[]).find(
-      (asset) => asset.symbol.toUpperCase() === symbol.toUpperCase()
-    );
+  static async searchAssetBySymbol(symbol: string): Promise<Asset | null> {
+    const provider = new YahooFinanceMarketDataProvider();
+    const result = await provider.validateSymbol(symbol);
+
+    if (!result) {
+      return null;
+    }
+
+    const knownAsset = this.KNOWN_ASSETS[result.symbol];
+
+    return {
+      id: result.symbol,
+      symbol: result.symbol,
+      name: knownAsset?.name || result.name,
+      type: knownAsset?.type || result.type,
+    };
   }
 
   /**
-   * Get price history for a specific asset
+   * Get asset by symbol (from predefined list)
+   */
+  static async getAssetBySymbol(symbol: string): Promise<Asset | undefined> {
+    const all = await this.getAllAssets();
+    return all.find((asset) => asset.symbol.toUpperCase() === symbol.toUpperCase());
+  }
+
+  /**
+   * Get price history for a specific asset by assetId (from JSON file)
    */
   static getPriceHistoryByAssetId(assetId: string): Price[] {
     return (prices as Price[]).filter((price) => price.assetId === assetId);
   }
 
   /**
-   * Get price history for a specific asset by symbol
+   * Get price history for a specific asset by symbol (from JSON file)
    */
-  static getPriceHistoryBySymbol(symbol: string): Price[] {
-    const asset = this.getAssetBySymbol(symbol);
+  static async getPriceHistoryBySymbol(symbol: string): Promise<Price[]> {
+    const asset = await this.getAssetBySymbol(symbol);
     if (!asset) {
       return [];
     }

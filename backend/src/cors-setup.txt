@@ -1,0 +1,6 @@
+// Enable CORS for all routes
+import cors from 'cors';
+
+// ...existing code...
+app.use(cors());
+// ...existing code...

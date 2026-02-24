@@ -6,7 +6,11 @@ import { Asset } from '../models/asset';
  * Uses repository for data access
  */
 export class AssetService {
-  static getAllAssets(): Asset[] {
-    return MarketDataRepository.getAllAssets();
+  static async getAllAssets(): Promise<Asset[]> {
+    return await MarketDataRepository.getAllAssets();
+  }
+
+  static async searchAsset(symbol: string): Promise<Asset | null> {
+    return await MarketDataRepository.searchAssetBySymbol(symbol);
   }
 }
