@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, TrendingUp, TrendingDown, DollarSign, BarChart3, Calendar, Loader2, Clock } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, DollarSign, BarChart3, Calendar, Loader2, Clock, Star } from 'lucide-react';
 import { priceService, assetService } from '@services/index';
 import type { Asset, FinancialData, StockFinancialData, CryptoFinancialData } from '../types';
 import { formatCurrency, formatPercentage } from '@utils/format';
@@ -7,6 +7,8 @@ import { formatCurrency, formatPercentage } from '@utils/format';
 interface AssetDetailModalProps {
   asset: Asset;
   onClose: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (asset: Asset) => void;
 }
 
 interface PriceStats {
@@ -33,7 +35,7 @@ const intervalOptions: { value: TimeInterval; label: string }[] = [
   { value: 'all', label: 'Desde siempre' },
 ];
 
-export default function AssetDetailModal({ asset, onClose }: AssetDetailModalProps) {
+export default function AssetDetailModal({ asset, onClose, isFavorite = false, onToggleFavorite }: AssetDetailModalProps) {
   const [priceData, setPriceData] = useState<any>(null);
   const [loadingPrice, setLoadingPrice] = useState(true);
   const [priceError, setPriceError] = useState<string | null>(null);
@@ -233,13 +235,28 @@ export default function AssetDetailModal({ asset, onClose }: AssetDetailModalPro
               </p>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="ml-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 
-                     rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="ml-4 flex items-center gap-1">
+            {onToggleFavorite && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggleFavorite(asset); }}
+                title={isFavorite ? 'Quitar de seguimiento' : 'Añadir a seguimiento'}
+                className={`p-2 rounded-lg transition-colors ${
+                  isFavorite
+                    ? 'text-yellow-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
+                    : 'text-gray-400 hover:text-yellow-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                <Star className="w-6 h-6" fill={isFavorite ? 'currentColor' : 'none'} />
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 
+                       rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
