@@ -174,6 +174,11 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
       return prices;
     } catch (error) {
       if (axios.isAxiosError(error)) {
+        // 4xx means the symbol doesn't exist or is invalid — treat as not found
+        if (error.response && error.response.status >= 400 && error.response.status < 500) {
+          console.error(`Symbol not found on Yahoo Finance: ${symbol} (status ${error.response.status})`);
+          return null;
+        }
         console.error(
           `HTTP error fetching data from Yahoo Finance for ${symbol}:`,
           error.message

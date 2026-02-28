@@ -52,7 +52,10 @@ export default function AssetsPage() {
         setSearchedAssets(prev => [...prev, asset]);
       }
     } catch (err: any) {
-      setSearchError(err.response?.data?.error || 'No se encontró el símbolo');
+      setSearchError(
+        err.response?.data?.error ||
+        'No se encontró el activo. Comprueba que el símbolo sea correcto.'
+      );
     } finally {
       setSearching(false);
     }

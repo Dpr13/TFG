@@ -11,9 +11,8 @@ export const getAssets = async (req: Request, res: Response) => {
 };
 
 export const searchAsset = async (req: Request, res: Response) => {
+  const { symbol } = req.params;
   try {
-    const { symbol } = req.params;
-    
     if (!symbol || typeof symbol !== 'string') {
       res.status(400).json({ error: 'Symbol parameter is required' });
       return;
@@ -22,16 +21,15 @@ export const searchAsset = async (req: Request, res: Response) => {
     const asset = await AssetService.searchAsset(symbol);
     
     if (!asset) {
-      res.status(404).json({ error: `Asset with symbol '${symbol}' not found` });
+      res.status(404).json({ error: `No se encontró ningún activo con el símbolo '${symbol}'` });
       return;
     }
 
     res.json(asset);
   } catch (error) {
     console.error('Error searching asset:', error);
-    res.status(500).json({ 
-      error: 'Failed to search asset',
-      message: error instanceof Error ? error.message : 'Unknown error'
+    res.status(404).json({ 
+      error: `No se encontró ningún activo con el símbolo '${symbol}'`
     });
   }
 };
