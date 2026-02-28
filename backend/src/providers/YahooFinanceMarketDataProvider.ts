@@ -84,10 +84,13 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
         '15min': '15m',
         '30min': '30m',
         '1h': '60m',
+        '4h': '60m', // Yahoo no soporta 4h, usar 1h
+        '12h': '90m', // Yahoo no soporta 12h, usar 90m (más cercano)
         '1d': '1d',
         '5h': '5h',
         '1wk': '1wk',
-        '1mo': '1mo'
+        '1mo': '1mo',
+        '3mo': '3mo'
       };
       let yfInterval = '1d';
       if (interval && intervalMap[interval]) {
@@ -97,10 +100,26 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
         yfInterval = '1d';
       }
 
-      // Ajustar el rango según el intervalo
+      // Ajustar el rango según el intervalo para que sea coherente
       let range = '1y';
-      if (yfInterval.endsWith('m')) {
-        range = '5d'; // Yahoo limita los datos intradía a los últimos 5 días
+      
+      // Mapear intervalos a rangos temporales lógicos
+      if (yfInterval === '1m' || yfInterval === '2m' || yfInterval === '5m') {
+        range = '1d'; // Intervalos cortos: últimas 24 horas
+      } else if (yfInterval === '15m' || yfInterval === '30m') {
+        range = '5d'; // Intervalos medianos: últimos 5 días
+      } else if (yfInterval === '60m' || yfInterval === '90m') {
+        range = '1mo'; // 1 hora: último mes
+      } else if (yfInterval === '1d') {
+        range = '3mo'; // Diario: últimos 3 meses
+      } else if (yfInterval === '5d') {
+        range = '6mo'; // 5 días: últimos 6 meses
+      } else if (yfInterval === '1wk') {
+        range = '1y'; // Semanal: último año
+      } else if (yfInterval === '1mo') {
+        range = '5y'; // Mensual: últimos 5 años
+      } else if (yfInterval === '3mo') {
+        range = 'max'; // Trimestral: máximo disponible
       }
 
       const response = await axios.get<YahooFinanceChartResponse>(
