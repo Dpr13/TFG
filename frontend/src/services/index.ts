@@ -1,5 +1,15 @@
 import apiClient from './api';
-import type { Asset, Price, RiskMetrics, FinancialData } from '../types';
+import type { Asset, RiskMetrics, FinancialData } from '../types';
+
+export interface NewsArticle {
+  id: string;
+  title: string;
+  publisher: string;
+  url: string;
+  publishedAt: string;
+  thumbnail: string | null;
+  relatedTickers: string[];
+}
 
 export const assetService = {
   // Obtener todos los activos (activos sugeridos/populares)
@@ -43,6 +53,21 @@ export const riskService = {
     const response = await apiClient.get<RiskMetrics>(
       `/api/assets/${symbol}/risk`
     );
+    return response.data;
+  },
+};
+
+export const newsService = {
+  // Obtener noticias financieras
+  getNews: async (
+    query?: string,
+    count?: number
+  ): Promise<{ articles: NewsArticle[]; count: number }> => {
+    const params = new URLSearchParams();
+    if (query) params.append('q', query);
+    if (count) params.append('count', count.toString());
+    const qs = params.toString();
+    const response = await apiClient.get(`/api/news${qs ? `?${qs}` : ''}`);
     return response.data;
   },
 };
