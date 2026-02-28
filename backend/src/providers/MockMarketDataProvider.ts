@@ -27,6 +27,7 @@ export class MockMarketDataProvider implements MarketDataProvider {
     // Filtrar por interval si se proporciona
     if (interval) {
       priceHistory = filterByInterval(priceHistory, interval);
+      priceHistory = limitByInterval(priceHistory, interval);
     }
 
     // Transform to standard format
@@ -88,8 +89,33 @@ function filterByInterval(prices: Price[], interval: string): Price[] {
     '30min': 30,
     '1h': 60,
     '4h': 240,
+    '12h': 720,
     '1d': 1440,
   };
   const step = intervalMap[interval] || 1;
   return prices.filter((_, idx) => idx % step === 0);
+}
+
+// Limita la cantidad de datos según el intervalo para coherencia
+function limitByInterval(prices: Price[], interval: string): Price[] {
+  // Limitar a un número razonable de puntos según el intervalo
+  const limitMap: Record<string, number> = {
+    '5min': 288,   // 24 horas (288 puntos de 5 min)
+    '15min': 480,  // 5 días (96 puntos/día × 5)
+    '30min': 480,  // 5 días (48 puntos/día × 5)
+    '1h': 720,     // 30 días (24 puntos/día × 30)
+    '4h': 180,     // 30 días (6 puntos/día × 30)
+    '12h': 120,    // 60 días (2 puntos/día × 60)
+    '1d': 90,      // 90 días
+    '1wk': 52,     // 1 año (52 semanas)
+    '1mo': 60,     // 5 años (12 meses × 5)
+  };
+  
+  const limit = limitMap[interval];
+  if (limit && prices.length > limit) {
+    // Tomar los últimos N elementos
+    return prices.slice(-limit);
+  }
+  
+  return prices;
 }
