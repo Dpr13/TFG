@@ -1,4 +1,5 @@
 import apiClient from './api';
+import axios from 'axios';
 import type { Asset, RiskMetrics, FinancialData } from '../types';
 
 export interface NewsArticle {
@@ -50,10 +51,27 @@ export const priceService = {
 export const riskService = {
   // Calcular métricas de riesgo
   calculateRisk: async (symbol: string): Promise<RiskMetrics> => {
-    const response = await apiClient.get<RiskMetrics>(
-      `/api/assets/${symbol}/risk`
-    );
-    return response.data;
+    try {
+      const response = await apiClient.get<RiskMetrics>(
+        `/api/assets/${symbol}/risk`
+      );
+      return response.data;
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        const message = err.response?.data?.message || err.response?.data?.error;
+        if (status === 404) {
+          throw new Error(`No se encontró el activo '${symbol}'`);
+        }
+        if (status === 422) {
+          throw new Error(message || `Datos insuficientes para calcular el riesgo de '${symbol}'`);
+        }
+        if (message) {
+          throw new Error(message);
+        }
+      }
+      throw err;
+    }
   },
 };
 
