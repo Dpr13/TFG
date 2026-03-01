@@ -4,6 +4,9 @@ import HomePage from '@pages/HomePage';
 import AssetsPage from '@pages/AssetsPage';
 import RiskAnalysisPage from '@pages/RiskAnalysisPage';
 import ProfilePage from '@pages/ProfilePage';
+import CalendarPage from '@pages/CalendarPage';
+import StrategiesPage from '@pages/StrategiesPage';
+import PsychoanalysisPage from '@pages/PsychoanalysisPage';
 
 function App() {
   return (
@@ -14,6 +17,9 @@ function App() {
           <Route path="/assets" element={<AssetsPage />} />
           <Route path="/risk" element={<RiskAnalysisPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/strategies" element={<StrategiesPage />} />
+          <Route path="/psychoanalysis" element={<PsychoanalysisPage />} />
         </Routes>
       </Layout>
     </Router>
