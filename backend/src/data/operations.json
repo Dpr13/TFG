@@ -1,0 +1,39 @@
+[
+  {
+    "id": "f696947b-484d-4b27-b6e9-ab4624397366",
+    "date": "2026-02-23",
+    "symbol": "GOO",
+    "quantity": 22323,
+    "buyPrice": 23232,
+    "sellPrice": 2323,
+    "pnl": -466751607,
+    "pnlPercentage": -90.00086088154269,
+    "notes": "ggggsfsdf",
+    "createdAt": "2026-02-24T19:13:51.416Z",
+    "updatedAt": "2026-02-24T19:13:51.416Z"
+  },
+  {
+    "id": "dd82586f-236e-4953-83cb-c6cca9bbb320",
+    "date": "2026-01-31",
+    "symbol": "GOOGLE",
+    "quantity": 10,
+    "buyPrice": 50,
+    "sellPrice": 70,
+    "pnl": 200,
+    "pnlPercentage": 40,
+    "createdAt": "2026-02-24T19:14:13.499Z",
+    "updatedAt": "2026-02-24T19:14:13.499Z"
+  },
+  {
+    "id": "d887fc38-f9f7-49b5-bb3a-3b92c7aafbbb",
+    "date": "2026-03-01",
+    "symbol": "GOOGL",
+    "quantity": 23,
+    "buyPrice": 10,
+    "sellPrice": 15,
+    "pnl": 115,
+    "pnlPercentage": 50,
+    "createdAt": "2026-03-01T10:23:49.919Z",
+    "updatedAt": "2026-03-01T10:23:49.919Z"
+  }
+]

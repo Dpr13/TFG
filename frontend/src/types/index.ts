@@ -91,3 +91,124 @@ export interface ApiResponse<T> {
   message?: string;
   error?: string;
 }
+// Operations and Strategies
+export interface Operation {
+  id: string;
+  date: string;
+  symbol: string;
+  quantity: number;
+  buyPrice: number;
+  sellPrice: number;
+  pnl: number;
+  pnlPercentage: number;
+  strategyId?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateOperationDTO {
+  date: string;
+  symbol: string;
+  quantity: number;
+  buyPrice: number;
+  sellPrice: number;
+  strategyId?: string;
+  notes?: string;
+}
+
+export interface UpdateOperationDTO {
+  symbol?: string;
+  quantity?: number;
+  buyPrice?: number;
+  sellPrice?: number;
+  strategyId?: string;
+  notes?: string;
+}
+
+export interface DailyStats {
+  date: string;
+  totalPnL: number;
+  totalPnLPercentage: number;
+  operationCount: number;
+  isProfit: boolean;
+}
+
+export interface Strategy {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateStrategyDTO {
+  name: string;
+  description?: string;
+  color?: string;
+}
+// Psychoanalysis
+export interface GeneralStats {
+  totalOperations: number;
+  totalPnL: number;
+  winRate: number;
+  bestDay: { date: string; pnl: number };
+  worstDay: { date: string; pnl: number };
+  bestAsset: { symbol: string; pnl: number };
+  worstAsset: { symbol: string; pnl: number };
+}
+
+export interface AssetStats {
+  symbol: string;
+  operations: number;
+  totalPnL: number;
+  winRate: number;
+  avgPnL: number;
+}
+
+export interface DayOfWeekStats {
+  day: string;
+  operations: number;
+  totalPnL: number;
+  winRate: number;
+}
+
+export interface TemporalStats {
+  dayOfWeek: DayOfWeekStats[];
+  bestDayOfWeek: string;
+  worstDayOfWeek: string;
+}
+
+export interface BehaviorStats {
+  opsAfterWin: number;
+  opsAfterLoss: number;
+  recoveryAttempts: number;
+  recoverySuccessRate: number;
+  longestWinStreak: number;
+  longestLossStreak: number;
+}
+
+export interface PsychoAnalysisSummary {
+  generalStats: GeneralStats;
+  assetStats: AssetStats[];
+  temporalStats: TemporalStats;
+  behaviorStats: BehaviorStats;
+}
+export interface UpdateStrategyDTO {
+  name?: string;
+  description?: string;
+  color?: string;
+}
+
+export interface StrategyPerformance {
+  strategyId: string;
+  totalOperations: number;
+  totalPnL: number;
+  winRate: number;
+  avgPnL: number;
+  avgPnLPercentage: number;
+  bestTrade: number;
+  worstTrade: number;
+  totalInvested: number;
+}
