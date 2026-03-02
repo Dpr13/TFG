@@ -17,7 +17,7 @@ export const getPriceHistory = async (req: Request, res: Response) => {
     return;
   }
   // Opcional: validar interval
-  const allowedIntervals = ['1min','2min','5min','15min','30min','1h','4h','1d','5d','1wk','1mo','3mo'];
+  const allowedIntervals = ['1min','2min','5min','15min','30min','1h','4h','12h','1d','5d','1wk','1mo','3mo'];
   if (interval && !allowedIntervals.includes(interval)) {
     res.status(400).json({ error: `Interval '${interval}' not supported`, allowedIntervals });
     return;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, TrendingUp, TrendingDown, DollarSign, BarChart3, Calendar, Loader2, Clock } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, DollarSign, BarChart3, Calendar, Loader2, Clock, Star } from 'lucide-react';
 import { priceService, assetService } from '@services/index';
 import type { Asset, FinancialData, StockFinancialData, CryptoFinancialData } from '../types';
 import { formatCurrency, formatPercentage } from '@utils/format';
@@ -7,6 +7,8 @@ import { formatCurrency, formatPercentage } from '@utils/format';
 interface AssetDetailModalProps {
   asset: Asset;
   onClose: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (asset: Asset) => void;
 }
 
 interface PriceStats {
@@ -19,7 +21,6 @@ interface PriceStats {
 }
 
 type TimeInterval = '5min' | '15min' | '30min' | '1h' | '4h' | '12h' | '1d' | '1wk' | '1mo' | 'all';
-type ChartRange = 7 | 15 | 30 | 60 | 90 | 'all';
 
 const intervalOptions: { value: TimeInterval; label: string }[] = [
   { value: '5min', label: '5 min' },
@@ -27,28 +28,23 @@ const intervalOptions: { value: TimeInterval; label: string }[] = [
   { value: '30min', label: '30 min' },
   { value: '1h', label: '1 hora' },
   { value: '4h', label: '4 horas' },
+  { value: '12h', label: '12 horas' },
   { value: '1d', label: '24 horas' },
   { value: '1wk', label: '1 semana' },
   { value: '1mo', label: '4 semanas' },
   { value: 'all', label: 'Desde siempre' },
 ];
 
-const chartRangeOptions: { value: ChartRange; label: string }[] = [
-  { value: 7, label: '7 días' },
-  { value: 15, label: '15 días' },
-  { value: 30, label: '30 días' },
-  { value: 60, label: '60 días' },
-  { value: 90, label: '90 días' },
-  { value: 'all', label: 'Todo' },
-];
-
-export default function AssetDetailModal({ asset, onClose }: AssetDetailModalProps) {
+export default function AssetDetailModal({ asset, onClose, isFavorite = false, onToggleFavorite }: AssetDetailModalProps) {
   const [priceData, setPriceData] = useState<any>(null);
   const [loadingPrice, setLoadingPrice] = useState(true);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [stats, setStats] = useState<PriceStats | null>(null);
   const [selectedInterval, setSelectedInterval] = useState<TimeInterval>('1d');
-  const [chartRange, setChartRange] = useState<ChartRange>(30);
+  const [chartInterval, setChartInterval] = useState<TimeInterval>('1d');
+  const [chartData, setChartData] = useState<any>(null);
+  const [loadingChart, setLoadingChart] = useState(true);
+  const [chartError, setChartError] = useState<string | null>(null);
   const [financialData, setFinancialData] = useState<FinancialData | null>(null);
   const [loadingFinancial, setLoadingFinancial] = useState(true);
 
@@ -58,13 +54,53 @@ export default function AssetDetailModal({ asset, onClose }: AssetDetailModalPro
       setLoadingPrice(true);
       setPriceError(null);
       try {
-        const intervalParam = selectedInterval === 'all' ? undefined : selectedInterval;
-        const prices = await priceService.getPriceHistory(asset.symbol, intervalParam);
-        setPriceData(prices);
+        // Para las estadísticas usamos un intervalo más fino que el seleccionado
+        // de forma que el máximo/mínimo sea preciso dentro de la ventana temporal.
+        // El backend de Yahoo Finance devuelve el rango indicado en la tabla:
+        //   5min  → 5m candles, range 1d  (últimas ~24h de mercado)
+        //   15min → 15m candles, range 5d
+        //   1h    → 60m candles, range 1mo
+        // Así pedimos el intervalo fino y filtramos a la ventana exacta.
+        const statsIntervalMap: Record<TimeInterval, string | undefined> = {
+          '5min':  '5min',
+          '15min': '5min',
+          '30min': '5min',
+          '1h':    '5min',
+          '4h':    '15min',
+          '12h':   '15min',
+          '1d':    '5min',
+          '1wk':   '1h',
+          '1mo':   '1h',
+          'all':   '3mo',
+        };
+        const intervalWindowMs: Record<TimeInterval, number | null> = {
+          '5min':  5  * 60 * 1000,
+          '15min': 15 * 60 * 1000,
+          '30min': 30 * 60 * 1000,
+          '1h':    1  * 60 * 60 * 1000,
+          '4h':    4  * 60 * 60 * 1000,
+          '12h':   12 * 60 * 60 * 1000,
+          '1d':    24 * 60 * 60 * 1000,
+          '1wk':   7  * 24 * 60 * 60 * 1000,
+          '1mo':   28 * 24 * 60 * 60 * 1000,
+          'all':   null,
+        };
 
-        // Calcular estadísticas
-        if (prices?.prices && prices.prices.length > 0) {
-          const priceValues = prices.prices.map((p: any) => p.close);
+        const statsInterval = statsIntervalMap[selectedInterval];
+        const statsData = await priceService.getPriceHistory(asset.symbol, statsInterval);
+        setPriceData(statsData);
+
+        if (statsData?.prices && statsData.prices.length > 0) {
+          const windowMs = intervalWindowMs[selectedInterval];
+          // Anclar al dato más reciente disponible (no a Date.now()) para que
+          // fines de semana y fuera de horario funcionen correctamente.
+          const mostRecentTime = new Date(statsData.prices[statsData.prices.length - 1].date).getTime();
+          const filteredPrices = windowMs !== null
+            ? statsData.prices.filter((p: any) => mostRecentTime - new Date(p.date).getTime() <= windowMs)
+            : statsData.prices;
+          const usedPrices = filteredPrices.length > 0 ? filteredPrices : statsData.prices;
+
+          const priceValues = usedPrices.map((p: any) => p.close);
           const currentPrice = priceValues[priceValues.length - 1];
           const firstPrice = priceValues[0];
           const highPrice = Math.max(...priceValues);
@@ -92,6 +128,26 @@ export default function AssetDetailModal({ asset, onClose }: AssetDetailModalPro
 
     fetchData();
   }, [asset.symbol, selectedInterval]);
+
+  useEffect(() => {
+    const fetchChartData = async () => {
+      // Obtener datos para el gráfico de evolución
+      setLoadingChart(true);
+      setChartError(null);
+      try {
+        const intervalParam = chartInterval === 'all' ? '3mo' : chartInterval;
+        const prices = await priceService.getPriceHistory(asset.symbol, intervalParam);
+        setChartData(prices);
+      } catch (error: any) {
+        console.error('Error fetching chart data:', error);
+        setChartError(error.response?.data?.error || 'No se pudieron obtener los datos del gráfico');
+      } finally {
+        setLoadingChart(false);
+      }
+    };
+
+    fetchChartData();
+  }, [asset.symbol, chartInterval]);
 
   useEffect(() => {
     const fetchFinancialData = async () => {
@@ -179,13 +235,28 @@ export default function AssetDetailModal({ asset, onClose }: AssetDetailModalPro
               </p>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="ml-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 
-                     rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="ml-4 flex items-center gap-1">
+            {onToggleFavorite && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggleFavorite(asset); }}
+                title={isFavorite ? 'Quitar de seguimiento' : 'Añadir a seguimiento'}
+                className={`p-2 rounded-lg transition-colors ${
+                  isFavorite
+                    ? 'text-yellow-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
+                    : 'text-gray-400 hover:text-yellow-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                <Star className="w-6 h-6" fill={isFavorite ? 'currentColor' : 'none'} />
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 
+                       rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -275,7 +346,7 @@ export default function AssetDetailModal({ asset, onClose }: AssetDetailModalPro
           </div>
 
           {/* Gráfico de Evolución Simple */}
-          {priceData?.prices && priceData.prices.length > 0 && (
+          {(loadingChart || chartData?.prices && chartData.prices.length > 0) && (
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -285,17 +356,17 @@ export default function AssetDetailModal({ asset, onClose }: AssetDetailModalPro
                   </h3>
                 </div>
                 
-                {/* Selector de rango del gráfico */}
+                {/* Selector de intervalo para el gráfico */}
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                   <select
-                    value={chartRange}
-                    onChange={(e) => setChartRange(e.target.value === 'all' ? 'all' : parseInt(e.target.value) as ChartRange)}
+                    value={chartInterval}
+                    onChange={(e) => setChartInterval(e.target.value as TimeInterval)}
                     className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg 
                              bg-white dark:bg-gray-700 text-gray-900 dark:text-white
                              focus:ring-2 focus:ring-primary-500 focus:border-transparent cursor-pointer"
                   >
-                    {chartRangeOptions.map((option) => (
+                    {intervalOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -304,13 +375,22 @@ export default function AssetDetailModal({ asset, onClose }: AssetDetailModalPro
                 </div>
               </div>
               
-              {/* Gráfico de barras simple */}
-              <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-6">
-                <div className="relative h-64 flex items-end gap-0.5 bg-gray-100 dark:bg-gray-800 rounded p-2">
-                  {(() => {
-                    const displayData = chartRange === 'all' 
-                      ? priceData.prices 
-                      : priceData.prices.slice(-chartRange);
+              {loadingChart ? (
+                <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-6 flex items-center justify-center h-64">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+                    <span className="text-gray-600 dark:text-gray-400">Cargando gráfico...</span>
+                  </div>
+                </div>
+              ) : chartError ? (
+                <div className="bg-white dark:bg-gray-700 rounded-lg border border-red-200 dark:border-red-600 p-6">
+                  <p className="text-red-600 dark:text-red-400">{chartError}</p>
+                </div>
+              ) : chartData?.prices && chartData.prices.length > 0 ? (
+                <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-6">
+                  <div className="relative h-64 flex items-end gap-0.5 bg-gray-100 dark:bg-gray-800 rounded p-2">
+                    {(() => {
+                      const displayData = chartData.prices;
                     
                     return displayData.map((price: any, index: number) => {
                       const maxPrice = Math.max(...displayData.map((p: any) => p.close));
@@ -340,7 +420,7 @@ export default function AssetDetailModal({ asset, onClose }: AssetDetailModalPro
                           />
                           <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-lg">
                             <div className="font-semibold">{formatCurrency(price.close)}</div>
-                            <div className="text-[10px]">{new Date(price.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}</div>
+                            <div className="text-[10px]">{new Date(price.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                           </div>
                         </div>
                       );
@@ -349,26 +429,26 @@ export default function AssetDetailModal({ asset, onClose }: AssetDetailModalPro
                 </div>
                 <div className="flex justify-between mt-3 text-xs text-gray-500 dark:text-gray-400">
                   {(() => {
-                    const displayData = chartRange === 'all' 
-                      ? priceData.prices 
-                      : priceData.prices.slice(-chartRange);
+                    const displayData = chartData.prices;
                     
                     return (
                       <>
                         <span>
-                          {new Date(displayData[0].date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
-                        </span>
-                        <span className="text-center flex-1">
-                          {displayData.length} registros
+                          {new Date(displayData[0].date).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </span>
                         <span>
-                          {new Date(displayData[displayData.length - 1].date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+                          {new Date(displayData[displayData.length - 1].date).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </>
                     );
                   })()}
                 </div>
               </div>
+              ) : (
+                <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-6">
+                  <p className="text-gray-600 dark:text-gray-400">No hay datos disponibles para este intervalo</p>
+                </div>
+              )}
             </div>
           )}
 
