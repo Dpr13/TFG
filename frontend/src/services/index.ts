@@ -1,16 +1,35 @@
 import apiClient from './api';
-import axios from 'axios';
-import type { Asset, RiskMetrics, FinancialData } from '../types';
+import type {
+  Asset,
+  Price,
+  RiskMetrics,
+  FinancialData,
+  Operation,
+  CreateOperationDTO,
+  UpdateOperationDTO,
+  DailyStats,
+  Strategy,
+  CreateStrategyDTO,
+  UpdateStrategyDTO,
+  StrategyPerformance,
+  PsychoAnalysisSummary,
+} from '../types';
 
-export interface NewsArticle {
-  id: string;
-  title: string;
-  publisher: string;
-  url: string;
-  publishedAt: string;
-  thumbnail: string | null;
-  relatedTickers: string[];
-}
+/**
+ * SERVICIOS DE API
+ * 
+ * EXPANSIÓN: Funcionalidades a agregar:
+ * - Autenticación y autorización (login/logout)
+ * - Sincronización offline-first con IndexedDB
+ * - Caché persistente con invalidación inteligente
+ * - Websocket real-time para updates de operaciones
+ * - Retry automático con backoff exponencial
+ * - Analytics de performance por endpoint
+ * - Export a CSV/Excel
+ * - Import masivo de operaciones
+ * - Sincronización con brokers (API integrations)
+ * - Webhooks para notificaciones en tiempo real
+ */
 
 export const assetService = {
   // Obtener todos los activos (activos sugeridos/populares)
@@ -86,6 +105,117 @@ export const newsService = {
     if (count) params.append('count', count.toString());
     const qs = params.toString();
     const response = await apiClient.get(`/api/news${qs ? `?${qs}` : ''}`);
+    return response.data;
+  },
+};
+
+export const operationService = {
+  // CRUD Operations
+  createOperation: async (operation: CreateOperationDTO): Promise<Operation> => {
+    const response = await apiClient.post<Operation>('/api/operations', operation);
+    return response.data;
+  },
+
+  getOperationById: async (id: string): Promise<Operation> => {
+    const response = await apiClient.get<Operation>(`/api/operations/${id}`);
+    return response.data;
+  },
+
+  getAllOperations: async (): Promise<Operation[]> => {
+    const response = await apiClient.get<Operation[]>('/api/operations');
+    return response.data;
+  },
+
+  getOperationsByDate: async (date: string): Promise<Operation[]> => {
+    const response = await apiClient.get<Operation[]>(`/api/operations/date/${date}`);
+    return response.data;
+  },
+
+  getOperationsByDateRange: async (startDate: string, endDate: string): Promise<Operation[]> => {
+    const response = await apiClient.get<Operation[]>('/api/operations/range', {
+      params: { startDate, endDate },
+    });
+    return response.data;
+  },
+
+  updateOperation: async (id: string, operation: UpdateOperationDTO): Promise<Operation> => {
+    const response = await apiClient.put<Operation>(`/api/operations/${id}`, operation);
+    return response.data;
+  },
+
+  deleteOperation: async (id: string): Promise<void> => {
+    await apiClient.delete(`/api/operations/${id}`);
+  },
+
+  deleteOperationsByDate: async (date: string): Promise<void> => {
+    await apiClient.delete(`/api/operations/date/${date}`);
+  },
+
+  // Stats
+  getDailyStats: async (date: string): Promise<DailyStats> => {
+    const response = await apiClient.get<DailyStats>(`/api/operations/stats/daily/${date}`);
+    return response.data;
+  },
+
+  getMonthlyStats: async (year: number, month: number): Promise<DailyStats[]> => {
+    const response = await apiClient.get<DailyStats[]>('/api/operations/stats/monthly', {
+      params: { year, month },
+    });
+    return response.data;
+  },
+
+  getOperationsByStrategyId: async (strategyId: string): Promise<Operation[]> => {
+    const response = await apiClient.get<Operation[]>(`/api/operations/strategy/${strategyId}`);
+    return response.data;
+  },
+};
+
+export const strategyService = {
+  createStrategy: async (strategy: CreateStrategyDTO): Promise<Strategy> => {
+    const response = await apiClient.post<Strategy>('/api/strategies', strategy);
+    return response.data;
+  },
+
+  getStrategyById: async (id: string): Promise<Strategy> => {
+    const response = await apiClient.get<Strategy>(`/api/strategies/${id}`);
+    return response.data;
+  },
+
+  getAllStrategies: async (): Promise<Strategy[]> => {
+    const response = await apiClient.get<Strategy[]>('/api/strategies');
+    return response.data;
+  },
+
+  updateStrategy: async (id: string, strategy: UpdateStrategyDTO): Promise<Strategy> => {
+    const response = await apiClient.put<Strategy>(`/api/strategies/${id}`, strategy);
+    return response.data;
+  },
+
+  deleteStrategy: async (id: string): Promise<void> => {
+    await apiClient.delete(`/api/strategies/${id}`);
+  },
+
+  getStrategyOperations: async (id: string): Promise<Operation[]> => {
+    const response = await apiClient.get<Operation[]>(`/api/strategies/${id}/operations`);
+    return response.data;
+  },
+
+  getStrategyPerformance: async (id: string): Promise<StrategyPerformance> => {
+    const response = await apiClient.get<StrategyPerformance>(`/api/strategies/${id}/performance`);
+    return response.data;
+  },
+};
+
+export const psychoanalysisService = {
+  getAnalysis: async (): Promise<PsychoAnalysisSummary> => {
+    const response = await apiClient.get<PsychoAnalysisSummary>('/api/psychoanalysis');
+    return response.data;
+  },
+
+  getAnalysisByDateRange: async (startDate: string, endDate: string): Promise<PsychoAnalysisSummary> => {
+    const response = await apiClient.get<PsychoAnalysisSummary>('/api/psychoanalysis/range', {
+      params: { startDate, endDate },
+    });
     return response.data;
   },
 };
