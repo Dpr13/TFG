@@ -5,6 +5,7 @@ import riskRouter from './risk.routes';
 import operationsRouter from './operations.routes';
 import strategiesRouter from './strategies.routes';
 import psychoanalysisRouter from './psychoanalysis.routes';
+import newsRouter from './news.routes';
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use('/', riskRouter);
 router.use('/', operationsRouter);
 router.use('/', strategiesRouter);
 router.use('/', psychoanalysisRouter);
+router.use('/', newsRouter);
 
 export default router;
