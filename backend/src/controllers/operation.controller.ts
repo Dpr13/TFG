@@ -116,7 +116,8 @@ export const operationController = {
       const stats = await operationService.getMonthlyStats(parseInt(year as string), parseInt(month as string), req.userId!);
       res.json(stats);
     } catch (error) {
-      res.status(500).json({ error: 'Failed to get monthly stats', details: error });
+      console.error('Error in getMonthlyStats:', error);
+      res.status(500).json({ error: 'Failed to get monthly stats', details: error instanceof Error ? error.message : error });
     }
   },
 

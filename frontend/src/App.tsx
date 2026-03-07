@@ -10,6 +10,7 @@ import ProfilePage from '@pages/ProfilePage';
 import CalendarPage from '@pages/CalendarPage';
 import StrategiesPage from '@pages/StrategiesPage';
 import PsychoanalysisPage from '@pages/PsychoanalysisPage';
+import NewsPage from '@pages/NewsPage';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { isAuthenticated } = useAuth();
@@ -38,6 +39,7 @@ function AppRoutes() {
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/strategies" element={<StrategiesPage />} />
                 <Route path="/psychoanalysis" element={<PsychoanalysisPage />} />
+                <Route path="/news" element={<NewsPage />} />
               </Routes>
             </Layout>
           </RequireAuth>
