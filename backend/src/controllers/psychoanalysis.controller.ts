@@ -26,7 +26,8 @@ export const psychoanalysisController = {
       const analysis = await psychoanalysisService.analyzeOperations(operations);
       res.json(analysis);
     } catch (error) {
-      res.status(500).json({ error: 'Failed to analyze operations', details: error });
+      console.error('Error in psychoanalysis analyze:', error);
+      res.status(500).json({ error: 'Failed to analyze operations', details: error instanceof Error ? error.message : error });
     }
   },
 
@@ -38,7 +39,8 @@ export const psychoanalysisController = {
       const analysis = await psychoanalysisService.analyzeOperations(operations);
       res.json(analysis);
     } catch (error) {
-      res.status(500).json({ error: 'Failed to analyze operations', details: error });
+      console.error('Error in psychoanalysis analyzeByDateRange:', error);
+      res.status(500).json({ error: 'Failed to analyze operations', details: error instanceof Error ? error.message : error });
     }
   },
 };
