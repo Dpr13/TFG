@@ -1,5 +1,6 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { strategyService } from '../services/strategy.service';
+import { AuthRequest } from '../middleware/auth.middleware';
 
 /**
  * ESTRATEGIA CONTROLLER
@@ -16,77 +17,71 @@ import { strategyService } from '../services/strategy.service';
  */
 
 export const strategyController = {
-  async create(req: Request, res: Response) {
+  async create(req: AuthRequest, res: Response) {
     try {
-      const strategy = await strategyService.createStrategy(req.body);
+      const strategy = await strategyService.createStrategy({ ...req.body, userId: req.userId! });
       res.status(201).json(strategy);
     } catch (error) {
       res.status(400).json({ error: 'Failed to create strategy', details: error });
     }
   },
 
-  async getById(req: Request, res: Response) {
+  async getById(req: AuthRequest, res: Response) {
     try {
       const id = typeof req.params.id === 'string' ? req.params.id : req.params.id[0];
-      const strategy = await strategyService.getStrategyById(id);
-      if (!strategy) {
-        return res.status(404).json({ error: 'Strategy not found' });
-      }
+      const strategy = await strategyService.getStrategyById(id, req.userId!);
+      if (!strategy) return res.status(404).json({ error: 'Strategy not found' });
       res.json(strategy);
     } catch (error) {
       res.status(500).json({ error: 'Failed to get strategy', details: error });
     }
   },
 
-  async getAll(req: Request, res: Response) {
+  async getAll(req: AuthRequest, res: Response) {
     try {
-      const strategies = await strategyService.getAllStrategies();
+      const strategies = await strategyService.getAllStrategies(req.userId!);
       res.json(strategies);
     } catch (error) {
       res.status(500).json({ error: 'Failed to get strategies', details: error });
     }
   },
 
-  async update(req: Request, res: Response) {
+  async update(req: AuthRequest, res: Response) {
     try {
       const id = typeof req.params.id === 'string' ? req.params.id : req.params.id[0];
-      const strategy = await strategyService.updateStrategy(id, req.body);
-      if (!strategy) {
-        return res.status(404).json({ error: 'Strategy not found' });
-      }
+      const strategy = await strategyService.updateStrategy(id, req.userId!, req.body);
+      if (!strategy) return res.status(404).json({ error: 'Strategy not found' });
       res.json(strategy);
     } catch (error) {
       res.status(400).json({ error: 'Failed to update strategy', details: error });
     }
   },
 
-  async delete(req: Request, res: Response) {
+  async delete(req: AuthRequest, res: Response) {
     try {
       const id = typeof req.params.id === 'string' ? req.params.id : req.params.id[0];
-      const success = await strategyService.deleteStrategy(id);
-      if (!success) {
-        return res.status(404).json({ error: 'Strategy not found' });
-      }
+      const success = await strategyService.deleteStrategy(id, req.userId!);
+      if (!success) return res.status(404).json({ error: 'Strategy not found' });
       res.json({ message: 'Strategy deleted successfully' });
     } catch (error) {
       res.status(500).json({ error: 'Failed to delete strategy', details: error });
     }
   },
 
-  async getOperations(req: Request, res: Response) {
+  async getOperations(req: AuthRequest, res: Response) {
     try {
       const id = typeof req.params.id === 'string' ? req.params.id : req.params.id[0];
-      const operations = await strategyService.getStrategyOperations(id);
+      const operations = await strategyService.getStrategyOperations(id, req.userId!);
       res.json(operations);
     } catch (error) {
       res.status(500).json({ error: 'Failed to get strategy operations', details: error });
     }
   },
 
-  async getPerformance(req: Request, res: Response) {
+  async getPerformance(req: AuthRequest, res: Response) {
     try {
       const id = typeof req.params.id === 'string' ? req.params.id : req.params.id[0];
-      const performance = await strategyService.getStrategyPerformance(id);
+      const performance = await strategyService.getStrategyPerformance(id, req.userId!);
       res.json(performance);
     } catch (error) {
       res.status(500).json({ error: 'Failed to get strategy performance', details: error });

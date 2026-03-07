@@ -1,7 +1,18 @@
-import fs from 'fs/promises';
-import path from 'path';
+import { pool } from '../config';
 import { Strategy, CreateStrategyDTO, UpdateStrategyDTO } from '../models/strategy';
 import crypto from 'crypto';
+
+function mapStrategyFromDb(row: any): Strategy {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    description: row.description,
+    color: row.color,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
 
 /**
  * ESTRATEGIA REPOSITORY
@@ -18,82 +29,43 @@ import crypto from 'crypto';
  * - Benchmark comparativo entre estrategias
  */
 
-const STRATEGIES_FILE = path.join(__dirname, '../data/strategies.json');
-
-async function ensureFile() {
-  try {
-    await fs.access(STRATEGIES_FILE);
-  } catch {
-    await fs.writeFile(STRATEGIES_FILE, JSON.stringify([]));
-  }
-}
-
-async function readStrategies(): Promise<Strategy[]> {
-  await ensureFile();
-  const data = await fs.readFile(STRATEGIES_FILE, 'utf-8');
-  return JSON.parse(data);
-}
-
-async function writeStrategies(strategies: Strategy[]): Promise<void> {
-  await fs.writeFile(STRATEGIES_FILE, JSON.stringify(strategies, null, 2));
-}
 
 export const strategyRepository = {
   async create(dto: CreateStrategyDTO): Promise<Strategy> {
-    const strategies = await readStrategies();
     const now = new Date().toISOString();
-
-    const strategy: Strategy = {
-      id: crypto.randomUUID(),
-      name: dto.name,
-      description: dto.description,
-      color: dto.color || '#3b82f6',
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    strategies.push(strategy);
-    await writeStrategies(strategies);
-    return strategy;
+    const id = crypto.randomUUID();
+    const query = `INSERT INTO strategies (id, user_id, name, description, color, created_at, updated_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`;
+    const values = [id, dto.userId, dto.name, dto.description ?? null, dto.color || '#3b82f6', now, now];
+    const result = await pool.query(query, values);
+    return mapStrategyFromDb(result.rows[0]);
   },
 
-  async findById(id: string): Promise<Strategy | undefined> {
-    const strategies = await readStrategies();
-    return strategies.find(s => s.id === id);
+  async findById(id: string, userId: string): Promise<Strategy | undefined> {
+    const result = await pool.query('SELECT * FROM strategies WHERE id = $1 AND user_id = $2', [id, userId]);
+    return result.rows[0] ? mapStrategyFromDb(result.rows[0]) : undefined;
   },
 
-  async findAll(): Promise<Strategy[]> {
-    return readStrategies();
+  async findAll(userId: string): Promise<Strategy[]> {
+    const result = await pool.query('SELECT * FROM strategies WHERE user_id = $1 ORDER BY created_at ASC', [userId]);
+    return result.rows.map(mapStrategyFromDb);
   },
 
-  async update(id: string, dto: UpdateStrategyDTO): Promise<Strategy | undefined> {
-    const strategies = await readStrategies();
-    const index = strategies.findIndex(s => s.id === id);
-    
-    if (index === -1) {
-      return undefined;
-    }
-
-    const updated: Strategy = {
-      ...strategies[index],
-      ...dto,
-      updatedAt: new Date().toISOString(),
-    };
-
-    strategies[index] = updated;
-    await writeStrategies(strategies);
-    return updated;
+  async update(id: string, userId: string, dto: UpdateStrategyDTO): Promise<Strategy | undefined> {
+    const now = new Date().toISOString();
+    const current = await pool.query('SELECT * FROM strategies WHERE id = $1 AND user_id = $2', [id, userId]);
+    if (current.rows.length === 0) return undefined;
+    const s = current.rows[0];
+    const query = `UPDATE strategies SET
+      name = $3, description = $4, color = $5, updated_at = $6
+      WHERE id = $1 AND user_id = $2 RETURNING *`;
+    const values = [id, userId, dto.name ?? s.name, dto.description ?? s.description, dto.color ?? s.color, now];
+    const result = await pool.query(query, values);
+    return result.rows[0] ? mapStrategyFromDb(result.rows[0]) : undefined;
   },
 
-  async delete(id: string): Promise<boolean> {
-    const strategies = await readStrategies();
-    const filteredStrategies = strategies.filter(s => s.id !== id);
-    
-    if (filteredStrategies.length === strategies.length) {
-      return false;
-    }
-
-    await writeStrategies(filteredStrategies);
-    return true;
+  async delete(id: string, userId: string): Promise<boolean> {
+    const result = await pool.query('DELETE FROM strategies WHERE id = $1 AND user_id = $2', [id, userId]);
+    return (result.rowCount ?? 0) > 0;
   },
 };

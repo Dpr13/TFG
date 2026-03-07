@@ -8,6 +8,8 @@ interface AuthContextValue {
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (user: AuthUser) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -43,9 +45,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const updateUser = useCallback((updatedUser: AuthUser) => {
+    setUser(updatedUser);
+    authService.updateStoredUser(updatedUser);
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const updatedUser = await authService.getProfile();
+      setUser(updatedUser);
+      authService.updateStoredUser(updatedUser);
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated: !!user, isLoading, login, register, logout }}
+      value={{ user, isAuthenticated: !!user, isLoading, login, register, logout, updateUser, refreshUser }}
     >
       {children}
     </AuthContext.Provider>
