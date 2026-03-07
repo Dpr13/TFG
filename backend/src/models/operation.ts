@@ -14,6 +14,7 @@
 
 export interface Operation {
   id: string;
+  userId: string;
   date: string; // YYYY-MM-DD format
   symbol: string;
   quantity: number;
@@ -33,6 +34,7 @@ export interface Operation {
 }
 
 export interface CreateOperationDTO {
+  userId: string;
   date: string;
   symbol: string;
   quantity: number;

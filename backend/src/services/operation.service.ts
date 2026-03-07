@@ -20,44 +20,39 @@ import { CreateOperationDTO, UpdateOperationDTO, Operation, DailyStats } from '.
 
 export const operationService = {
   async createOperation(dto: CreateOperationDTO): Promise<Operation> {
-    // EXPANSIÓN: Aquí iría validación de datos de entrada
-    // EXPANSIÓN: Aquí iría cálculo automático de comisiones
     return operationRepository.create(dto);
   },
 
-  async getOperationById(id: string): Promise<Operation | undefined> {
-    return operationRepository.findById(id);
+  async getOperationById(id: string, userId: string): Promise<Operation | undefined> {
+    return operationRepository.findById(id, userId);
   },
 
-  async getOperationsByDate(date: string): Promise<Operation[]> {
-    return operationRepository.findByDate(date);
+  async getOperationsByDate(date: string, userId: string): Promise<Operation[]> {
+    return operationRepository.findByDate(date, userId);
   },
 
-  async getOperationsByDateRange(startDate: string, endDate: string): Promise<Operation[]> {
-    return operationRepository.findByDateRange(startDate, endDate);
+  async getOperationsByDateRange(startDate: string, endDate: string, userId: string): Promise<Operation[]> {
+    return operationRepository.findByDateRange(startDate, endDate, userId);
   },
 
-  async getAllOperations(): Promise<Operation[]> {
-    return operationRepository.findAll();
+  async getAllOperations(userId: string): Promise<Operation[]> {
+    return operationRepository.findAll(userId);
   },
 
-  async getOperationsByStrategyId(strategyId: string): Promise<Operation[]> {
-    return operationRepository.findByStrategyId(strategyId);
+  async getOperationsByStrategyId(strategyId: string, userId: string): Promise<Operation[]> {
+    return operationRepository.findByStrategyId(strategyId, userId);
   },
 
-  async updateOperation(id: string, dto: UpdateOperationDTO): Promise<Operation | undefined> {
-    // EXPANSIÓN: Auditoría de cambios
-    // EXPANSIÓN: Validación de cambios
-    return operationRepository.update(id, dto);
+  async updateOperation(id: string, userId: string, dto: UpdateOperationDTO): Promise<Operation | undefined> {
+    return operationRepository.update(id, userId, dto);
   },
 
-  async deleteOperation(id: string): Promise<boolean> {
-    // EXPANSIÓN: Soft delete en lugar de eliminación permanente
-    return operationRepository.delete(id);
+  async deleteOperation(id: string, userId: string): Promise<boolean> {
+    return operationRepository.delete(id, userId);
   },
 
-  async deleteOperationsByDate(date: string): Promise<number> {
-    return operationRepository.deleteByDate(date);
+  async deleteOperationsByDate(date: string, userId: string): Promise<number> {
+    return operationRepository.deleteByDate(date, userId);
   },
 
   // EXPANSIÓN: Búsqueda avanzada
@@ -80,8 +75,8 @@ export const operationService = {
   }
   */
 
-  async getDailyStats(date: string): Promise<DailyStats> {
-    const operations = await operationRepository.findByDate(date);
+  async getDailyStats(date: string, userId: string): Promise<DailyStats> {
+    const operations = await operationRepository.findByDate(date, userId);
 
     const totalPnL = operations.reduce((sum, op) => sum + op.pnl, 0);
     const totalInvested = operations.reduce((sum, op) => sum + op.buyPrice * op.quantity, 0);
@@ -96,36 +91,25 @@ export const operationService = {
     };
   },
 
-  async getMonthlyStats(year: number, month: number): Promise<DailyStats[]> {
+  async getMonthlyStats(year: number, month: number, userId: string): Promise<DailyStats[]> {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDate = new Date(year, month, 0).toISOString().split('T')[0];
 
-    const operations = await operationRepository.findByDateRange(startDate, endDate);
+    const operations = await operationRepository.findByDateRange(startDate, endDate, userId);
 
     // Group by date
     const operationsByDate = new Map<string, Operation[]>();
     operations.forEach(op => {
-      if (!operationsByDate.has(op.date)) {
-        operationsByDate.set(op.date, []);
-      }
+      if (!operationsByDate.has(op.date)) operationsByDate.set(op.date, []);
       operationsByDate.get(op.date)!.push(op);
     });
 
-    // EXPANSIÓN: Cachear resultados para performance
-    // Calculate stats for each date
     const stats: DailyStats[] = [];
     operationsByDate.forEach((ops, date) => {
       const totalPnL = ops.reduce((sum, op) => sum + op.pnl, 0);
       const totalInvested = ops.reduce((sum, op) => sum + op.buyPrice * op.quantity, 0);
       const totalPnLPercentage = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
-
-      stats.push({
-        date,
-        totalPnL,
-        totalPnLPercentage,
-        operationCount: ops.length,
-        isProfit: totalPnL > 0,
-      });
+      stats.push({ date, totalPnL, totalPnLPercentage, operationCount: ops.length, isProfit: totalPnL > 0 });
     });
 
     return stats.sort((a, b) => a.date.localeCompare(b.date));
