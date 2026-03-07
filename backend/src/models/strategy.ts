@@ -17,6 +17,7 @@
 
 export interface Strategy {
   id: string;
+  userId: string;
   name: string;
   description?: string;
   color?: string; // Para visualización en el frontend
@@ -33,6 +34,7 @@ export interface Strategy {
 }
 
 export interface CreateStrategyDTO {
+  userId: string;
   name: string;
   description?: string;
   color?: string;

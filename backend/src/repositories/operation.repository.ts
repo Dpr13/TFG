@@ -1,7 +1,24 @@
-import fs from 'fs/promises';
-import path from 'path';
+import { pool } from '../config';
 import { Operation, CreateOperationDTO, UpdateOperationDTO } from '../models/operation';
 import crypto from 'crypto';
+
+function mapOperationFromDb(row: any): Operation {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    date: row.date,
+    symbol: row.symbol,
+    quantity: parseFloat(row.quantity),
+    buyPrice: parseFloat(row.buy_price),
+    sellPrice: parseFloat(row.sell_price),
+    pnl: parseFloat(row.pnl),
+    pnlPercentage: parseFloat(row.pnl_percentage),
+    strategyId: row.strategy_id,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
 
 /**
  * OPERACIÓN REPOSITORY
@@ -18,122 +35,71 @@ import crypto from 'crypto';
  * - Compresión de datos históricos (>1 año)
  */
 
-const OPERATIONS_FILE = path.join(__dirname, '../data/operations.json');
-
-async function ensureFile() {
-  try {
-    await fs.access(OPERATIONS_FILE);
-  } catch {
-    await fs.writeFile(OPERATIONS_FILE, JSON.stringify([]));
-  }
-}
-
-async function readOperations(): Promise<Operation[]> {
-  await ensureFile();
-  const data = await fs.readFile(OPERATIONS_FILE, 'utf-8');
-  return JSON.parse(data);
-}
-
-async function writeOperations(operations: Operation[]): Promise<void> {
-  await fs.writeFile(OPERATIONS_FILE, JSON.stringify(operations, null, 2));
-}
 
 export const operationRepository = {
   async create(dto: CreateOperationDTO): Promise<Operation> {
-    const operations = await readOperations();
     const now = new Date().toISOString();
-    
-    // Calculate PnL
+    const id = crypto.randomUUID();
     const pnl = (dto.sellPrice - dto.buyPrice) * dto.quantity;
     const pnlPercentage = ((dto.sellPrice - dto.buyPrice) / dto.buyPrice) * 100;
-
-    const operation: Operation = {
-      id: crypto.randomUUID(),
-      date: dto.date,
-      symbol: dto.symbol,
-      quantity: dto.quantity,
-      buyPrice: dto.buyPrice,
-      sellPrice: dto.sellPrice,
-      pnl,
-      pnlPercentage,
-      strategyId: dto.strategyId,
-      notes: dto.notes,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    operations.push(operation);
-    await writeOperations(operations);
-    return operation;
+    const query = `INSERT INTO operations (id, user_id, date, symbol, quantity, buy_price, sell_price, pnl, pnl_percentage, strategy_id, notes, created_at, updated_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`;
+    const values = [id, dto.userId, dto.date, dto.symbol, dto.quantity, dto.buyPrice, dto.sellPrice, pnl, pnlPercentage, dto.strategyId ?? null, dto.notes ?? null, now, now];
+    const result = await pool.query(query, values);
+    return mapOperationFromDb(result.rows[0]);
   },
 
-  async findById(id: string): Promise<Operation | undefined> {
-    const operations = await readOperations();
-    return operations.find(op => op.id === id);
+  async findById(id: string, userId: string): Promise<Operation | undefined> {
+    const result = await pool.query('SELECT * FROM operations WHERE id = $1 AND user_id = $2', [id, userId]);
+    return result.rows[0] ? mapOperationFromDb(result.rows[0]) : undefined;
   },
 
-  async findByDate(date: string): Promise<Operation[]> {
-    const operations = await readOperations();
-    return operations.filter(op => op.date === date).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  async findByDate(date: string, userId: string): Promise<Operation[]> {
+    const result = await pool.query('SELECT * FROM operations WHERE date = $1 AND user_id = $2 ORDER BY created_at ASC', [date, userId]);
+    return result.rows.map(mapOperationFromDb);
   },
 
-  async findByDateRange(startDate: string, endDate: string): Promise<Operation[]> {
-    const operations = await readOperations();
-    return operations.filter(op => op.date >= startDate && op.date <= endDate);
+  async findByDateRange(startDate: string, endDate: string, userId: string): Promise<Operation[]> {
+    const result = await pool.query('SELECT * FROM operations WHERE date >= $1 AND date <= $2 AND user_id = $3 ORDER BY date ASC', [startDate, endDate, userId]);
+    return result.rows.map(mapOperationFromDb);
   },
 
-  async findByStrategyId(strategyId: string): Promise<Operation[]> {
-    const operations = await readOperations();
-    return operations.filter(op => op.strategyId === strategyId).sort((a, b) => a.date.localeCompare(b.date));
+  async findByStrategyId(strategyId: string, userId: string): Promise<Operation[]> {
+    const result = await pool.query('SELECT * FROM operations WHERE strategy_id = $1 AND user_id = $2 ORDER BY date ASC', [strategyId, userId]);
+    return result.rows.map(mapOperationFromDb);
   },
 
-  async findAll(): Promise<Operation[]> {
-    return readOperations();
+  async findAll(userId: string): Promise<Operation[]> {
+    const result = await pool.query('SELECT * FROM operations WHERE user_id = $1 ORDER BY created_at ASC', [userId]);
+    return result.rows.map(mapOperationFromDb);
   },
 
-  async update(id: string, dto: UpdateOperationDTO): Promise<Operation | undefined> {
-    const operations = await readOperations();
-    const index = operations.findIndex(op => op.id === id);
-    
-    if (index === -1) {
-      return undefined;
-    }
-
-    const operation = operations[index];
-    const updated: Operation = {
-      ...operation,
-      ...dto,
-      pnl: dto.sellPrice && dto.buyPrice && dto.quantity 
-        ? (dto.sellPrice - dto.buyPrice) * dto.quantity 
-        : operation.pnl,
-      pnlPercentage: dto.sellPrice && dto.buyPrice 
-        ? ((dto.sellPrice - dto.buyPrice) / dto.buyPrice) * 100 
-        : operation.pnlPercentage,
-      updatedAt: new Date().toISOString(),
-    };
-
-    operations[index] = updated;
-    await writeOperations(operations);
-    return updated;
+  async update(id: string, userId: string, dto: UpdateOperationDTO): Promise<Operation | undefined> {
+    const now = new Date().toISOString();
+    const current = await pool.query('SELECT * FROM operations WHERE id = $1 AND user_id = $2', [id, userId]);
+    if (current.rows.length === 0) return undefined;
+    const op = current.rows[0];
+    const buyPrice = dto.buyPrice ?? op.buy_price;
+    const sellPrice = dto.sellPrice ?? op.sell_price;
+    const quantity = dto.quantity ?? op.quantity;
+    const pnl = (sellPrice - buyPrice) * quantity;
+    const pnlPercentage = ((sellPrice - buyPrice) / buyPrice) * 100;
+    const query = `UPDATE operations SET
+      date = $3, symbol = $4, quantity = $5, buy_price = $6, sell_price = $7,
+      pnl = $8, pnl_percentage = $9, strategy_id = $10, notes = $11, updated_at = $12
+      WHERE id = $1 AND user_id = $2 RETURNING *`;
+    const values = [id, userId, (dto as any).date ?? op.date, dto.symbol ?? op.symbol, quantity, buyPrice, sellPrice, pnl, pnlPercentage, dto.strategyId ?? op.strategy_id, dto.notes ?? op.notes, now];
+    const result = await pool.query(query, values);
+    return result.rows[0] ? mapOperationFromDb(result.rows[0]) : undefined;
   },
 
-  async delete(id: string): Promise<boolean> {
-    const operations = await readOperations();
-    const filteredOperations = operations.filter(op => op.id !== id);
-    
-    if (filteredOperations.length === operations.length) {
-      return false;
-    }
-
-    await writeOperations(filteredOperations);
-    return true;
+  async delete(id: string, userId: string): Promise<boolean> {
+    const result = await pool.query('DELETE FROM operations WHERE id = $1 AND user_id = $2', [id, userId]);
+    return (result.rowCount ?? 0) > 0;
   },
 
-  async deleteByDate(date: string): Promise<number> {
-    const operations = await readOperations();
-    const initialLength = operations.length;
-    const filtered = operations.filter(op => op.date !== date);
-    await writeOperations(filtered);
-    return initialLength - filtered.length;
+  async deleteByDate(date: string, userId: string): Promise<number> {
+    const result = await pool.query('DELETE FROM operations WHERE date = $1 AND user_id = $2', [date, userId]);
+    return result.rowCount ?? 0;
   },
 };

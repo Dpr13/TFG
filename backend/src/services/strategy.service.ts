@@ -22,40 +22,33 @@ import type { Operation } from '../models/operation';
 
 export const strategyService = {
   async createStrategy(dto: CreateStrategyDTO): Promise<Strategy> {
-    // EXPANSIÓN: Validar nombre único
-    // EXPANSIÓN: Validar parámetros de entrada
     return strategyRepository.create(dto);
   },
 
-  async getStrategyById(id: string): Promise<Strategy | undefined> {
-    return strategyRepository.findById(id);
+  async getStrategyById(id: string, userId: string): Promise<Strategy | undefined> {
+    return strategyRepository.findById(id, userId);
   },
 
-  async getAllStrategies(): Promise<Strategy[]> {
-    return strategyRepository.findAll();
+  async getAllStrategies(userId: string): Promise<Strategy[]> {
+    return strategyRepository.findAll(userId);
   },
 
-  async updateStrategy(id: string, dto: UpdateStrategyDTO): Promise<Strategy | undefined> {
-    // EXPANSIÓN: Auditoría de cambios en estrategia
-    // EXPANSIÓN: Validar cambios no invaliden operaciones existentes
-    return strategyRepository.update(id, dto);
+  async updateStrategy(id: string, userId: string, dto: UpdateStrategyDTO): Promise<Strategy | undefined> {
+    return strategyRepository.update(id, userId, dto);
   },
 
-  async deleteStrategy(id: string): Promise<boolean> {
-    // EXPANSIÓN: Soft delete para no perder histórico
-    // EXPANSIÓN: Validar que no haya operaciones asociadas
-    // EXPANSIÓN: O reasignar operaciones a estrategia por defecto
-    return strategyRepository.delete(id);
+  async deleteStrategy(id: string, userId: string): Promise<boolean> {
+    return strategyRepository.delete(id, userId);
   },
 
-  async getStrategyOperations(strategyId: string): Promise<Operation[]> {
+  async getStrategyOperations(strategyId: string, userId: string): Promise<Operation[]> {
     const { operationRepository } = await import('../repositories/operation.repository');
-    return operationRepository.findByStrategyId(strategyId);
+    return operationRepository.findByStrategyId(strategyId, userId);
   },
 
-  async getStrategyPerformance(strategyId: string): Promise<StrategyPerformance> {
+  async getStrategyPerformance(strategyId: string, userId: string): Promise<StrategyPerformance> {
     const { operationRepository } = await import('../repositories/operation.repository');
-    const operations = await operationRepository.findByStrategyId(strategyId);
+    const operations = await operationRepository.findByStrategyId(strategyId, userId);
     
     if (operations.length === 0) {
       return {
