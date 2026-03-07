@@ -6,7 +6,7 @@ function mapOperationFromDb(row: any): Operation {
   return {
     id: row.id,
     userId: row.user_id,
-    date: row.date,
+    date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : row.date,
     symbol: row.symbol,
     quantity: parseFloat(row.quantity),
     buyPrice: parseFloat(row.buy_price),
@@ -15,8 +15,8 @@ function mapOperationFromDb(row: any): Operation {
     pnlPercentage: parseFloat(row.pnl_percentage),
     strategyId: row.strategy_id,
     notes: row.notes,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at,
   };
 }
 
