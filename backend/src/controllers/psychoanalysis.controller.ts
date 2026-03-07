@@ -1,6 +1,7 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { psychoanalysisService } from '../services/psychoanalysis.service';
 import { operationRepository } from '../repositories/operation.repository';
+import { AuthRequest } from '../middleware/auth.middleware';
 
 /**
  * PSICOANÁLISIS CONTROLLER
@@ -19,9 +20,9 @@ import { operationRepository } from '../repositories/operation.repository';
  */
 
 export const psychoanalysisController = {
-  async analyze(req: Request, res: Response) {
+  async analyze(req: AuthRequest, res: Response) {
     try {
-      const operations = await operationRepository.findAll();
+      const operations = await operationRepository.findAll(req.userId!);
       const analysis = await psychoanalysisService.analyzeOperations(operations);
       res.json(analysis);
     } catch (error) {
@@ -29,18 +30,11 @@ export const psychoanalysisController = {
     }
   },
 
-  async analyzeByDateRange(req: Request, res: Response) {
+  async analyzeByDateRange(req: AuthRequest, res: Response) {
     try {
       const { startDate, endDate } = req.query;
-
-      if (!startDate || !endDate) {
-        return res.status(400).json({ error: 'Missing startDate or endDate' });
-      }
-
-      const operations = await operationRepository.findByDateRange(
-        startDate as string,
-        endDate as string
-      );
+      if (!startDate || !endDate) return res.status(400).json({ error: 'Missing startDate or endDate' });
+      const operations = await operationRepository.findByDateRange(startDate as string, endDate as string, req.userId!);
       const analysis = await psychoanalysisService.analyzeOperations(operations);
       res.json(analysis);
     } catch (error) {
