@@ -70,7 +70,8 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
    */
   async getHistoricalPrices(
     symbol: string,
-    interval?: string
+    interval: string = '1d',
+    range: string = '1y'
   ): Promise<Array<{ date: string; close: number }> | null> {
     try {
       const yahooSymbol = this.getYahooSymbol(symbol);
@@ -92,85 +93,42 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
         '1mo': '1mo',
         '3mo': '3mo'
       };
-      let yfInterval = '1d';
-      if (interval && intervalMap[interval]) {
-        yfInterval = intervalMap[interval];
-      }
-      if (!allowedIntervals.includes(yfInterval)) {
-        yfInterval = '1d';
-      }
-
-      // Ajustar el rango según el intervalo para que sea coherente
-      let range = '1y';
-      
-      // Mapear intervalos a rangos temporales lógicos
-      if (yfInterval === '1m' || yfInterval === '2m' || yfInterval === '5m') {
-        range = '1d'; // Intervalos cortos: últimas 24 horas
-      } else if (yfInterval === '15m' || yfInterval === '30m') {
-        range = '5d'; // Intervalos medianos: últimos 5 días
-      } else if (yfInterval === '60m' || yfInterval === '90m') {
-        range = '1mo'; // 1 hora: último mes
-      } else if (yfInterval === '1d') {
-        range = '3mo'; // Diario: últimos 3 meses
-      } else if (yfInterval === '5d') {
-        range = '6mo'; // 5 días: últimos 6 meses
-      } else if (yfInterval === '1wk') {
-        range = '1y'; // Semanal: último año
-      } else if (yfInterval === '1mo') {
-        range = '5y'; // Mensual: últimos 5 años
-      } else if (yfInterval === '3mo') {
-        range = 'max'; // Trimestral: máximo disponible
-      }
-
+      // Usar el rango directamente en la petición
       const response = await axios.get<YahooFinanceChartResponse>(
-        `${this.baseUrl}/${yahooSymbol}`,
+        `${this.baseUrl}/${this.getYahooSymbol(symbol)}`,
         {
           params: {
-            interval: yfInterval,
+            interval,
             range,
             includePrePost: false
           },
           timeout: 10000,
         }
       );
-
       if (response.data.chart.error) {
         console.error(
           `Yahoo Finance API error for ${symbol}: ${response.data.chart.error.description}`
         );
         return null;
       }
-
       const result = response.data.chart.result[0];
-
       if (!result || !result.timestamp || result.timestamp.length === 0) {
         console.error(`No data found for symbol: ${symbol}`);
         return null;
       }
-
       const timestamps = result.timestamp;
       const closes = result.indicators.quote[0].close;
-
-      // Convert timestamps to dates and pair with close prices
       const prices = timestamps
         .map((timestamp, index) => {
-          // Si es intradía, mostrar hora
           const dateObj = new Date(timestamp * 1000);
-          const date = yfInterval.endsWith('m')
-            ? dateObj.toISOString().replace('T', ' ').substring(0, 16)
-            : dateObj.toISOString().split('T')[0];
+          const date = dateObj.toISOString().split('T')[0];
           return {
             date,
             close: closes[index],
           };
         })
         .filter(price => price.close !== null && !isNaN(price.close));
-
-      // Sort by date ascending
-      prices.sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-      );
-
+      prices.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       return prices;
     } catch (error) {
       if (axios.isAxiosError(error)) {

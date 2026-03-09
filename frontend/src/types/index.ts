@@ -29,6 +29,8 @@ export interface RiskMetrics {
     start: string;
     end: string;
   };
+  interval?: string;
+  range?: string;
 }
 
 export interface StockFinancialData {

@@ -12,12 +12,6 @@ import {
 } from '../utils/riskCalculations';
 
 /**
- * Minimum number of data points required for meaningful risk calculation
- * At least 30 days to calculate reliable volatility
- */
-const MIN_DATA_POINTS = 30;
-
-/**
  * Service layer for risk calculation operations
  * Orchestrates price fetching and risk metrics calculation
  */
@@ -36,47 +30,40 @@ export class RiskService {
    * @throws InsufficientDataError if not enough historical data
    * @throws Error if symbol not found
    */
-  async calculateRiskMetrics(symbol: string): Promise<RiskMetrics> {
-    // 1. Fetch historical prices
-    const priceData = await this.priceService.getPriceHistory(symbol);
-
+  /**
+   * Permite elegir el rango de análisis ('6mo', '1y', '3y', '5y')
+   * Las funciones de cálculo ya anualizan automáticamente las métricas
+   */
+  async calculateRiskMetrics(symbol: string, range: '6mo' | '1y' | '3y' | '5y' = '1y'): Promise<RiskMetrics> {
+    // 1. Fetch historical prices con rango
+    const priceData = await this.priceService.getPriceHistory(symbol, '1d', range);
     if (!priceData) {
       throw new Error(`Asset with symbol '${symbol}' not found`);
     }
-
-    // 2. Validate sufficient data
     const { prices } = priceData;
-    if (prices.length < MIN_DATA_POINTS) {
-      throw new InsufficientDataError(symbol, MIN_DATA_POINTS, prices.length);
+    // Validar mínimo de datos según rango
+    const minDataPoints = range === '6mo' ? 60 : range === '1y' ? 120 : range === '3y' ? 252 : 400;
+    if (prices.length < minDataPoints) {
+      throw new InsufficientDataError(symbol, minDataPoints, prices.length);
     }
-
-    // 3. Extract closing prices array
+    // 2. Extraer precios de cierre
     const closingPrices = prices.map((p) => p.close);
-
-    // 4. Calculate returns
+    // 3. Calcular retornos
     const returns = calculateReturns(closingPrices);
-
-    // 5. Calculate volatility (annualized)
+    // 4. Calcular métricas (ya están anualizadas por las funciones de cálculo)
     const volatility = calculateVolatility(returns);
-
-    // 6. Calculate maximum drawdown
     const maxDrawdown = calculateMaxDrawdown(closingPrices);
-
-
-    // 7. Calcular nuevas métricas de riesgo
     const sharpeRatio = calculateSharpeRatio(returns);
     const sortinoRatio = calculateSortinoRatio(returns);
     const valueAtRisk95 = calculateVaR(returns, 0.95);
     const calmarRatio = calculateCalmarRatio(returns, closingPrices);
-
-    // 8. Clasificar nivel de riesgo
+    // 5. Clasificar nivel de riesgo
     const riskLevel = classifyRisk(volatility, maxDrawdown);
-
-    // 9. Construir objeto de respuesta
+    // 6. Construir objeto de respuesta
     const riskMetrics: RiskMetrics = {
       symbol: symbol.toUpperCase(),
-      volatility: Math.round(volatility * 10000) / 10000, // Round to 4 decimals
-      maxDrawdown: Math.round(maxDrawdown * 10000) / 10000, // Round to 4 decimals
+      volatility: Math.round(volatility * 10000) / 10000,
+      maxDrawdown: Math.round(maxDrawdown * 10000) / 10000,
       sharpeRatio: sharpeRatio !== undefined ? Math.round(sharpeRatio * 10000) / 10000 : undefined,
       sortinoRatio: sortinoRatio !== undefined ? Math.round(sortinoRatio * 10000) / 10000 : undefined,
       valueAtRisk95: valueAtRisk95 !== undefined ? Math.round(valueAtRisk95 * 10000) / 10000 : undefined,
@@ -87,8 +74,9 @@ export class RiskService {
         start: prices[0].date,
         end: prices[prices.length - 1].date,
       },
+      interval: '1d',
+      range,
     };
-
     return riskMetrics;
   }
 }

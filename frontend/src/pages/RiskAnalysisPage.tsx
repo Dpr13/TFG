@@ -191,20 +191,22 @@ export default function RiskAnalysisPage() {
   const [riskData, setRiskData] = useState<RiskMetrics | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRange, setSelectedRange] = useState<'6mo' | '1y' | '3y' | '5y'>('1y');
   const [history, setHistory] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('risk_history') ?? '[]'); } catch { return []; }
   });
   const { watchlist } = useWatchlist();
 
-  const analyze = async (sym: string) => {
+  const analyze = async (sym: string, range?: '6mo' | '1y' | '3y' | '5y') => {
     const s = sym.trim().toUpperCase();
     if (!s) return;
+    const rangeToUse = range || selectedRange;
     setSymbol(s);
     setLoading(true);
     setError(null);
 
     try {
-      const data = await riskService.calculateRisk(s);
+      const data = await riskService.calculateRisk(s, rangeToUse);
       setRiskData(data);
       setHistory((prev) => {
         const next = [s, ...prev.filter((x) => x !== s)].slice(0, 6);
@@ -241,6 +243,26 @@ export default function RiskAnalysisPage() {
 
       {/* Search panel */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 space-y-4">
+        {/* Range selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Período:</span>
+          {(['6mo', '1y', '3y', '5y'] as const).map((range) => {
+            const labels = { '6mo': '6 meses', '1y': '1 año', '3y': '3 años', '5y': '5 años' };
+            return (
+              <button
+                key={range}
+                onClick={() => setSelectedRange(range)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  selectedRange === range
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {labels[range]}
+              </button>
+            );
+          })}
+        </div>
         <div className="flex gap-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
