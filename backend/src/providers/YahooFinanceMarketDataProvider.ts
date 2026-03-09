@@ -75,9 +75,7 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
   ): Promise<Array<{ date: string; close: number }> | null> {
     try {
       const yahooSymbol = this.getYahooSymbol(symbol);
-      // Validar y mapear intervalos soportados por Yahoo Finance
-      const allowedIntervals = ['1m','2m','5m','15m','30m','60m','90m','1d','5d','1wk','1mo','3mo'];
-      // Mapear intervalos de usuario a los de Yahoo
+      // Mapear intervalos de usuario a los soportados por Yahoo Finance
       const intervalMap: Record<string, string> = {
         '1min': '1m',
         '2min': '2m',
@@ -85,21 +83,35 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
         '15min': '15m',
         '30min': '30m',
         '1h': '60m',
-        '4h': '60m', // Yahoo no soporta 4h, usar 1h
-        '12h': '90m', // Yahoo no soporta 12h, usar 90m (más cercano)
+        '4h': '60m',   // Yahoo no soporta 4h, usar 1h
+        '12h': '90m',  // Yahoo no soporta 12h, usar 90m (más cercano)
         '1d': '1d',
-        '5h': '5h',
         '1wk': '1wk',
         '1mo': '1mo',
         '3mo': '3mo'
       };
-      // Usar el rango directamente en la petición
+      // Para intervalos intraday Yahoo solo acepta rangos limitados
+      const rangeMap: Record<string, string> = {
+        '1m':  '7d',
+        '2m':  '60d',
+        '5m':  '60d',
+        '15m': '60d',
+        '30m': '60d',
+        '60m': '730d',
+        '90m': '730d',
+      };
+      const mappedInterval = intervalMap[interval] ?? interval;
+      // Si el range es '5d' o inferior y el intervalo es diario, usar '1mo'
+      const safeRange = range === '5d' ? '1mo' : range;
+      const finalRange = rangeMap[mappedInterval] !== undefined
+        ? rangeMap[mappedInterval]
+        : safeRange;
       const response = await axios.get<YahooFinanceChartResponse>(
         `${this.baseUrl}/${this.getYahooSymbol(symbol)}`,
         {
           params: {
-            interval,
-            range,
+            interval: mappedInterval,
+            range: finalRange,
             includePrePost: false
           },
           timeout: 10000,
@@ -178,30 +190,18 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
     type: 'stock' | 'crypto' | 'forex';
   } | null> {
     try {
-      const yahooSymbol = this.getYahooSymbol(symbol);
-      
-      // Try to fetch latest data to verify symbol exists
-      const response = await axios.get<YahooFinanceChartResponse>(
-        `${this.baseUrl}/${yahooSymbol}`,
-        {
-          params: {
-            interval: '1d',
-            range: '5d',
-          },
-          timeout: 5000,
-        }
-      );
+      // Use getHistoricalPrices with a range that Yahoo Finance accepts reliably
+      const prices = await this.getHistoricalPrices(symbol, '1d', '1mo');
 
-      if (response.data.chart.error || !response.data.chart.result[0]) {
+      if (!prices || prices.length === 0) {
         return null;
       }
 
-      const result = response.data.chart.result[0];
       const upperSymbol = symbol.toUpperCase();
-      
+
       return {
         symbol: upperSymbol,
-        name: upperSymbol, // Yahoo Finance API básica no incluye nombres completos
+        name: upperSymbol,
         type: this.isCrypto(upperSymbol) ? 'crypto' : 'stock',
       };
     } catch (error) {
