@@ -14,7 +14,8 @@ export class MockMarketDataProvider implements MarketDataProvider {
    */
   async getHistoricalPrices(
     symbol: string,
-    interval?: string
+    interval?: string,
+    range?: string
   ): Promise<Array<{ date: string; close: number }> | null> {
     const asset = await MarketDataRepository.getAssetBySymbol(symbol);
 

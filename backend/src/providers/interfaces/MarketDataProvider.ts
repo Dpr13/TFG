@@ -15,7 +15,8 @@ export interface MarketDataProvider {
    */
   getHistoricalPrices(
     symbol: string,
-    interval?: string
+    interval?: string,
+    range?: string
   ): Promise<Array<{ date: string; close: number }> | null>;
 
   /**

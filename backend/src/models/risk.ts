@@ -4,6 +4,15 @@ import { RiskLevel } from '../utils/riskCalculations';
  * Risk metrics for a financial asset
  */
 export interface RiskMetrics {
+    /**
+     * Intervalo temporal de los datos (ej: '1d')
+     */
+    interval?: string;
+
+    /**
+     * Rango de fechas analizado (ej: '1y', '3y')
+     */
+    range?: string;
   /**
    * Asset symbol (e.g., 'AAPL', 'BTC')
    */

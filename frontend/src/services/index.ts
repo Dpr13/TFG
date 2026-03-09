@@ -70,10 +70,12 @@ export const priceService = {
 
 export const riskService = {
   // Calcular métricas de riesgo
-  calculateRisk: async (symbol: string): Promise<RiskMetrics> => {
+  calculateRisk: async (symbol: string, range: '6mo' | '1y' | '3y' | '5y' = '1y'): Promise<RiskMetrics> => {
     try {
+      const params = new URLSearchParams();
+      params.append('range', range);
       const response = await apiClient.get<RiskMetrics>(
-        `/assets/${symbol}/risk`
+        `/assets/${symbol}/risk?${params.toString()}`
       );
       return response.data;
     } catch (err) {
