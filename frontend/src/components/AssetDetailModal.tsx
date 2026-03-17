@@ -29,10 +29,10 @@ const intervalOptions: { value: TimeInterval; label: string }[] = [
   { value: '1h', label: '1 hora' },
   { value: '4h', label: '4 horas' },
   { value: '12h', label: '12 horas' },
-  { value: '1d', label: '24 horas' },
-  { value: '1wk', label: '1 semana' },
-  { value: '1mo', label: '4 semanas' },
-  { value: 'all', label: 'Desde siempre' },
+  { value: '1d', label: 'Diario' },
+  { value: '1wk', label: 'Semanal' },
+  { value: '1mo', label: 'Mensual' },
+  { value: 'all', label: 'Histórico' },
 ];
 
 export default function AssetDetailModal({ asset, onClose, isFavorite = false, onToggleFavorite }: AssetDetailModalProps) {
@@ -48,6 +48,75 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
   const [financialData, setFinancialData] = useState<FinancialData | null>(null);
   const [loadingFinancial, setLoadingFinancial] = useState(true);
 
+  // Helper: aggregate hourly prices into candles for 4h and 12h
+  const aggregateHourlyToCandlesticks = (prices: Array<{ date: string; close: number }>, hoursPerCandle: number) => {
+    if (hoursPerCandle <= 1 || prices.length === 0) return prices;
+    
+    const candlesticks: Array<{ date: string; close: number }> = [];
+    let currentGroupStart = new Date(prices[0].date);
+    let groupPrices: number[] = [prices[0].close];
+    
+    for (let i = 1; i < prices.length; i++) {
+      const priceDate = new Date(prices[i].date);
+      const hoursSinceStart = (priceDate.getTime() - currentGroupStart.getTime()) / (60 * 60 * 1000);
+      
+      if (hoursSinceStart >= hoursPerCandle) {
+        // Emit the aggregated candle using close of last price in the group
+        candlesticks.push({
+          date: new Date(currentGroupStart.getTime() + (hoursPerCandle - 0.5) * 60 * 60 * 1000).toISOString(),
+          close: groupPrices[groupPrices.length - 1],
+        });
+        currentGroupStart = priceDate;
+        groupPrices = [prices[i].close];
+      } else {
+        groupPrices.push(prices[i].close);
+      }
+    }
+    
+    // Don't forget the last group
+    if (groupPrices.length > 0) {
+      candlesticks.push({
+        date: new Date(currentGroupStart.getTime() + (hoursPerCandle - 0.5) * 60 * 60 * 1000).toISOString(),
+        close: groupPrices[groupPrices.length - 1],
+      });
+    }
+    
+    return candlesticks;
+  };
+
+  // Helper: process prices to show recent data with good granularity
+  const processPricesForChart = (prices: Array<{ date: string; close: number }>, interval: TimeInterval): Array<{ date: string; close: number }> => {
+    if (prices.length === 0) return prices;
+
+    // 'all' (Historical) is the only one where we truly want to see the whole history even if it means grouping
+    const isHistorical = interval === 'all';
+    
+    // For specific granularities (5m up to Weekly/Monthly), we want exact units
+    // Limit to 90 points to ensure bars have enough width to be readable
+    const maxPoints = isHistorical ? 80 : 90;
+
+    if (prices.length <= maxPoints) return prices;
+
+    // For granular intervals, just take the most recent points to maintain exact scale
+    // This satisfies "show the latest prices" and "each candle is exactly 1 unit (5m, 1d, etc.)"
+    if (!isHistorical) {
+      return prices.slice(-maxPoints);
+    }
+
+    // Only for Historical: downsampling to show the full trend in limited space
+    const downsampled: Array<{ date: string; close: number }> = [];
+    const groupSize = Math.ceil(prices.length / maxPoints);
+    
+    for (let i = 0; i < prices.length; i += groupSize) {
+      const group = prices.slice(i, Math.min(i + groupSize, prices.length));
+      if (group.length > 0) {
+        downsampled.push(group[group.length - 1]);
+      }
+    }
+    
+    return downsampled;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       // Obtener datos de precio
@@ -55,19 +124,14 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
       setPriceError(null);
       try {
         // Para las estadísticas usamos un intervalo más fino que el seleccionado
-        // de forma que el máximo/mínimo sea preciso dentro de la ventana temporal.
-        // El backend de Yahoo Finance devuelve el rango indicado en la tabla:
-        //   5min  → 5m candles, range 1d  (últimas ~24h de mercado)
-        //   15min → 15m candles, range 5d
-        //   1h    → 60m candles, range 1mo
-        // Así pedimos el intervalo fino y filtramos a la ventana exacta.
+        // Para 4h y 12h, pedimos hourly (1h) y lo agregamos después
         const statsIntervalMap: Record<TimeInterval, string | undefined> = {
           '5min':  '5min',
           '15min': '5min',
           '30min': '5min',
           '1h':    '5min',
-          '4h':    '15min',
-          '12h':   '15min',
+          '4h':    '1h',     // Get hourly, then aggregate to 4h
+          '12h':   '1h',     // Get hourly, then aggregate to 12h
           '1d':    '5min',
           '1wk':   '1h',
           '1mo':   '1h',
@@ -87,7 +151,19 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
         };
 
         const statsInterval = statsIntervalMap[selectedInterval];
-        const statsData = await priceService.getPriceHistory(asset.symbol, statsInterval);
+        let statsData = await priceService.getPriceHistory(asset.symbol, statsInterval);
+        
+        // If we requested hourly data for 4h or 12h charts, aggregate it
+        if (statsData?.prices && (selectedInterval === '4h' || selectedInterval === '12h')) {
+          const hoursPerCandle = selectedInterval === '4h' ? 4 : 12;
+          statsData.prices = aggregateHourlyToCandlesticks(statsData.prices, hoursPerCandle);
+        }
+        
+        // Process data for display (recentness + granularity)
+        if (statsData?.prices) {
+          statsData.prices = processPricesForChart(statsData.prices, selectedInterval);
+        }
+        
         setPriceData(statsData);
 
         if (statsData?.prices && statsData.prices.length > 0) {
@@ -135,9 +211,36 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
       setLoadingChart(true);
       setChartError(null);
       try {
-        const intervalParam = chartInterval === 'all' ? '3mo' : chartInterval;
-        const prices = await priceService.getPriceHistory(asset.symbol, intervalParam);
-        setChartData(prices);
+        // Map chart intervals to backend intervals
+        // '4h' and '12h' are created by aggregating hourly data (60m)
+        const chartIntervalMap: Record<TimeInterval, string> = {
+          '5min': '5min',
+          '15min': '15min',
+          '30min': '30min',
+          '1h': '1h',
+          '4h': '1h',     // Get hourly, then aggregate to 4h
+          '12h': '1h',    // Get hourly, then aggregate to 12h
+          '1d': '1d',
+          '1wk': '1wk',
+          '1mo': '1mo',
+          'all': '3mo',
+        };
+        
+        const intervalParam = chartIntervalMap[chartInterval] || chartInterval;
+        let chartDataResult = await priceService.getPriceHistory(asset.symbol, intervalParam);
+        
+        // Aggregate hourly data to 4h or 12h if needed
+        if (chartDataResult?.prices && (chartInterval === '4h' || chartInterval === '12h')) {
+          const hoursPerCandle = chartInterval === '4h' ? 4 : 12;
+          chartDataResult.prices = aggregateHourlyToCandlesticks(chartDataResult.prices, hoursPerCandle);
+        }
+        
+        // Process data for display (recentness + granularity)
+        if (chartDataResult?.prices) {
+          chartDataResult.prices = processPricesForChart(chartDataResult.prices, chartInterval);
+        }
+        
+        setChartData(chartDataResult);
       } catch (error: any) {
         console.error('Error fetching chart data:', error);
         setChartError(error.response?.data?.error || 'No se pudieron obtener los datos del gráfico');
@@ -202,6 +305,14 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
   const isCryptoData = (data: FinancialData): data is CryptoFinancialData => {
     return 'circulatingSupply' in data || 'totalSupply' in data;
   };
+
+  const chartSpansMultipleYears = chartData?.prices && chartData.prices.length > 1 && 
+    new Date(chartData.prices[0].date).getFullYear() !== 
+    new Date(chartData.prices[chartData.prices.length - 1].date).getFullYear();
+
+  const historySpansMultipleYears = priceData?.prices && priceData.prices.length > 1 && 
+    new Date(priceData.prices[0].date).getFullYear() !== 
+    new Date(priceData.prices[priceData.prices.length - 1].date).getFullYear();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
@@ -420,7 +531,15 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                           />
                           <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-lg">
                             <div className="font-semibold">{formatCurrency(price.close)}</div>
-                            <div className="text-[10px]">{new Date(price.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                            <div className="text-[10px]">
+                              {new Date(price.date).toLocaleDateString('es-ES', { 
+                                ...(chartSpansMultipleYears ? { year: 'numeric' } : {}),
+                                month: 'short', 
+                                day: 'numeric', 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </div>
                           </div>
                         </div>
                       );
@@ -692,11 +811,13 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                     return (
                       <div key={index} className="flex justify-between items-center py-3 px-2 hover:bg-white dark:hover:bg-gray-600 rounded transition-colors">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {new Date(price.date).toLocaleDateString('es-ES', { 
-                            year: 'numeric', 
+                          {new Date(price.date).toLocaleString('es-ES', { 
+                            ...(historySpansMultipleYears ? { year: 'numeric' } : {}),
                             month: 'short', 
                             day: 'numeric',
-                            weekday: 'short'
+                            weekday: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
                           })}
                         </span>
                         <div className="flex items-center gap-4">

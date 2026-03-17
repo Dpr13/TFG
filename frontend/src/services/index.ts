@@ -2,9 +2,9 @@ import apiClient from './api';
 import axios from 'axios';
 import type {
   Asset,
-  Price,
   RiskMetrics,
   FinancialData,
+  FundamentalAnalysis,
   Operation,
   CreateOperationDTO,
   UpdateOperationDTO,
@@ -14,6 +14,7 @@ import type {
   UpdateStrategyDTO,
   StrategyPerformance,
   PsychoAnalysisSummary,
+  NewsArticle
 } from '../types';
 
 /**
@@ -48,6 +49,12 @@ export const assetService = {
   // Obtener datos financieros de un activo
   getFinancialData: async (symbol: string): Promise<FinancialData> => {
     const response = await apiClient.get<FinancialData>(`/assets/${symbol}/financial`);
+    return response.data;
+  },
+
+  // Obtener análisis fundamental estructurado
+  getFundamentalAnalysis: async (symbol: string): Promise<FundamentalAnalysis> => {
+    const response = await apiClient.get<FundamentalAnalysis>(`/assets/${symbol}/fundamental-analysis`);
     return response.data;
   },
 };
