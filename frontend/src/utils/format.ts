@@ -11,6 +11,15 @@ export const formatPercentage = (value: number, decimals = 2): string => {
   return `${(value * 100).toFixed(decimals)}%`;
 };
 
+export const formatCompactNumber = (value: number): string => {
+  if (value === null || value === undefined || isNaN(value)) return 'N/A';
+  return new Intl.NumberFormat('es-ES', {
+    notation: 'compact',
+    compactDisplay: 'short',
+    maximumFractionDigits: 2,
+  }).format(value);
+};
+
 export const formatDate = (date: string | Date): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
   return new Intl.DateTimeFormat('es-ES', {

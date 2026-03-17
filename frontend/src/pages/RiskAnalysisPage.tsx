@@ -2,12 +2,12 @@ import { useState } from 'react';
 import {
   Search, TrendingUp, Loader2, AlertTriangle,
   ShieldCheck, ShieldAlert, BarChart2, Activity,
-  Star, Clock, Info,
+  Star, Clock, Info, ChevronDown, ChevronUp, PieChart, DollarSign, TrendingUp as GrowthIcon, Shield,
 } from 'lucide-react';
-import { riskService } from '@services/index';
+import { riskService, assetService } from '@services/index';
 import { useWatchlist } from '@hooks/useWatchlist';
-import { formatPercentage } from '@utils/format';
-import type { RiskMetrics } from '../types';
+import { formatPercentage, formatCompactNumber, formatCurrency } from '@utils/format';
+import type { RiskMetrics, FinancialData, FundamentalAnalysis } from '../types';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -35,13 +35,13 @@ const RISK_CONFIG = {
     score: 55,
   },
   HIGH: {
-    label: 'Alto',
-    color: 'text-red-600 dark:text-red-400',
-    bg: 'bg-red-50 dark:bg-red-900/20',
-    border: 'border-red-200 dark:border-red-700',
-    bar: 'bg-red-500',
+    label: 'Elevado',
+    color: 'text-orange-600 dark:text-orange-400',
+    bg: 'bg-orange-50 dark:bg-orange-900/20',
+    border: 'border-orange-200 dark:border-orange-700',
+    bar: 'bg-orange-500',
     icon: ShieldAlert,
-    gaugeColor: '#ef4444',
+    gaugeColor: '#f97316',
     score: 85,
   },
 };
@@ -99,6 +99,50 @@ function RiskGauge({ level }: { level: 'LOW' | 'MEDIUM' | 'HIGH' }) {
       <text x={cx} y="16" fontSize="8" fill="#9ca3af" textAnchor="middle">MEDIO</text>
       <text x={rightX} y={rightY + 14} fontSize="8" fill="#9ca3af" textAnchor="middle">ALTO</text>
     </svg>
+  );
+}
+
+// Helper to render **bold** text in analysis content
+function RichText({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/);
+  return (
+    <span>
+      {parts.map((part, i) =>
+        part.startsWith('**') && part.endsWith('**')
+          ? <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>
+          : <span key={i}>{part}</span>
+      )}
+    </span>
+  );
+}
+
+// Score gauge component (SVG arc) for Fundamental Analysis
+function FundamentalScoreGauge({ score, outlook }: { score: number; outlook: string }) {
+  const radius = 40;
+  const circumference = Math.PI * radius; // half circle
+  const progress = (score / 100) * circumference;
+  const colorClass =
+    outlook === 'STRONG' ? '#22c55e' :
+    outlook === 'MODERATE' ? '#f59e0b' : '#ef4444';
+  const trackColor = 'rgba(255,255,255,0.15)';
+  return (
+    <div className="flex flex-col items-center">
+      <svg width="100" height="60" viewBox="0 0 100 60">
+        <path
+          d="M10,55 A40,40 0 0,1 90,55"
+          fill="none" stroke={trackColor} strokeWidth="10" strokeLinecap="round"
+        />
+        <path
+          d="M10,55 A40,40 0 0,1 90,55"
+          fill="none" stroke={colorClass} strokeWidth="10" strokeLinecap="round"
+          strokeDasharray={`${progress} ${circumference}`}
+        />
+        <text x="50" y="52" textAnchor="middle" fontSize="18" fontWeight="bold" fill="white">{score}</text>
+      </svg>
+      <span className="text-xs mt-1" style={{ color: colorClass }}>
+        {outlook === 'STRONG' ? 'Fuerte' : outlook === 'MODERATE' ? 'Moderada' : 'Débil'}
+      </span>
+    </div>
   );
 }
 
@@ -189,6 +233,10 @@ function QuickBadge({
 export default function RiskAnalysisPage() {
   const [symbol, setSymbol] = useState('');
   const [riskData, setRiskData] = useState<RiskMetrics | null>(null);
+  const [financialData, setFinancialData] = useState<FinancialData | null>(null);
+  const [fundamentalAnalysis, setFundamentalAnalysis] = useState<FundamentalAnalysis | null>(null);
+  const [fundsLoading, setFundsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'QUANTS' | 'FUNDS'>('QUANTS');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRange, setSelectedRange] = useState<'6mo' | '1y' | '3y' | '5y'>('1y');
@@ -196,6 +244,11 @@ export default function RiskAnalysisPage() {
     try { return JSON.parse(localStorage.getItem('risk_history') ?? '[]'); } catch { return []; }
   });
   const { watchlist } = useWatchlist();
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (key: string) => {
+    setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const analyze = async (sym: string, range?: '6mo' | '1y' | '3y' | '5y') => {
     const s = sym.trim().toUpperCase();
@@ -206,16 +259,36 @@ export default function RiskAnalysisPage() {
     setError(null);
 
     try {
-      const data = await riskService.calculateRisk(s, rangeToUse);
-      setRiskData(data);
+      const [riskRes, finRes] = await Promise.allSettled([
+        riskService.calculateRisk(s, rangeToUse),
+        assetService.getFinancialData(s),
+      ]);
+
+      if (riskRes.status === 'rejected') {
+        throw new Error(riskRes.reason instanceof Error ? riskRes.reason.message : 'Error al calcular riesgo');
+      }
+
+      setRiskData(riskRes.value);
+      setFinancialData(finRes.status === 'fulfilled' ? finRes.value : null);
+
+      // Fetch fundamental analysis in the background (don't block)
+      setFundsLoading(true);
+      assetService.getFundamentalAnalysis(s)
+        .then((analysis) => setFundamentalAnalysis(analysis))
+        .catch(() => setFundamentalAnalysis(null))
+        .finally(() => setFundsLoading(false));
+
       setHistory((prev) => {
         const next = [s, ...prev.filter((x) => x !== s)].slice(0, 6);
         localStorage.setItem('risk_history', JSON.stringify(next));
         return next;
       });
+      setActiveTab('QUANTS');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al calcular riesgo');
+      setError(err instanceof Error ? err.message : 'Error al analizar el activo');
       setRiskData(null);
+      setFinancialData(null);
+      setFundamentalAnalysis(null);
     } finally {
       setLoading(false);
     }
@@ -352,10 +425,15 @@ export default function RiskAnalysisPage() {
                   {riskData.period.start} — {riskData.period.end} &middot; {riskData.dataPoints} observaciones
                 </p>
               )}
-              <div className={`inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-full border ${risk.bg} ${risk.border}`}>
+              <div className={`inline-flex items-center gap-2 mt-3 mb-2 px-4 py-2 rounded-full border ${risk.bg} ${risk.border}`}>
                 <RiskIcon className={`w-5 h-5 ${risk.color}`} />
                 <span className={`text-base font-bold ${risk.color}`}>Riesgo {risk.label}</span>
               </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm mt-1 mx-auto sm:mx-0 leading-relaxed">
+                Clasificación basada en su {' '}
+                <strong>{riskData.volatility > 0.30 ? 'alta volatilidad' : riskData.volatility > 0.15 ? 'volatilidad moderada' : 'baja volatilidad'}</strong> ({formatPercentage(riskData.volatility)}) y{' '}
+                <strong>{riskData.maxDrawdown > 0.25 ? 'fuertes caídas históricas' : riskData.maxDrawdown > 0.10 ? 'caídas históricas moderadas' : 'caídas limitadas'}</strong> ({formatPercentage(riskData.maxDrawdown)} Max Drawdown).
+              </p>
             </div>
 
             {/* Bar meter */}
@@ -373,6 +451,33 @@ export default function RiskAnalysisPage() {
               <p className={`text-center text-xs font-semibold ${risk.color}`}>{risk.label}</p>
             </div>
           </div>
+
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => setActiveTab('QUANTS')}
+              className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === 'QUANTS'
+                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Análisis Cuantitativo (Riesgo)
+            </button>
+            <button
+              onClick={() => setActiveTab('FUNDS')}
+              className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === 'FUNDS'
+                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Análisis Fundamental
+            </button>
+          </div>
+
+          {activeTab === 'QUANTS' && (
+            <>
 
           {/* Metrics grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -492,6 +597,138 @@ export default function RiskAnalysisPage() {
               ))}
             </div>
           </div>
+          </>
+          )}
+
+          {activeTab === 'FUNDS' && (
+            <div className="space-y-5">
+              {/* Metric cards row (existing financial data) */}
+              {financialData && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {'marketCap' in financialData && financialData.marketCap != null && (
+                    <MetricCard label="Market Cap" value={formatCompactNumber(financialData.marketCap)} />
+                  )}
+                  {'peRatio' in financialData && financialData.peRatio != null && (
+                    <MetricCard label="P/E Ratio" value={financialData.peRatio.toFixed(2)} />
+                  )}
+                  {'beta' in financialData && financialData.beta != null && (
+                    <MetricCard label="Beta" value={financialData.beta.toFixed(2)} />
+                  )}
+                  {'eps' in financialData && financialData.eps != null && (
+                    <MetricCard label="EPS" value={formatCurrency(financialData.eps)} />
+                  )}
+                  {'profitMargin' in financialData && financialData.profitMargin != null && (
+                    <MetricCard label="Margen Neto" value={formatPercentage(financialData.profitMargin, 2)} />
+                  )}
+                  {'roe' in financialData && financialData.roe != null && (
+                    <MetricCard label="ROE" value={formatPercentage(financialData.roe, 2)} />
+                  )}
+                  {'dividendYield' in financialData && financialData.dividendYield != null && (
+                    <MetricCard label="Dividendo" value={formatPercentage(financialData.dividendYield, 2)} />
+                  )}
+                  {financialData.fiftyTwoWeekHigh != null && financialData.fiftyTwoWeekLow != null && (
+                    <MetricCard
+                      label="Rango 52 Sem."
+                      value={`${formatCurrency(financialData.fiftyTwoWeekLow)} - ${formatCurrency(financialData.fiftyTwoWeekHigh)}`}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Loading state for analysis */}
+              {fundsLoading && (
+                <div className="flex items-center justify-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary-500 mr-3" />
+                  <span className="text-gray-500 dark:text-gray-400">Generando análisis fundamental...</span>
+                </div>
+              )}
+
+              {/* Structured Fundamental Analysis */}
+              {!fundsLoading && fundamentalAnalysis && (
+                <div className="space-y-4">
+                  {/* Outlook badge */}
+                  <div className={`rounded-xl p-5 flex items-center gap-5 ${
+                    fundamentalAnalysis.outlook === 'STRONG'
+                      ? 'bg-gradient-to-r from-green-700 to-green-600'
+                      : fundamentalAnalysis.outlook === 'MODERATE'
+                      ? 'bg-gradient-to-r from-amber-600 to-amber-500'
+                      : 'bg-gradient-to-r from-red-700 to-red-600'
+                  }`}>
+                    <FundamentalScoreGauge score={fundamentalAnalysis.outlookScore} outlook={fundamentalAnalysis.outlook} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm leading-relaxed">
+                        <RichText text={fundamentalAnalysis.sections.summary.content} />
+                      </p>
+                      <p className="text-white/60 text-xs mt-2">
+                        Analizado: {new Date(fundamentalAnalysis.analyzedAt).toLocaleString('es-ES')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Section Cards */}
+                  {([
+                    { key: 'overview',      icon: <Activity className="w-4 h-4" />,  color: 'text-blue-500',   bg: 'bg-blue-50 dark:bg-blue-900/20',     border: 'border-blue-200 dark:border-blue-800' },
+                    { key: 'valuation',     icon: <PieChart className="w-4 h-4" />,  color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-900/20', border: 'border-violet-200 dark:border-violet-800' },
+                    { key: 'profitability', icon: <DollarSign className="w-4 h-4" />,color: 'text-green-500',  bg: 'bg-green-50 dark:bg-green-900/20',   border: 'border-green-200 dark:border-green-800' },
+                    { key: 'growth',        icon: <GrowthIcon className="w-4 h-4" />, color: 'text-teal-500',   bg: 'bg-teal-50 dark:bg-teal-900/20',     border: 'border-teal-200 dark:border-teal-800' },
+                    { key: 'stability',     icon: <Shield className="w-4 h-4" />,    color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20',  border: 'border-indigo-200 dark:border-indigo-800' },
+                    { key: 'risks',         icon: <AlertTriangle className="w-4 h-4" />, color: 'text-rose-500', bg: 'bg-rose-50 dark:bg-rose-900/20',    border: 'border-rose-200 dark:border-rose-800' },
+                  ] as { key: keyof typeof fundamentalAnalysis.sections; icon: React.ReactNode; color: string; bg: string; border: string }[]).map(({ key, icon, color, bg, border }) => {
+                    const section = fundamentalAnalysis.sections[key];
+                    const isRisks = key === 'risks';
+                    const isExpanded = expandedSections[key] ?? false;
+
+                    const riskBullets = isRisks
+                      ? section.content.split('\n\n').filter(Boolean)
+                      : [];
+
+                    return (
+                      <div key={key} className={`rounded-xl border ${border} overflow-hidden`}>
+                        <button
+                          onClick={() => toggleSection(key)}
+                          className={`w-full flex items-center justify-between px-4 py-3 ${bg} text-left transition-colors hover:brightness-95`}
+                        >
+                          <div className={`flex items-center gap-2 font-semibold text-sm ${color}`}>
+                            {icon}
+                            <span className="text-gray-900 dark:text-white">{section.title}</span>
+                          </div>
+                          {isExpanded
+                            ? <ChevronUp className="w-4 h-4 text-gray-400" />
+                            : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        </button>
+
+                        {isExpanded && (
+                          <div className="px-4 py-3 bg-white dark:bg-gray-800">
+                            {isRisks ? (
+                              <ul className="space-y-2">
+                                {riskBullets.map((bullet, bi) => (
+                                  <li key={bi} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                    <span className="mt-1 w-2 h-2 rounded-full bg-rose-400 flex-shrink-0" />
+                                    <RichText text={bullet} />
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                <RichText text={section.content} />
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* No data at all */}
+              {!fundsLoading && !fundamentalAnalysis && !financialData && (
+                <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                  <p className="text-gray-500 dark:text-gray-400">Datos fundamentales no disponibles para este activo.</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

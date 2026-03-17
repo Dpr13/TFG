@@ -214,3 +214,38 @@ export interface StrategyPerformance {
   worstTrade: number;
   totalInvested: number;
 }
+
+export interface NewsArticle {
+  id: string;
+  title: string;
+  url: string;
+  source: string;
+  publisher?: string;
+  publishedAt: string;
+  summary?: string;
+  relatedTickers?: string[];
+}
+
+export type FundamentalOutlook = 'STRONG' | 'MODERATE' | 'WEAK';
+
+export interface AnalysisSection {
+  title: string;
+  content: string;
+}
+
+export interface FundamentalAnalysis {
+  symbol: string;
+  assetType: 'stock' | 'crypto';
+  outlook: FundamentalOutlook;
+  outlookScore: number;
+  sections: {
+    overview: AnalysisSection;
+    valuation: AnalysisSection;
+    profitability: AnalysisSection;
+    growth: AnalysisSection;
+    stability: AnalysisSection;
+    risks: AnalysisSection;
+    summary: AnalysisSection;
+  };
+  analyzedAt: string;
+}
