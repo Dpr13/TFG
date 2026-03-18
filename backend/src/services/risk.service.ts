@@ -34,7 +34,7 @@ export class RiskService {
    * Permite elegir el rango de análisis ('6mo', '1y', '3y', '5y')
    * Las funciones de cálculo ya anualizan automáticamente las métricas
    */
-  async calculateRiskMetrics(symbol: string, range: '6mo' | '1y' | '3y' | '5y' = '1y'): Promise<RiskMetrics> {
+  async calculateRiskMetrics(symbol: string, range: '6mo' | '1y' | '3y' | '5y' | '10y' = '1y'): Promise<RiskMetrics> {
     // 1. Fetch historical prices con rango
     const priceData = await this.priceService.getPriceHistory(symbol, '1d', range);
     if (!priceData) {
@@ -42,7 +42,7 @@ export class RiskService {
     }
     const { prices } = priceData;
     // Validar mínimo de datos según rango
-    const minDataPoints = range === '6mo' ? 60 : range === '1y' ? 120 : range === '3y' ? 252 : 400;
+    const minDataPoints = range === '6mo' ? 60 : range === '1y' ? 120 : range === '3y' ? 252 : range === '5y' ? 400 : 800;
     if (prices.length < minDataPoints) {
       throw new InsufficientDataError(symbol, minDataPoints, prices.length);
     }

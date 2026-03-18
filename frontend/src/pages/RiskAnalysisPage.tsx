@@ -239,7 +239,7 @@ export default function RiskAnalysisPage() {
   const [activeTab, setActiveTab] = useState<'QUANTS' | 'FUNDS'>('QUANTS');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedRange, setSelectedRange] = useState<'6mo' | '1y' | '3y' | '5y'>('1y');
+  const [selectedRange, setSelectedRange] = useState<'6mo' | '1y' | '3y' | '5y' | '10y'>('1y');
   const [history, setHistory] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('risk_history') ?? '[]'); } catch { return []; }
   });
@@ -250,7 +250,7 @@ export default function RiskAnalysisPage() {
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const analyze = async (sym: string, range?: '6mo' | '1y' | '3y' | '5y') => {
+  const analyze = async (sym: string, range?: '6mo' | '1y' | '3y' | '5y' | '10y') => {
     const s = sym.trim().toUpperCase();
     if (!s) return;
     const rangeToUse = range || selectedRange;
@@ -319,8 +319,8 @@ export default function RiskAnalysisPage() {
         {/* Range selector */}
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Período:</span>
-          {(['6mo', '1y', '3y', '5y'] as const).map((range) => {
-            const labels = { '6mo': '6 meses', '1y': '1 año', '3y': '3 años', '5y': '5 años' };
+          {(['6mo', '1y', '3y', '5y', '10y'] as const).map((range) => {
+            const labels = { '6mo': '6 meses', '1y': '1 año', '3y': '3 años', '5y': '5 años', '10y': '10 años' };
             return (
               <button
                 key={range}
@@ -409,49 +409,6 @@ export default function RiskAnalysisPage() {
       {riskData && risk && (
         <div className="space-y-5">
 
-          {/* Risk hero banner */}
-          <div className={`${risk.bg} ${risk.border} border rounded-xl p-6 flex flex-col sm:flex-row items-center gap-6`}>
-            <div className="flex-shrink-0">
-              <RiskGauge level={riskData.riskLevel} />
-            </div>
-
-            <div className="flex-1 text-center sm:text-left">
-              <p className="text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
-                Activo analizado
-              </p>
-              <h3 className="text-3xl font-bold text-gray-900 dark:text-white">{riskData.symbol}</h3>
-              {riskData.period && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  {riskData.period.start} — {riskData.period.end} &middot; {riskData.dataPoints} observaciones
-                </p>
-              )}
-              <div className={`inline-flex items-center gap-2 mt-3 mb-2 px-4 py-2 rounded-full border ${risk.bg} ${risk.border}`}>
-                <RiskIcon className={`w-5 h-5 ${risk.color}`} />
-                <span className={`text-base font-bold ${risk.color}`}>Riesgo {risk.label}</span>
-              </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm mt-1 mx-auto sm:mx-0 leading-relaxed">
-                Clasificación basada en su {' '}
-                <strong>{riskData.volatility > 0.30 ? 'alta volatilidad' : riskData.volatility > 0.15 ? 'volatilidad moderada' : 'baja volatilidad'}</strong> ({formatPercentage(riskData.volatility)}) y{' '}
-                <strong>{riskData.maxDrawdown > 0.25 ? 'fuertes caídas históricas' : riskData.maxDrawdown > 0.10 ? 'caídas históricas moderadas' : 'caídas limitadas'}</strong> ({formatPercentage(riskData.maxDrawdown)} Max Drawdown).
-              </p>
-            </div>
-
-            {/* Bar meter */}
-            <div className="w-full sm:w-44 space-y-1.5 flex-shrink-0">
-              <div className="flex justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
-                <span>Bajo</span>
-                <span>Alto</span>
-              </div>
-              <div className="h-3 bg-white/60 dark:bg-gray-700/60 rounded-full overflow-hidden border border-gray-200 dark:border-gray-600">
-                <div
-                  className={`h-full rounded-full transition-all duration-700 ${risk.bar}`}
-                  style={{ width: `${RISK_CONFIG[riskData.riskLevel].score}%` }}
-                />
-              </div>
-              <p className={`text-center text-xs font-semibold ${risk.color}`}>{risk.label}</p>
-            </div>
-          </div>
-
           {/* Tabs */}
           <div className="flex border-b border-gray-200 dark:border-gray-700">
             <button
@@ -475,6 +432,51 @@ export default function RiskAnalysisPage() {
               Análisis Fundamental
             </button>
           </div>
+
+          {/* Risk hero banner */}
+          {activeTab === 'QUANTS' && (
+            <div className={`${risk.bg} ${risk.border} border rounded-xl p-6 flex flex-col sm:flex-row items-center gap-6`}>
+              <div className="flex-shrink-0">
+                <RiskGauge level={riskData.riskLevel} />
+              </div>
+
+              <div className="flex-1 text-center sm:text-left">
+                <p className="text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
+                  Activo analizado
+                </p>
+                <h3 className="text-3xl font-bold text-gray-900 dark:text-white">{riskData.symbol}</h3>
+                {riskData.period && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {riskData.period.start} — {riskData.period.end} &middot; {riskData.dataPoints} observaciones
+                  </p>
+                )}
+                <div className={`inline-flex items-center gap-2 mt-3 mb-2 px-4 py-2 rounded-full border ${risk.bg} ${risk.border}`}>
+                  <RiskIcon className={`w-5 h-5 ${risk.color}`} />
+                  <span className={`text-base font-bold ${risk.color}`}>Riesgo {risk.label}</span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm mt-1 mx-auto sm:mx-0 leading-relaxed">
+                  Clasificación basada en su {' '}
+                  <strong>{riskData.volatility > 0.30 ? 'alta volatilidad' : riskData.volatility > 0.15 ? 'volatilidad moderada' : 'baja volatilidad'}</strong> ({formatPercentage(riskData.volatility)}) y{' '}
+                  <strong>{riskData.maxDrawdown > 0.25 ? 'fuertes caídas históricas' : riskData.maxDrawdown > 0.10 ? 'caídas históricas moderadas' : 'caídas limitadas'}</strong> ({formatPercentage(riskData.maxDrawdown)} Max Drawdown).
+                </p>
+              </div>
+
+              {/* Bar meter */}
+              <div className="w-full sm:w-44 space-y-1.5 flex-shrink-0">
+                <div className="flex justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <span>Bajo</span>
+                  <span>Alto</span>
+                </div>
+                <div className="h-3 bg-white/60 dark:bg-gray-700/60 rounded-full overflow-hidden border border-gray-200 dark:border-gray-600">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${risk.bar}`}
+                    style={{ width: `${RISK_CONFIG[riskData.riskLevel].score}%` }}
+                  />
+                </div>
+                <p className={`text-center text-xs font-semibold ${risk.color}`}>{risk.label}</p>
+              </div>
+            </div>
+          )}
 
           {activeTab === 'QUANTS' && (
             <>

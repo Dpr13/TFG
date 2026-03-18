@@ -59,7 +59,13 @@ export default function LoginPage() {
       await login({ email, password, remember });
       navigate(from, { replace: true });
     } catch (err: any) {
-      setError(err.message ?? 'Error al iniciar sesión');
+      console.error('Login error:', err);
+      const backendError = err.response?.data?.error;
+      setError(backendError || 'Error al conectar con el servidor. Inténtalo de nuevo.');
+      // Opcional: limpiar contraseña si es incorrecta
+      if (backendError === 'Contraseña incorrecta. Por favor, inténtelo de nuevo.') {
+        setPassword('');
+      }
     }
   };
 
@@ -140,13 +146,6 @@ export default function LoginPage() {
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                   Inicia sesión para acceder a tu panel
-                </p>
-              </div>
-
-              {/* Demo hint */}
-              <div className="mb-6 px-4 py-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
-                <p className="text-xs text-primary-700 dark:text-primary-300 font-medium">
-                  Modo demo — cualquier email y contraseña ≥ 6 caracteres funciona.
                 </p>
               </div>
 
