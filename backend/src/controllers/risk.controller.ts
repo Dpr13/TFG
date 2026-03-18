@@ -19,8 +19,8 @@ export const getRiskMetrics = async (req: Request, res: Response) => {
   }
 
   // Validar rango
-  const validRanges = ['6mo', '1y', '3y', '5y'];
-  const selectedRange = range && validRanges.includes(range as string) ? (range as '6mo' | '1y' | '3y' | '5y') : '1y';
+  const validRanges = ['6mo', '1y', '3y', '5y', '10y'];
+  const selectedRange = range && validRanges.includes(range as string) ? (range as '6mo' | '1y' | '3y' | '5y' | '10y') : '1y';
 
   try {
     const riskMetrics = await riskService.calculateRiskMetrics(symbol, selectedRange);

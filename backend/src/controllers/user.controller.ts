@@ -18,8 +18,17 @@ export const userController = {
       // Comprobar si el usuario ya existe
       const existing = await userService.getUserByEmail(email);
       if (existing) {
-        return res.status(409).json({ error: 'El email ya está registrado.' });
+        return res.status(409).json({ error: 'El email ya está registrado. Por favor, intente con otro o inicie sesión.' });
       }
+
+      // Validar contraseña
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+      if (!passwordRegex.test(password)) {
+        return res.status(400).json({ 
+          error: 'La contraseña no cumple con los requisitos de seguridad: mínimo 8 caracteres, una mayúscula, un número y un símbolo.' 
+        });
+      }
+
       const user = await userService.registerUser({ name, email, password });
       const token = generateToken(user.id);
       const { passwordHash, ...userResponse } = user;
@@ -37,14 +46,20 @@ export const userController = {
         return res.status(400).json({ error: 'Email y contraseña son obligatorios.' });
       }
       const user = await userService.loginUser({ email, password });
-      if (!user) {
-        return res.status(401).json({ error: 'Credenciales incorrectas.' });
-      }
       const token = generateToken(user.id);
       const { passwordHash, ...userResponse } = user;
       res.status(200).json({ user: userResponse, token });
     } catch (error) {
       console.error('Error en login:', error);
+      const message = error instanceof Error ? error.message : '';
+      
+      if (message === 'user_not_found') {
+        return res.status(404).json({ error: 'El correo proporcionado no coincide con ninguna cuenta existente. Por favor, pruebe con otro correo' });
+      }
+      if (message === 'invalid_password') {
+        return res.status(401).json({ error: 'Contraseña incorrecta. Por favor, inténtelo de nuevo.' });
+      }
+      
       res.status(500).json({ error: 'Error al iniciar sesión', details: error });
     }
   },

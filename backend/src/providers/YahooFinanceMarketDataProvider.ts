@@ -83,6 +83,7 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
         case 'ytd': period1 = new Date(now.getFullYear(), 0, 1); break;
         case '1y': period1.setFullYear(now.getFullYear() - 1); break;
         case '2y': period1.setFullYear(now.getFullYear() - 2); break;
+        case '3y': period1.setFullYear(now.getFullYear() - 3); break;
         case '5y': period1.setFullYear(now.getFullYear() - 5); break;
         case '10y': period1.setFullYear(now.getFullYear() - 10); break;
         case 'max': period1 = new Date('1970-01-01'); break;
