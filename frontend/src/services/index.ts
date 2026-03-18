@@ -53,8 +53,8 @@ export const assetService = {
   },
 
   // Obtener análisis fundamental estructurado
-  getFundamentalAnalysis: async (symbol: string): Promise<FundamentalAnalysis> => {
-    const response = await apiClient.get<FundamentalAnalysis>(`/assets/${symbol}/fundamental-analysis`);
+  getFundamentalAnalysis: async (symbol: string, range: string = '1y'): Promise<FundamentalAnalysis> => {
+    const response = await apiClient.get<FundamentalAnalysis>(`/assets/${symbol}/fundamental-analysis?range=${range}`);
     return response.data;
   },
 };

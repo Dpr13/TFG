@@ -27,7 +27,22 @@ export interface StockFinancialData {
   fiftyTwoWeekHigh?: number | null;
   fiftyTwoWeekLow?: number | null;
   averageVolume?: number | null;
-  sharesOutstanding?: number | null;
+  
+  // ETF specific
+  totalAssets?: number | null;
+  navPrice?: number | null;
+  beta3Year?: number | null;
+  threeYearAverageReturn?: number | null;
+  fiveYearAverageReturn?: number | null;
+  ytdReturn?: number | null;
+  annualReportExpenseRatio?: number | null;
+  fundFamily?: string | null;
+  fundInceptionDate?: string | null;
+
+  // Metadata
+  quoteType?: string | null;
+  financialCurrency?: string | null;
+  exchange?: string | null;
   
   lastUpdated: string;
 }
@@ -51,6 +66,11 @@ export interface CryptoFinancialData {
   // Trading Info
   fiftyTwoWeekHigh?: number | null;
   fiftyTwoWeekLow?: number | null;
+  fiftyTwoWeekChange?: number | null;
+  
+  // Metadata
+  quoteType?: string | null;
+  financialCurrency?: string | null;
   
   lastUpdated: string;
 }

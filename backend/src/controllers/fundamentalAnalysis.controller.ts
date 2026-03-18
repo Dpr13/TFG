@@ -15,8 +15,11 @@ export const getFundamentalAnalysis = async (req: Request, res: Response) => {
     return;
   }
 
+  const { range } = req.query;
+  const selectedRange = (range as string) || '1y';
+
   try {
-    const analysis = await analysisService.analyze(symbol);
+    const analysis = await analysisService.analyze(symbol, selectedRange);
 
     if (!analysis) {
       res.status(404).json({

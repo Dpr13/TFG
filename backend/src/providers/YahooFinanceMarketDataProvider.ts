@@ -17,7 +17,12 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
    * Check if symbol is a cryptocurrency
    */
   private isCrypto(symbol: string): boolean {
-    return this.cryptoSymbols.includes(symbol.toUpperCase());
+    const s = symbol.toUpperCase();
+    return this.cryptoSymbols.includes(s) || 
+           s.endsWith('-USD') || 
+           s.endsWith('-BTC') || 
+           s.endsWith('-ETH') || 
+           s.endsWith('-EUR');
   }
 
   /**
@@ -181,9 +186,7 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
       const yahooSymbol = this.getYahooSymbol(symbol);
       const isCryptoAsset = this.isCrypto(symbol);
 
-      const modules = isCryptoAsset
-        ? ['price', 'summaryDetail'] as const
-        : ['price', 'summaryDetail', 'defaultKeyStatistics', 'financialData'] as const;
+      const modules = ['price', 'summaryDetail', 'defaultKeyStatistics', 'financialData'] as const;
 
       const data: any = await yahooFinance.quoteSummary(yahooSymbol, { modules: modules as any } as any);
 
@@ -195,20 +198,19 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
       const price = data.price || {};
       const summaryDetail = data.summaryDetail || {};
       
-      if (isCryptoAsset) {
+      if (isCryptoAsset || price.quoteType === 'CRYPTOCURRENCY') {
         return {
           symbol: symbol.toUpperCase(),
           marketCap: price.marketCap || summaryDetail.marketCap,
-          volume24h: summaryDetail.volume24Hr || summaryDetail.volume || summaryDetail.averageVolume,
-          circulatingSupply: price.circulatingSupply,
-          totalSupply: price.circulatingSupply, 
-          maxSupply: undefined,
+          volume24h: summaryDetail.volume24Hr || summaryDetail.volume || price.regularMarketVolume,
+          circulatingSupply: price.circulatingSupply || summaryDetail.circulatingSupply,
+          totalSupply: price.circulatingSupply || summaryDetail.totalSupply, 
+          maxSupply: summaryDetail.maxSupply,
           fiftyTwoWeekHigh: summaryDetail.fiftyTwoWeekHigh,
           fiftyTwoWeekLow: summaryDetail.fiftyTwoWeekLow,
-          allTimeHigh: undefined,
-          allTimeLow: undefined,
-          athDate: undefined,
-          atlDate: undefined,
+          fiftyTwoWeekChange: summaryDetail.fiftyTwoWeekChange || price.regularMarketChangePercent,
+          quoteType: price.quoteType || summaryDetail.quoteType || 'CRYPTOCURRENCY',
+          financialCurrency: price.currency || summaryDetail.currency,
           lastUpdated: new Date().toISOString(),
         } as CryptoFinancialData;
       } else {
@@ -236,6 +238,21 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
           averageVolume: summaryDetail.averageVolume || summaryDetail.averageVolume10days,
           sharesOutstanding: keyStats.sharesOutstanding,
           lastUpdated: new Date().toISOString(),
+          quoteType: price.quoteType || summaryDetail.quoteType,
+
+          // ETF specific fields
+          totalAssets: summaryDetail.totalAssets,
+          navPrice: summaryDetail.navPrice,
+          beta3Year: keyStats.beta3Year,
+          threeYearAverageReturn: keyStats.threeYearAverageReturn,
+          fiveYearAverageReturn: keyStats.fiveYearAverageReturn,
+          ytdReturn: keyStats.ytdReturn || summaryDetail.ytdReturn,
+          annualReportExpenseRatio: keyStats.annualReportExpenseRatio,
+          fundFamily: price.fundFamily,
+          fundInceptionDate: keyStats.fundInceptionDate,
+
+          financialCurrency: price.currency || summaryDetail.currency,
+          exchange: price.exchangeName || price.exchange,
         } as StockFinancialData;
       }
     } catch (error) {

@@ -12,17 +12,9 @@ export interface AnalysisSection {
 
 export interface FundamentalAnalysis {
   symbol: string;
-  assetType: 'stock' | 'crypto';
+  assetType: 'stock' | 'crypto' | 'etf';
   outlook: FundamentalOutlook;
   outlookScore: number; // 0-100
-  sections: {
-    overview: AnalysisSection;
-    valuation: AnalysisSection;
-    profitability: AnalysisSection;
-    growth: AnalysisSection;
-    stability: AnalysisSection;
-    risks: AnalysisSection;
-    summary: AnalysisSection;
-  };
+  sections: Record<string, AnalysisSection>;
   analyzedAt: string;
 }

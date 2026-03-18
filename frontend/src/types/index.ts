@@ -60,6 +60,19 @@ export interface StockFinancialData {
   averageVolume?: number | null;
   sharesOutstanding?: number | null;
   
+  // ETF specific
+  totalAssets?: number | null;
+  navPrice?: number | null;
+  beta3Year?: number | null;
+  threeYearAverageReturn?: number | null;
+  fiveYearAverageReturn?: number | null;
+  ytdReturn?: number | null;
+  annualReportExpenseRatio?: number | null;
+  fundFamily?: string | null;
+  fundInceptionDate?: string | null;
+
+  quoteType?: string | null;
+  
   lastUpdated: string;
 }
 
@@ -82,6 +95,8 @@ export interface CryptoFinancialData {
   // Trading Info
   fiftyTwoWeekHigh?: number | null;
   fiftyTwoWeekLow?: number | null;
+  fiftyTwoWeekChange?: number | null;
+  quoteType?: string | null;
   
   lastUpdated: string;
 }
@@ -235,17 +250,9 @@ export interface AnalysisSection {
 
 export interface FundamentalAnalysis {
   symbol: string;
-  assetType: 'stock' | 'crypto';
+  assetType: 'stock' | 'crypto' | 'etf';
   outlook: FundamentalOutlook;
   outlookScore: number;
-  sections: {
-    overview: AnalysisSection;
-    valuation: AnalysisSection;
-    profitability: AnalysisSection;
-    growth: AnalysisSection;
-    stability: AnalysisSection;
-    risks: AnalysisSection;
-    summary: AnalysisSection;
-  };
+  sections: Record<string, AnalysisSection>;
   analyzedAt: string;
 }

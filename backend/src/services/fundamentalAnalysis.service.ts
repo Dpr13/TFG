@@ -16,560 +16,350 @@ export class FundamentalAnalysisService {
   /**
    * Generate a full fundamental analysis for a given symbol
    */
-  async analyze(symbol: string): Promise<FundamentalAnalysis | null> {
+  async analyze(symbol: string, range: string = '1y'): Promise<FundamentalAnalysis | null> {
     const data = await this.financialDataService.getFinancialData(symbol);
     if (!data) return null;
 
-    if (FinancialDataValidator.isStockData(data)) {
-      return this.analyzeStock(symbol, data);
+    const quoteType = data.quoteType?.toUpperCase() || 'EQUITY';
+
+    if (quoteType === 'CRYPTOCURRENCY') {
+      return this.analyzeCrypto(symbol, data as CryptoFinancialData, range);
+    } else if (quoteType === 'ETF') {
+      return this.analyzeETF(symbol, data as StockFinancialData, range);
     } else {
-      return this.analyzeCrypto(symbol, data);
+      return this.analyzeStock(symbol, data as StockFinancialData, range);
     }
   }
 
   // ── Stock Analysis ──────────────────────────────────────────────────────
 
-  private analyzeStock(symbol: string, data: StockFinancialData): FundamentalAnalysis {
-    const overview = this.stockOverview(symbol, data);
-    const valuation = this.stockValuation(data);
-    const profitability = this.stockProfitability(data);
-    const growth = this.stockGrowth(data);
-    const stability = this.stockStability(data);
-    const risks = this.stockRisks(data);
-
-    // Compute overall score (0-100)
-    const scores = [
-      valuation.score,
-      profitability.score,
-      growth.score,
-      stability.score,
-    ].filter((s) => s !== null) as number[];
-
-    const avgScore = scores.length > 0
-      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-      : 50;
-
-    const outlook: FundamentalOutlook =
-      avgScore >= 65 ? 'STRONG' : avgScore >= 40 ? 'MODERATE' : 'WEAK';
-
-    const summaryText = this.buildStockSummary(outlook, avgScore, data);
-
-    return {
-      symbol,
-      assetType: 'stock',
-      outlook,
-      outlookScore: avgScore,
-      sections: {
-        overview: overview.section,
-        valuation: valuation.section,
-        profitability: profitability.section,
-        growth: growth.section,
-        stability: stability.section,
-        risks: risks.section,
-        summary: { title: 'Perspectiva Fundamental', content: summaryText },
-      },
-      analyzedAt: new Date().toISOString(),
-    };
-  }
-
-  // ── Stock Section Builders ──────────────────────────────────────────────
-
-  private stockOverview(symbol: string, data: StockFinancialData): { section: AnalysisSection } {
-    const parts: string[] = [];
-    parts.push(`${symbol} es un activo de renta variable cotizado en mercados públicos.`);
-
-    if (data.marketCap != null) {
-      const capStr = this.formatLargeNumber(data.marketCap);
-      const capCategory = data.marketCap >= 200e9 ? 'mega-cap'
-        : data.marketCap >= 10e9 ? 'large-cap'
-        : data.marketCap >= 2e9 ? 'mid-cap'
-        : 'small-cap';
-      parts.push(`Con una capitalización de mercado de ${capStr}, se clasifica como una empresa ${capCategory}.`);
-    }
-
-    if (data.dividendYield != null && data.dividendYield > 0) {
-      parts.push(`Ofrece un rendimiento por dividendo del ${(data.dividendYield * 100).toFixed(2)}%.`);
-    }
-
-    return { section: { title: 'Visión General', content: parts.join(' ') } };
-  }
-
-  private stockValuation(data: StockFinancialData): { section: AnalysisSection; score: number | null } {
-    const parts: string[] = [];
-    const scores: number[] = [];
-
-    if (data.peRatio != null) {
-      const pe = data.peRatio;
-      if (pe < 0) {
-        parts.push(`El P/E ratio es negativo (${pe.toFixed(1)}), lo que indica que la empresa no es rentable actualmente.`);
-        scores.push(15);
-      } else if (pe < 15) {
-        parts.push(`El P/E ratio de ${pe.toFixed(1)} sugiere que el activo podría estar **infravalorado** respecto a la media del mercado (~20-25x).`);
-        scores.push(80);
-      } else if (pe < 25) {
-        parts.push(`El P/E ratio de ${pe.toFixed(1)} indica una valoración razonable, en línea con la media del mercado.`);
-        scores.push(60);
-      } else if (pe < 40) {
-        parts.push(`El P/E ratio de ${pe.toFixed(1)} está por encima de la media, sugiriendo expectativas de crecimiento elevadas o una posible **sobrevaloración**.`);
-        scores.push(40);
-      } else {
-        parts.push(`El P/E ratio de ${pe.toFixed(1)} es muy elevado, típico de empresas de alto crecimiento pero con riesgo de corrección si no cumple expectativas.`);
-        scores.push(25);
-      }
-    }
-
-    if (data.pegRatio != null) {
-      const peg = data.pegRatio;
-      if (peg < 1) {
-        parts.push(`El PEG ratio de ${peg.toFixed(2)} (<1) indica que el precio es atractivo en relación con su crecimiento esperado.`);
-        scores.push(80);
-      } else if (peg < 2) {
-        parts.push(`El PEG ratio de ${peg.toFixed(2)} se sitúa en un rango razonable.`);
-        scores.push(55);
-      } else {
-        parts.push(`El PEG ratio de ${peg.toFixed(2)} (>2) sugiere que el precio ya descuenta un crecimiento significativo.`);
-        scores.push(30);
-      }
-    }
-
-    if (data.priceToBook != null) {
-      const pb = data.priceToBook;
-      if (pb < 1) {
-        parts.push(`El Price/Book de ${pb.toFixed(2)} (<1) indica que cotiza por debajo de su valor contable, posible oportunidad valor.`);
-        scores.push(80);
-      } else if (pb < 3) {
-        parts.push(`El Price/Book de ${pb.toFixed(2)} está en un rango normal.`);
-        scores.push(60);
-      } else {
-        parts.push(`El Price/Book de ${pb.toFixed(2)} es elevado, typical de empresas con activos intangibles elevados o alta rentabilidad.`);
-        scores.push(40);
-      }
-    }
-
-    if (data.evToEbitda != null) {
-      const ev = data.evToEbitda;
-      if (ev < 10) {
-        parts.push(`El EV/EBITDA de ${ev.toFixed(1)} es bajo, lo que sugiere una valoración atractiva.`);
-        scores.push(75);
-      } else if (ev < 20) {
-        parts.push(`El EV/EBITDA de ${ev.toFixed(1)} se encuentra en la media del mercado.`);
-        scores.push(55);
-      } else {
-        parts.push(`El EV/EBITDA de ${ev.toFixed(1)} es elevado.`);
-        scores.push(30);
-      }
-    }
-
-    if (parts.length === 0) {
-      parts.push('No se dispone de suficientes datos de valoración para este activo.');
-    }
-
-    const avgScore = scores.length > 0
-      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-      : null;
-
-    return {
-      section: { title: 'Valoración', content: parts.join(' ') },
-      score: avgScore,
-    };
-  }
-
-  private stockProfitability(data: StockFinancialData): { section: AnalysisSection; score: number | null } {
-    const parts: string[] = [];
-    const scores: number[] = [];
-
-    if (data.profitMargin != null) {
-      const pm = data.profitMargin * 100;
-      if (pm < 0) {
-        parts.push(`El margen de beneficio neto es negativo (${pm.toFixed(1)}%), la empresa está generando pérdidas.`);
-        scores.push(10);
-      } else if (pm < 10) {
-        parts.push(`El margen de beneficio neto del ${pm.toFixed(1)}% es bajo, indicando márgenes ajustados.`);
-        scores.push(35);
-      } else if (pm < 20) {
-        parts.push(`El margen de beneficio neto del ${pm.toFixed(1)}% es saludable y competitivo.`);
-        scores.push(65);
-      } else {
-        parts.push(`El margen de beneficio neto del ${pm.toFixed(1)}% es excelente, reflejando una fuerte rentabilidad.`);
-        scores.push(85);
-      }
-    }
-
-    if (data.operatingMargin != null) {
-      const om = data.operatingMargin * 100;
-      if (om < 0) {
-        parts.push(`El margen operativo es negativo (${om.toFixed(1)}%).`);
-        scores.push(10);
-      } else if (om < 15) {
-        parts.push(`El margen operativo del ${om.toFixed(1)}% es moderado.`);
-        scores.push(45);
-      } else if (om < 30) {
-        parts.push(`El margen operativo del ${om.toFixed(1)}% es sólido.`);
-        scores.push(70);
-      } else {
-        parts.push(`El margen operativo del ${om.toFixed(1)}% es excepcional, indicando un alto poder de fijación de precios.`);
-        scores.push(90);
-      }
-    }
-
-    if (data.roe != null) {
-      const roe = data.roe * 100;
-      if (roe < 0) {
-        parts.push(`El ROE es negativo (${roe.toFixed(1)}%), lo que indica que la empresa destruye valor para los accionistas.`);
-        scores.push(10);
-      } else if (roe < 10) {
-        parts.push(`El ROE del ${roe.toFixed(1)}% es bajo comparado con la media del mercado (~15-20%).`);
-        scores.push(35);
-      } else if (roe < 20) {
-        parts.push(`El ROE del ${roe.toFixed(1)}% es adecuado y está en línea con la media del mercado.`);
-        scores.push(60);
-      } else {
-        parts.push(`El ROE del ${roe.toFixed(1)}% es excelente, indicando una gestión muy eficiente del capital.`);
-        scores.push(85);
-      }
-    }
-
-    if (data.roa != null) {
-      const roa = data.roa * 100;
-      if (roa < 0) {
-        parts.push(`El ROA es negativo (${roa.toFixed(1)}%).`);
-        scores.push(10);
-      } else if (roa < 5) {
-        parts.push(`El ROA del ${roa.toFixed(1)}% es bajo.`);
-        scores.push(35);
-      } else if (roa < 10) {
-        parts.push(`El ROA del ${roa.toFixed(1)}% es adecuado.`);
-        scores.push(60);
-      } else {
-        parts.push(`El ROA del ${roa.toFixed(1)}% es muy bueno, reflejando alta eficiencia en el uso de activos.`);
-        scores.push(85);
-      }
-    }
-
-    if (parts.length === 0) {
-      parts.push('No se dispone de datos de rentabilidad para este activo.');
-    }
-
-    const avgScore = scores.length > 0
-      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-      : null;
-
-    return {
-      section: { title: 'Rentabilidad', content: parts.join(' ') },
-      score: avgScore,
-    };
-  }
-
-  private stockGrowth(data: StockFinancialData): { section: AnalysisSection; score: number | null } {
-    const parts: string[] = [];
-    const scores: number[] = [];
-
-    if (data.eps != null) {
-      if (data.eps > 0) {
-        parts.push(`El EPS (beneficio por acción) actual es de $${data.eps.toFixed(2)}, lo que confirma que la empresa genera beneficios.`);
-        scores.push(60);
-      } else {
-        parts.push(`El EPS es negativo ($${data.eps.toFixed(2)}), indicando que la empresa está en pérdidas.`);
-        scores.push(20);
-      }
-    }
-
-    if (data.pegRatio != null && data.pegRatio > 0) {
-      // PEG < 1 implies growth rate exceeds P/E, meaning rapid growth
-      if (data.pegRatio < 1) {
-        parts.push('El PEG ratio sugiere que el crecimiento esperado es superior a lo que el mercado descuenta, señal de fuerte potencial.');
-        scores.push(80);
-      } else if (data.pegRatio < 2) {
-        parts.push('El crecimiento esperado es moderado en relación a su valoración.');
-        scores.push(55);
-      } else {
-        parts.push('El crecimiento esperado es bajo en relación al precio que paga el mercado.');
-        scores.push(30);
-      }
-    }
-
-    // Infer growth signals from margin quality
-    if (data.profitMargin != null && data.operatingMargin != null) {
-      if (data.profitMargin > 0.15 && data.operatingMargin > 0.20) {
-        parts.push('Los márgenes elevados proporcionan una base sólida para reinvertir en crecimiento futuro.');
-        scores.push(70);
-      }
-    }
-
-    if (parts.length === 0) {
-      parts.push('No se dispone de datos suficientes para evaluar el potencial de crecimiento.');
-    }
-
-    const avgScore = scores.length > 0
-      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-      : null;
-
-    return {
-      section: { title: 'Crecimiento', content: parts.join(' ') },
-      score: avgScore,
-    };
-  }
-
-  private stockStability(data: StockFinancialData): { section: AnalysisSection; score: number | null } {
-    const parts: string[] = [];
-    const scores: number[] = [];
-
-    if (data.beta != null) {
-      if (data.beta < 0.8) {
-        parts.push(`La beta de ${data.beta.toFixed(2)} es baja, indicando menor volatilidad que el mercado — perfil defensivo.`);
-        scores.push(80);
-      } else if (data.beta < 1.2) {
-        parts.push(`La beta de ${data.beta.toFixed(2)} es cercana a 1, el activo se mueve de forma similar al mercado.`);
-        scores.push(60);
-      } else if (data.beta < 1.8) {
-        parts.push(`La beta de ${data.beta.toFixed(2)} es moderadamente alta, el activo amplifica los movimientos del mercado.`);
-        scores.push(40);
-      } else {
-        parts.push(`La beta de ${data.beta.toFixed(2)} es muy alta, indicando alta volatilidad y sensibilidad al mercado.`);
-        scores.push(20);
-      }
-    }
-
-    if (data.fiftyTwoWeekHigh != null && data.fiftyTwoWeekLow != null) {
-      const range = data.fiftyTwoWeekHigh - data.fiftyTwoWeekLow;
-      const rangePercent = (range / data.fiftyTwoWeekLow) * 100;
-      if (rangePercent < 30) {
-        parts.push(`El rango de 52 semanas es relativamente estrecho (${rangePercent.toFixed(0)}%), señal de estabilidad de precio.`);
-        scores.push(70);
-      } else if (rangePercent < 60) {
-        parts.push(`El rango de 52 semanas es moderado (${rangePercent.toFixed(0)}%).`);
-        scores.push(50);
-      } else {
-        parts.push(`El rango de 52 semanas es amplio (${rangePercent.toFixed(0)}%), indicando alta oscilación de precios.`);
-        scores.push(30);
-      }
-    }
-
-    if (data.dividendYield != null && data.dividendYield > 0.02) {
-      parts.push(`El rendimiento por dividendo del ${(data.dividendYield * 100).toFixed(2)}% proporciona un componente de retorno estable.`);
-      scores.push(70);
-    }
-
-    if (parts.length === 0) {
-      parts.push('No se dispone de datos suficientes para evaluar la estabilidad financiera.');
-    }
-
-    const avgScore = scores.length > 0
-      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-      : null;
-
-    return {
-      section: { title: 'Estabilidad Financiera', content: parts.join(' ') },
-      score: avgScore,
-    };
-  }
-
-  private stockRisks(data: StockFinancialData): { section: AnalysisSection } {
-    const risks: string[] = [];
-
-    if (data.peRatio != null && data.peRatio > 35) {
-      risks.push('**Valoración elevada**: el P/E alto incrementa el riesgo de corrección si los resultados decepcionan.');
-    }
-    if (data.profitMargin != null && data.profitMargin < 0) {
-      risks.push('**Empresa no rentable**: la ausencia de beneficios aumenta el riesgo financiero.');
-    }
-    if (data.beta != null && data.beta > 1.5) {
-      risks.push('**Alta volatilidad**: la elevada beta implica mayor exposición a movimientos bruscos del mercado.');
-    }
-    if (data.roe != null && data.roe < 0) {
-      risks.push('**Destrucción de valor**: el ROE negativo indica que la empresa no genera retorno sobre el capital.');
-    }
-    if (data.pegRatio != null && data.pegRatio > 2.5) {
-      risks.push('**Crecimiento insuficiente para su precio**: el PEG alto sugiere que el mercado paga mucho por el crecimiento limitado.');
-    }
-
-    if (risks.length === 0) {
-      risks.push('No se identifican riesgos fundamentales significativos con los datos disponibles.');
-    }
-
-    return {
-      section: { title: 'Riesgos Fundamentales', content: risks.join('\n\n') },
-    };
-  }
-
-  private buildStockSummary(outlook: FundamentalOutlook, score: number, data: StockFinancialData): string {
-    const outlookLabels = { STRONG: 'Fuerte', MODERATE: 'Moderada', WEAK: 'Débil' };
-    const parts: string[] = [];
-
-    parts.push(`**Perspectiva: ${outlookLabels[outlook]}** (puntuación ${score}/100).`);
-
-    if (outlook === 'STRONG') {
-      parts.push('Los fundamentales del activo son sólidos, con métricas de valoración, rentabilidad y estabilidad favorables.');
-      parts.push('El perfil general sugiere una inversión con fundamentos robustos.');
-    } else if (outlook === 'MODERATE') {
-      parts.push('El activo presenta una combinación mixta de factores positivos y negativos.');
-      parts.push('Se recomienda un análisis más profundo antes de tomar decisiones de inversión.');
+  private analyzeStock(symbol: string, data: StockFinancialData, range: string): FundamentalAnalysis {
+    if (['6mo', '1y'].includes(range)) {
+      return this.analyzeStockShortTerm(symbol, data, range);
+    } else if (range === '3y') {
+      return this.analyzeStockMidTerm(symbol, data, range);
     } else {
-      parts.push('Los fundamentales muestran señales de debilidad en varias métricas clave.');
-      parts.push('Se recomienda precaución y un análisis más detallado de los factores de riesgo.');
+      return this.analyzeStockLongTerm(symbol, data, range);
     }
+  }
 
-    return parts.join(' ');
+  // ── Short Term Analyzer (<= 1 year) ──────────────────────────────────────
+  // Focus: Momentum, Recent Earnings, and Volatility
+  private analyzeStockShortTerm(symbol: string, data: StockFinancialData, range: string): FundamentalAnalysis {
+    const sections: Record<string, AnalysisSection> = {};
+    const scores: { val: number; weight: number }[] = [];
+    const currency = this.getCurrencySymbol(data.financialCurrency);
+    const benchmark = this.getBenchmark(data.exchange);
+
+    // 1. Momentum & Market Position (Higher importance in short term)
+    let momentumScore = 50;
+    if (data.fiftyTwoWeekHigh != null && data.fiftyTwoWeekLow != null) {
+      const currentPrice = data.fiftyTwoWeekLow + (data.fiftyTwoWeekHigh - data.fiftyTwoWeekLow) * 0.5; // Approximation
+      const pos = ((currentPrice - data.fiftyTwoWeekLow) / (data.fiftyTwoWeekHigh - data.fiftyTwoWeekLow)) * 100;
+      momentumScore = pos > 70 ? 80 : pos < 30 ? 30 : 50;
+    }
+    sections.stability = { 
+      title: 'Momentum y Volatilidad', 
+      content: `Beta de ${data.beta?.toFixed(2)} (${benchmark}). El activo cotiza en un rango de ${currency}${data.fiftyTwoWeekLow?.toFixed(2)} - ${currency}${data.fiftyTwoWeekHigh?.toFixed(2)}. El momentum de corto plazo es el factor dominante.` 
+    };
+    scores.push({ val: momentumScore, weight: 0.4 });
+
+    // 2. Recent Earnings (TTM)
+    let earningsScore = 50;
+    if (data.eps != null) {
+      earningsScore = data.eps > 0 ? 70 : 20;
+    }
+    sections.growth = { title: 'Resultados Recientes', content: data.eps && data.eps > 0 
+      ? `Beneficio por acción positivo de ${currency}${data.eps.toFixed(2)}. El mercado reacciona favorablemente a la rentabilidad inmediata.` 
+      : `Ausencia de beneficios recientes (${currency}${data.eps?.toFixed(2)}), lo que genera presión bajista en el corto plazo.` };
+    scores.push({ val: earningsScore, weight: 0.3 });
+
+    // 3. Profitability (Short Term - Requested)
+    let profitScore = 50;
+    if (data.profitMargin != null && data.roe != null) {
+      profitScore = (data.profitMargin > 0.1 ? 70 : 40) + (data.roe > 0.15 ? 10 : 0);
+    }
+    sections.profitability = { title: 'Rentabilidad Reciente', content: `Margen neto del ${(data.profitMargin ? data.profitMargin * 100 : 0).toFixed(2)}% y ROE del ${(data.roe ? data.roe * 100 : 0).toFixed(2)}%. Estos datos confirman la eficiencia operativa actual.` };
+    scores.push({ val: profitScore, weight: 0.2 });
+
+    // 4. Current Valuation (Point-in-time)
+    let valScore = 50;
+    if (data.peRatio != null) {
+      valScore = data.peRatio < 25 ? 70 : 30;
+    }
+    sections.valuation = { title: 'Valoración Inmediata', content: `P/E Ratio actual de ${data.peRatio?.toFixed(2) || 'N/A'}. En el corto plazo, el mercado valida múltiplos comparativos.` };
+    scores.push({ val: valScore, weight: 0.1 });
+
+    const totalScore = Math.round(scores.reduce((acc, s) => acc + (s.val * s.weight), 0));
+    const outlook: FundamentalOutlook = totalScore >= 65 ? 'STRONG' : totalScore >= 40 ? 'MODERATE' : 'WEAK';
+
+    return this.assembleAnalysis(symbol, 'stock', outlook, totalScore, sections, range, 'Análisis de Corto Plazo: Prioriza momentum, resultados trimestrales y volatilidad. El ROE y los márgenes estructurales se consideran factores secundarios.');
+  }
+
+  // ── Mid Term Analyzer (1-3 years) ────────────────────────────────────────
+  // Focus: Growth Efficiency, PEG, and Operating Execution
+  private analyzeStockMidTerm(symbol: string, data: StockFinancialData, range: string): FundamentalAnalysis {
+    const sections: Record<string, AnalysisSection> = {};
+    const scores: { val: number; weight: number }[] = [];
+    const currency = this.getCurrencySymbol(data.financialCurrency);
+
+    // 1. Growth Efficiency (PEG)
+    let growthScore = 50;
+    if (data.pegRatio != null) {
+      growthScore = data.pegRatio < 1.0 ? 85 : data.pegRatio < 2.0 ? 60 : 30;
+    }
+    sections.growth = { title: 'Crecimiento y Eficiencia', content: `PEG Ratio de ${data.pegRatio?.toFixed(2) || 'N/A'}. Indica si el crecimiento proyectado justifica el múltiplo pagado.` };
+    scores.push({ val: growthScore, weight: 0.5 });
+
+    // 2. Operating Execution (Margins)
+    let marginScore = 50;
+    if (data.operatingMargin != null) {
+      marginScore = data.operatingMargin > 0.2 ? 80 : data.operatingMargin > 0.1 ? 55 : 30;
+    }
+    sections.profitability = { title: 'Ejecución Operativa', content: `Margen operativo del ${((data.operatingMargin || 0) * 100).toFixed(2)}%. Refleja la capacidad de convertir ingresos en beneficio bruto sostenido.` };
+    scores.push({ val: marginScore, weight: 0.3 });
+
+    // 3. Valuation (P/E normalized)
+    let valScore = 50;
+    if (data.peRatio != null) {
+      valScore = data.peRatio < 20 ? 75 : 45;
+    }
+    sections.valuation = { title: 'Valoración a Medio Plazo', content: `Ratio P/E actual de ${data.peRatio?.toFixed(2)}. Valoración moderada en contexto de ciclo. Se prioriza el crecimiento vs múltiplos estáticos.` };
+    scores.push({ val: valScore, weight: 0.2 });
+
+    const totalScore = Math.round(scores.reduce((acc, s) => acc + (s.val * s.weight), 0));
+    const outlook: FundamentalOutlook = totalScore >= 65 ? 'STRONG' : totalScore >= 40 ? 'MODERATE' : 'WEAK';
+
+    return this.assembleAnalysis(symbol, 'stock', outlook, totalScore, sections, range, 'Análisis de Medio Plazo: Se centra en el equilibrio entre valoración y crecimiento (PEG). Se ignora la volatilidad diaria para enfocarse en la ejecución operativa y márgenes.');
+  }
+
+  // ── Long Term Analyzer (5-10 years) ───────────────────────────────────────
+  // Focus: Moat, ROE, FCF, and Structural Quality
+  private analyzeStockLongTerm(symbol: string, data: StockFinancialData, range: string): FundamentalAnalysis {
+    const sections: Record<string, AnalysisSection> = {};
+    const scores: { val: number; weight: number }[] = [];
+    const currency = this.getCurrencySymbol(data.financialCurrency);
+
+    // 1. Structural Quality (ROE / Capital Efficiency)
+    let qualityScore = 50;
+    if (data.roe != null) {
+      qualityScore = data.roe > 0.2 ? 90 : data.roe > 0.12 ? 65 : 35;
+    }
+    sections.profitability = { title: 'Calidad Estructural (ROE)', content: `ROE sostenible del ${(data.roe ? data.roe * 100 : 0).toFixed(2)}%. El ROE es el motor principal de creación de valor a una década vista.` };
+    scores.push({ val: qualityScore, weight: 0.4 });
+
+    // 2. Business Moat (Market Cap & Stability)
+    let moatScore = 50;
+    if (data.marketCap != null) {
+      moatScore = data.marketCap > 100e9 ? 80 : data.marketCap > 10e9 ? 60 : 40;
+    }
+    sections.stability = { title: 'Foso Competitivo (Moat)', content: `Capitalización de mercado de ${this.formatLargeNumber(data.marketCap || 0)}. Indica madurez y resistencia estructural ante ciclos largos.` };
+    scores.push({ val: moatScore, weight: 0.2 });
+
+    // 3. Crecimiento (Long Term - Requested)
+    let growthScore = 50;
+    let growthContent = `Ratio PEG de ${data.pegRatio?.toFixed(2)}. Refleja la capacidad estructural de crecer por encima del mercado.`;
+    if (data.pegRatio == null) {
+      growthScore = 50;
+      growthContent = 'Datos de crecimiento no disponibles para este activo en las fuentes consultadas.';
+    } else {
+      growthScore = data.pegRatio < 1.2 ? 75 : 50;
+    }
+    sections.growth = { title: 'Crecimiento Estructural', content: growthContent };
+    scores.push({ val: growthScore, weight: 0.2 });
+
+    // 4. Shareholder Returns (Dividends)
+    let incomeScore = 50;
+    if (data.dividendYield != null) {
+      incomeScore = data.dividendYield > 0.02 ? 75 : 50;
+    }
+    sections.valuation = { title: 'Retorno para el Accionista', content: `Rentabilidad por dividendo del ${((data.dividendYield || 0) * 100).toFixed(2)}%. Factor clave en el retorno total a largo plazo.` };
+    scores.push({ val: incomeScore, weight: 0.2 });
+
+    const totalScore = Math.round(scores.reduce((acc, s) => acc + (s.val * s.weight), 0));
+    const outlook: FundamentalOutlook = totalScore >= 65 ? 'STRONG' : totalScore >= 40 ? 'MODERATE' : 'WEAK';
+
+    return this.assembleAnalysis(symbol, 'stock', outlook, totalScore, sections, range, 'Análisis de Largo Plazo: Enfoque exclusivo en la eficiencia del capital (ROE) y el foso competitivo. La volatilidad de corto plazo y las noticias se consideran ruido irrelevante.');
   }
 
   // ── Crypto Analysis ─────────────────────────────────────────────────────
 
-  private analyzeCrypto(symbol: string, data: CryptoFinancialData): FundamentalAnalysis {
-    const overview = this.cryptoOverview(symbol, data);
-    const valuation = this.cryptoValuation(data);
-    const stability = this.cryptoStability(data);
-    const risks = this.cryptoRisks(data);
+  private analyzeCrypto(symbol: string, data: CryptoFinancialData, range: string): FundamentalAnalysis {
+    const sections: Record<string, AnalysisSection> = {};
+    const scores: { val: number; weight: number }[] = [];
 
-    const scores = [valuation.score, stability.score].filter((s) => s !== null) as number[];
-    const avgScore = scores.length > 0
-      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-      : 50;
+    // 1. Posicionamiento de Mercado
+    let posScore = 50;
+    let posContent = `Capitalización de mercado de ${this.formatLargeNumber(data.marketCap)}. `;
+    
+    if (data.circulatingSupply && data.maxSupply) {
+      const completion = data.circulatingSupply / data.maxSupply;
+      posContent += `Emisión completada al ${(completion * 100).toFixed(2)}% del total máximo previsto (${this.formatLargeNumber(data.maxSupply)} unidades). `;
+      posScore = completion > 0.9 ? 85 : 60;
+    } else if (data.circulatingSupply) {
+      posContent += `Oferta circulante actual de ${this.formatLargeNumber(data.circulatingSupply)}. No existe un límite máximo definido en protocolo, lo que implica un factor de vigilancia sobre la inflación del activo.`;
+      posScore = 45;
+    } else {
+      posContent += 'Datos de suministro circulante no disponibles. El tamaño del mercado indica la relevancia del proyecto en el ecosistema DeFi/Crypto.';
+    }
+    sections.valuation = { title: 'Posicionamiento de Mercado', content: posContent };
+    scores.push({ val: posScore, weight: 0.25 });
 
-    const outlook: FundamentalOutlook =
-      avgScore >= 65 ? 'STRONG' : avgScore >= 40 ? 'MODERATE' : 'WEAK';
-
-    const outlookLabels = { STRONG: 'Fuerte', MODERATE: 'Moderada', WEAK: 'Débil' };
-    const summaryText = `**Perspectiva: ${outlookLabels[outlook]}** (puntuación ${avgScore}/100). ` +
-      (outlook === 'STRONG'
-        ? 'El criptoactivo muestra métricas de mercado favorables.'
-        : outlook === 'MODERATE'
-        ? 'El criptoactivo presenta indicadores mixtos; el mercado cripto es inherentemente volátil.'
-        : 'El criptoactivo muestra señales de debilidad o datos insuficientes.');
-
-    return {
-      symbol,
-      assetType: 'crypto',
-      outlook,
-      outlookScore: avgScore,
-      sections: {
-        overview: overview.section,
-        valuation: valuation.section,
-        profitability: { title: 'Rentabilidad', content: 'Las criptomonedas no generan beneficios empresariales tradicionales. La "rentabilidad" se evalúa mediante la apreciación del precio y el rendimiento del staking/yield farming si aplica.' },
-        growth: { title: 'Crecimiento', content: 'El crecimiento de un criptoactivo depende de la adopción, desarrollo del ecosistema y sentimiento del mercado. Estos factores no se capturan completamente en los datos financieros tradicionales.' },
-        stability: stability.section,
-        risks: risks.section,
-        summary: { title: 'Perspectiva Fundamental', content: summaryText },
-      },
-      analyzedAt: new Date().toISOString(),
+    // 2. Actividad y Liquidez
+    let liqScore = 50;
+    let liqContent = `Volumen de negociación en 24h de ${this.formatLargeNumber(data.volume24h)}. `;
+    
+    if (data.volume24h && data.marketCap) {
+      const liqRatio = data.volume24h / data.marketCap;
+      liqScore = liqRatio > 0.05 ? 80 : liqRatio > 0.01 ? 60 : 40;
+      liqContent += `Representa un ${(liqRatio * 100).toFixed(2)}% de su capitalización total. ${liqRatio > 0.05 ? 'Alta liquidez y rotación, ideal para operativa activa.' : 'Nivel de actividad moderado.'}`;
+    } else {
+      liqContent += 'El volumen transaccionado es un indicador vital de la vigencia y adopción del protocolo por parte de los usuarios.';
+    }
+    
+    sections.profitability = { 
+      title: 'Actividad y Liquidez', 
+      content: liqContent 
     };
+    scores.push({ val: liqScore, weight: 0.25 });
+
+    // 3. Comportamiento de Precio & Ciclo
+    let priceScore = 50;
+    if (data.fiftyTwoWeekHigh != null && data.fiftyTwoWeekLow != null) {
+      const rangeDist = data.fiftyTwoWeekHigh - data.fiftyTwoWeekLow;
+      const currentPrice = data.marketCap && data.circulatingSupply ? data.marketCap / data.circulatingSupply : data.fiftyTwoWeekLow + rangeDist * 0.5;
+      const pos = rangeDist > 0 ? ((currentPrice - data.fiftyTwoWeekLow) / rangeDist) * 100 : 50;
+      
+      priceScore = pos < 25 ? 85 : pos > 75 ? 35 : 55;
+      sections.stability = { 
+        title: 'Ciclo de Precio Anual', 
+        content: `Cotizando al ${pos.toFixed(2)}% del rango anual (${this.formatLargeNumber(data.fiftyTwoWeekLow)} - ${this.formatLargeNumber(data.fiftyTwoWeekHigh)}). ${pos > 80 ? 'Cerca de máximos anuales, sugiriendo cautela por posible agotamiento del movimiento.' : pos < 20 ? 'Cerca de mínimos anuales, lo que podría representar una zona de acumulación histórica.' : 'En zona neutral de ciclo intermedio.'}` 
+      };
+    } else {
+      sections.stability = { title: 'Ciclo de Precio Anual', content: 'Datos de rango histórico insuficientes para determinar la fase del ciclo actual con precisión.' };
+    }
+    scores.push({ val: priceScore, weight: 0.25 });
+
+    // 4. Momentum Reciente
+    let changeScore = 50;
+    if (data.fiftyTwoWeekChange != null && !isNaN(data.fiftyTwoWeekChange)) {
+      changeScore = data.fiftyTwoWeekChange > 0 ? 75 : 30;
+      sections.overview = { title: 'Desempeño Reciente', content: `Cambio registrado en el periodo del ${(data.fiftyTwoWeekChange * 100).toFixed(2)}%. Este activo se analiza bajo el prisma de un horizonte de ${range === '6mo' || range === '1y' ? 'corto plazo' : 'medio/largo plazo'}.` };
+    } else {
+      sections.overview = { title: 'Desempeño Reciente', content: `${symbol} analizado en base a su capitalización de mercado y métricas de red disponibles.` };
+    }
+    scores.push({ val: changeScore, weight: 0.25 });
+
+    const totalScore = Math.round(scores.reduce((acc, s) => acc + (s.val * s.weight), 0));
+    const outlook: FundamentalOutlook = totalScore >= 70 ? 'STRONG' : totalScore >= 45 ? 'MODERATE' : 'WEAK';
+
+    sections.risks = { title: 'Riesgos Clave', content: 'Riesgos regulatorios, de custodia (claves privadas), de concentración de ballenas y de alta volatilidad intrínseca. Se recomienda considerar la correlación con Bitcoin y el sentimiento general del mercado.' };
+
+    return this.assembleAnalysis(symbol, 'crypto', outlook, totalScore, sections, range, 'Análisis Crypto: Enfoque en métricas de red (supply), liquidez de mercado y posicionamiento en el ciclo anual.');
   }
 
-  private cryptoOverview(symbol: string, data: CryptoFinancialData): { section: AnalysisSection } {
-    const parts: string[] = [];
-    parts.push(`${symbol} es un criptoactivo negociado en mercados descentralizados.`);
+  // ── ETF Analysis ────────────────────────────────────────────────────────
 
-    if (data.marketCap != null) {
-      parts.push(`Su capitalización de mercado es de ${this.formatLargeNumber(data.marketCap)}.`);
+  private analyzeETF(symbol: string, data: StockFinancialData, range: string): FundamentalAnalysis {
+    const sections: Record<string, AnalysisSection> = {};
+    const scores: { val: number; weight: number }[] = [];
+
+    // 1. Rentabilidad Histórica
+    let retScore = 50;
+    if (data.fiveYearAverageReturn != null || data.threeYearAverageReturn != null) {
+      const avg = (data.fiveYearAverageReturn || data.threeYearAverageReturn || 0);
+      retScore = avg > 0.1 ? 85 : avg > 0.05 ? 65 : 40;
     }
-    if (data.circulatingSupply != null) {
-      parts.push(`Tiene un suministro circulante de ${this.formatLargeNumber(data.circulatingSupply)} unidades.`);
-    }
-
-    return { section: { title: 'Visión General', content: parts.join(' ') } };
-  }
-
-  private cryptoValuation(data: CryptoFinancialData): { section: AnalysisSection; score: number | null } {
-    const parts: string[] = [];
-    const scores: number[] = [];
-
-    parts.push('Las criptomonedas no se evalúan con ratios P/E o PEG convencionales.');
-
-    if (data.marketCap != null) {
-      if (data.marketCap > 100e9) {
-        parts.push('El criptoactivo pertenece al grupo de mega-capitalización, lo que sugiere madurez relativa en el ecosistema.');
-        scores.push(65);
-      } else if (data.marketCap > 10e9) {
-        parts.push('Es un criptoactivo de gran capitalización con presencia consolidada.');
-        scores.push(55);
-      } else {
-        parts.push('La capitalización es reducida, lo cual puede implicar mayor riesgo pero también mayor potencial.');
-        scores.push(40);
-      }
-    }
-
-    if (data.volume24h != null && data.marketCap != null && data.marketCap > 0) {
-      const turnover = data.volume24h / data.marketCap;
-      if (turnover > 0.1) {
-        parts.push('La relación volumen/capitalización es alta, indicando liquidez elevada.');
-        scores.push(70);
-      } else if (turnover > 0.03) {
-        parts.push('La liquidez es adecuada para operaciones normales.');
-        scores.push(55);
-      } else {
-        parts.push('La liquidez relativa es baja, lo que puede generar deslizamientos de precio (slippage).');
-        scores.push(30);
-      }
-    }
-
-    const avgScore = scores.length > 0
-      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-      : null;
-
-    return {
-      section: { title: 'Valoración', content: parts.join(' ') },
-      score: avgScore,
+    sections.profitability = { 
+      title: 'Rentabilidad Histórica', 
+      content: `Retorno medio a 5 años: ${(data.fiveYearAverageReturn ? data.fiveYearAverageReturn * 100 : 0).toFixed(2)}% (YTD: ${(data.ytdReturn ? data.ytdReturn * 100 : 0).toFixed(2)}%). ${['5y', '10y'].includes(range) ? 'La consistencia a largo plazo es el factor determinante.' : 'El rendimiento YTD marca el momentum actual del fondo.'}` 
     };
-  }
+    scores.push({ val: retScore, weight: 0.35 });
 
-  private cryptoStability(data: CryptoFinancialData): { section: AnalysisSection; score: number | null } {
-    const parts: string[] = [];
-    const scores: number[] = [];
-
-    if (data.fiftyTwoWeekHigh != null && data.fiftyTwoWeekLow != null && data.fiftyTwoWeekLow > 0) {
-      const rangePercent = ((data.fiftyTwoWeekHigh - data.fiftyTwoWeekLow) / data.fiftyTwoWeekLow) * 100;
-      if (rangePercent < 50) {
-        parts.push(`El rango de 52 semanas es moderado para un criptoactivo (${rangePercent.toFixed(0)}%).`);
-        scores.push(60);
-      } else if (rangePercent < 150) {
-        parts.push(`El rango de 52 semanas (${rangePercent.toFixed(0)}%) es típico del mercado cripto.`);
-        scores.push(45);
-      } else {
-        parts.push(`El rango de 52 semanas es muy amplio (${rangePercent.toFixed(0)}%), reflejando alta volatilidad.`);
-        scores.push(25);
-      }
+    // 2. Coste y Eficiencia
+    let costScore = 50;
+    if (data.annualReportExpenseRatio != null) {
+      costScore = data.annualReportExpenseRatio < 0.002 ? 90 : data.annualReportExpenseRatio < 0.005 ? 70 : 40;
     }
-
-    if (data.maxSupply != null) {
-      parts.push(`El suministro máximo está limitado, lo cual puede ejercer presión deflacionaria a largo plazo.`);
-      scores.push(60);
-    }
-
-    if (parts.length === 0) {
-      parts.push('La estabilidad de los criptoactivos es inherentemente baja comparada con los activos tradicionales.');
-      scores.push(35);
-    }
-
-    const avgScore = scores.length > 0
-      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-      : null;
-
-    return {
-      section: { title: 'Estabilidad', content: parts.join(' ') },
-      score: avgScore,
+    sections.growth = { 
+      title: 'Coste y Eficiencia', 
+      content: `AUM de ${this.formatLargeNumber(data.totalAssets || 0)}. TER (Gastos totales): ${(data.annualReportExpenseRatio ? data.annualReportExpenseRatio * 100 : 0).toFixed(2)}%. ${data.annualReportExpenseRatio && data.annualReportExpenseRatio < 0.002 ? 'Ratio de gastos muy eficiente para el inversor.' : 'Se recomienda vigilar el impacto de las comisiones en el largo plazo.'}` 
     };
-  }
+    scores.push({ val: costScore, weight: 0.25 });
 
-  private cryptoRisks(data: CryptoFinancialData): { section: AnalysisSection } {
-    const risks: string[] = [];
-
-    risks.push('**Volatilidad inherente**: los criptoactivos son sustancialmente más volátiles que los activos tradicionales.');
-    risks.push('**Riesgo regulatorio**: cambios regulatorios pueden afectar significativamente al precio y la adopción.');
-
-    if (data.marketCap != null && data.marketCap < 1e9) {
-      risks.push('**Baja capitalización**: mayor riesgo de manipulación de precios y baja liquidez.');
+    // 3. Riesgo (Beta)
+    let riskScore = 50;
+    if (data.beta3Year != null) {
+      riskScore = data.beta3Year < 1.0 ? 75 : 45;
     }
+    sections.stability = { title: 'Riesgo', content: `Beta a 3 años de ${data.beta3Year?.toFixed(2) || 'N/A'}. ${data.beta3Year && data.beta3Year < 1 ? 'Menor volatilidad que su benchmark.' : 'Activo con volatilidad superior al mercado.'}` };
+    scores.push({ val: riskScore, weight: 0.2 });
 
-    return {
-      section: { title: 'Riesgos Fundamentales', content: risks.join('\n\n') },
-    };
+    // 4. Valoración y Dividendo
+    let divScore = 50;
+    if (range === '6mo' || range === '1y') {
+      divScore = 50; // Dividend redundant in short term for ETFs
+    } else if (data.dividendYield != null) {
+      divScore = data.dividendYield > 0.02 ? 80 : 55;
+    }
+    sections.valuation = { title: 'Valoración y Dividendo', content: `P/E ponderado: ${data.peRatio?.toFixed(2) || 'N/A'}. Rentabilidad por dividendo: ${(data.dividendYield ? data.dividendYield * 100 : 0).toFixed(2)}%. ${data.dividendYield && data.dividendYield > 0 ? 'ETF de distribución.' : 'Probablemente de acumulación.'}` };
+    scores.push({ val: divScore, weight: 0.2 });
+
+    const totalScore = Math.round(scores.reduce((acc, s) => acc + (s.val * s.weight), 0));
+    const outlook: FundamentalOutlook = totalScore >= 65 ? 'STRONG' : totalScore >= 40 ? 'MODERATE' : 'WEAK';
+
+    sections.risks = { title: 'Riesgos Clave', content: 'Tracking error, riesgo de contrapartida (si es sintético), riesgo de cierre (AUM bajo) y concentración sectorial.' };
+
+    return this.assembleAnalysis(symbol, 'etf', outlook, totalScore, sections, range, `ETF de la gestora ${data.fundFamily || 'N/A'}. El análisis se centra en la eficiencia de costes (TER), solidez de activos (AUM) y consistencia histórica.`);
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────
 
-  private formatLargeNumber(n: number): string {
+  private getCurrencySymbol(currency: string | null | undefined): string {
+    if (currency === 'EUR') return '€';
+    if (currency === 'GBP') return '£';
+    return '$'; // Default or USD
+  }
+
+  private getBenchmark(exchange: string | null | undefined): string {
+    if (!exchange) return 'benchmark no especificado';
+    const ex = exchange.toUpperCase();
+    if (ex.includes('NASDAQ') || ex.includes('NYSE')) return 'vs S&P 500';
+    if (ex.includes('MADRID') || ex.includes('IBEX') || ex.includes('MC')) return 'vs IBEX 35';
+    if (ex.includes('LSE') || ex.includes('LONDON')) return 'vs FTSE 100';
+    if (ex.includes('PARIS') || ex.includes('PA')) return 'vs CAC 40';
+    if (ex.includes('FRANKFURT') || ex.includes('XETRA') || ex.includes('DE')) return 'vs DAX';
+    return 'benchmark no especificado';
+  }
+
+  private formatLargeNumber(n: number | null | undefined): string {
+    if (n === null || n === undefined || isNaN(n)) return 'N/A';
     if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
     if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
     if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
     return `$${n.toLocaleString()}`;
+  }
+
+  private assembleAnalysis(symbol: string, type: 'stock' | 'crypto' | 'etf', outlook: FundamentalOutlook, score: number, sections: Record<string, AnalysisSection>, range: string, horizonNote: string): FundamentalAnalysis {
+    const outlookLabels = { STRONG: 'Fuerte', MODERATE: 'Moderada', WEAK: 'Débil' };
+    const rangeLabels: Record<string, string> = { '6mo': '6 meses', '1y': '1 año', '3y': '3 años', '5y': '5 años', '10y': '10 años' };
+
+    const summaryText = `**Perspectiva a ${rangeLabels[range] || range}: ${outlookLabels[outlook]}** (puntuación ${score}/100). En este horizonte, el análisis se ha centrado en los factores determinantes para el éxito a ${rangeLabels[range] || range}.`;
+
+    const finalSections: Record<string, AnalysisSection> = {
+      overview: { title: 'Visión General', content: `${symbol} analizado bajo el prisma de un horizonte de ${rangeLabels[range] || range}.` },
+      ...sections,
+      summary: { title: 'Resumen Ejecutivo', content: summaryText },
+      horizon: { title: 'Lógica del Horizonte Temporal', content: horizonNote },
+    };
+
+    return {
+      symbol,
+      assetType: type,
+      outlook,
+      outlookScore: score,
+      sections: finalSections,
+      analyzedAt: new Date().toISOString(),
+    };
   }
 }
