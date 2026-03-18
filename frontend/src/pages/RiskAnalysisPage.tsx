@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   Search, TrendingUp, Loader2, AlertTriangle,
   ShieldCheck, ShieldAlert, BarChart2, Activity,
-  Star, Clock, Info, ChevronDown, ChevronUp, PieChart, DollarSign, TrendingUp as GrowthIcon, Shield,
+  Star, Clock, Info, ChevronDown, ChevronUp, PieChart, DollarSign, TrendingUp as GrowthIcon, Shield, Hourglass,
 } from 'lucide-react';
 import { riskService, assetService } from '@services/index';
 import { useWatchlist } from '@hooks/useWatchlist';
@@ -44,6 +44,144 @@ const RISK_CONFIG = {
     gaugeColor: '#f97316',
     score: 85,
   },
+};
+
+const METRIC_DEFINITIONS = {
+  marketCap: {
+    label: "Market Cap",
+    definition: "Valor total de mercado del activo. En acciones, precio × acciones en circulación. En crypto, indica el tamaño relativo del proyecto en el ecosistema."
+  },
+  peRatio: {
+    label: "P/E Ratio (PER)",
+    definition: "Cuántas veces se pagan los beneficios por acción. Un PER bajo puede indicar infravaloración si el negocio es sólido. En ETFs, es la media ponderada de sus componentes."
+  },
+  beta: {
+    label: "Beta",
+    definition: "Mide la volatilidad respecto al mercado. <1 es menos volátil, >1 es más volátil. Clave para entender el riesgo sistemático."
+  },
+  eps: {
+    label: "EPS (Beneficio por Acción)",
+    definition: "Beneficio neto dividido entre el número de acciones. Indica la rentabilidad que genera cada título."
+  },
+  netMargin: {
+    label: "Margen Neto",
+    definition: "Porcentaje de ingresos que queda tras todos los gastos. Un margen alto refleja eficiencia operativa y poder de fijación de precios."
+  },
+  roe: {
+    label: "ROE (Rentabilidad sobre Capital)",
+    definition: "Mide la eficiencia con la que la empresa usa el dinero de sus accionistas para generar beneficios."
+  },
+  dividend: {
+    label: "Rentabilidad por Dividendo",
+    definition: "Porcentaje del precio que se reparte anualmente. Importante para estrategias de ingresos pasivos."
+  },
+  week52Range: {
+    label: "Rango 52 semanas",
+    definition: "Mínimo y máximo del último año. Ayuda a ver si el activo está en zona de máximos (sobrecompra) o mínimos (posible oportunidad)."
+  },
+  circulatingSupply: {
+    label: "Oferta Circulante",
+    definition: "Tokens o monedas disponibles para el público. Influye en la escasez y el valor del activo."
+  },
+  maxSupply: {
+    label: "Oferta Máxima",
+    definition: "Límite máximo de emisión. Si no tiene límite, el activo puede ser inflacionario a largo plazo."
+  },
+  volume24h: {
+    label: "Volumen 24h",
+    definition: "Valor transaccionado en el último día. Refleja el interés actual y la facilidad para entrar o salir de la posición."
+  },
+  fiftyTwoWeekChange: {
+    label: "Cambio Anual (%)",
+    definition: "Variación del precio en el último año. Muestra el rendimiento relativo a 365 días."
+  },
+  totalAssets: {
+    label: "Activos Totales (AUM)",
+    definition: "Valor bajo gestión del ETF. Fondos grandes suelen ser más líquidos y estables."
+  },
+  expenseRatio: {
+    label: "Ratio de Gastos (TER)",
+    definition: "Comisión anual de gestión. Un ratio bajo es vital para no erosionar el beneficio compuesto a largo plazo."
+  },
+  beta3Year: {
+    label: "Beta (3 años)",
+    definition: "Volatilidad del ETF respecto a su índice en un periodo de 3 años."
+  },
+  fiveYearReturn: {
+    label: "Retorno (5 años)",
+    definition: "Rendimiento anualizado en el último lustro. Indica la solidez histórica de la estrategia del fondo."
+  },
+  ytdReturn: {
+    label: "Retorno YTD",
+    definition: "Crecimiento acumulado desde el inicio del año actual."
+  },
+  navPrice: {
+    label: "Precio NAV",
+    definition: "Valor Liquidativo Neto por participación. Comprobarlo vs precio de mercado para ver si hay primas o descuentos."
+  }
+};
+
+const MISSING_METRIC_NOTES: Record<string, any> = {
+  CRYPTOCURRENCY: {
+    peRatio: "Las criptos no generan beneficios contables corporativos; su valor es especulativo o por utilidad de red.",
+    eps: "No existen 'ganancias por acción' en activos descentralizados.",
+    beta: "La correlación con el mercado tradicional varía, a menudo invalidando la beta estándar.",
+    netMargin: "No hay estructura corporativa para calcular márgenes de beneficio.",
+    roe: "No existe capital accionarial sobre el cual calcular la eficiencia operativa.",
+    dividend: "Las cryptos no pagan dividendos; el rendimiento viene por apreciación o staking."
+  },
+  ETF: {
+    eps: "Un fondo es un vehículo de inversión, no genera un EPS propio e independiente.",
+    netMargin: "Los márgenes de beneficio corresponden a las empresas dentro del fondo, no al ETF.",
+    roe: "El ROE no es aplicable a estructuras de inversión colectiva como los ETFs."
+  },
+  EQUITY: {
+    dividend: "Esta empresa no reparte dividendos actualmente (estatal de crecimiento o dificultades).",
+    peRatio: "No se puede calcular si la empresa está en pérdidas (EPS negativo).",
+    pegRatio: "Requiere estimaciones de crecimiento futuro no disponibles actualmente."
+  },
+  GENERIC: {
+    default: "Dato no disponible en Yahoo Finance para este símbolo en este momento."
+  }
+};
+
+const SECTION_HELP: Record<string, { what: string; short: string; mid: string; long: string }> = {
+  overview: {
+    what: 'Resumen del contexto del activo bajo el prisma del horizonte seleccionado.',
+    short: 'Punto de partida crucial para entender el momentum inmediato.',
+    mid: 'Contexto necesario para validar la dirección de la inversión.',
+    long: 'Visión estructural que define el papel del activo en la cartera.'
+  },
+  valuation: {
+    what: 'Analiza si el precio actual es razonable (acciones/ETFs) o el posicionamiento de mercado (crypto).',
+    short: 'Muy relevante — el mercado reacciona a múltiplos y posicionamiento en el corto plazo.',
+    mid: 'Relevante para equilibrar el precio de entrada con el potencial futuro.',
+    long: 'Importante como punto de entrada, aunque la calidad del activo prima sobre el precio exacto.'
+  },
+  profitability: {
+    what: 'Analiza la capacidad de generar beneficios (acciones) o la actividad y uso de red (crypto).',
+    short: 'Importante para detectar señales de mejora o deterioro en la actividad reciente.',
+    mid: 'Crucial para evaluar la sostenibilidad del modelo o la adopción de la red.',
+    long: 'Factor estructural — sin rentabilidad o actividad real, un activo no crea valor a largo plazo.'
+  },
+  growth: {
+    what: 'Analiza la evolución de ingresos/beneficios (acciones) o eficiencia de costes (ETFs).',
+    short: 'Relevante si hay catalizadores inmediatos o cambios en la estructura de costes.',
+    mid: 'Confirma que la tesis de crecimiento o eficiencia se está ejecutando.',
+    long: 'El motor principal de creación de valor compuesto en décadas.'
+  },
+  stability: {
+    what: 'Analiza la tendencia, volatilidad y riesgos específicos del activo.',
+    short: 'Crucial para el timing y la gestión del riesgo de caída inmediata.',
+    mid: 'Ayuda a diferenciar la volatilidad normal de cambios en la tendencia estructural.',
+    long: 'Fundamental para asegurar que el activo puede sobrevivir a múltiples ciclos de mercado.'
+  },
+  risks: {
+    what: 'Identifica las amenazas externas, regulatorias o competitivas más críticas.',
+    short: 'Enfoque en catalizadores que podrían causar caídas bruscas repentinas.',
+    mid: 'Enfoque en cambios en el sector o competencia que erosionen la ventaja.',
+    long: 'Enfoque en riesgos existenciales, regulatorios o de obsolescencia del activo.'
+  }
 };
 
 // ── Risk Gauge ────────────────────────────────────────────────────────────────
@@ -230,6 +368,28 @@ function QuickBadge({
   );
 }
 
+// ── Education Panel Component ──────────────────────────────────────────────────
+
+function EducationPanel({ children, isOpen, onToggle }: { children: React.ReactNode; isOpen: boolean; onToggle: () => void }) {
+  return (
+    <div className="mt-4 border-t border-gray-100 dark:border-gray-700 pt-4">
+      <button
+        onClick={onToggle}
+        title={isOpen ? 'Ocultar explicación' : '¿Qué significa esto?'}
+        className="flex items-center gap-1.5 p-1 -m-1 rounded-md text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
+      >
+        <Info className="w-4 h-4" />
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[2000px] opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
+        <div className="bg-gray-50 dark:bg-gray-900/40 rounded-xl p-4 pb-6 border border-gray-100 dark:border-gray-800 text-sm">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RiskAnalysisPage() {
   const [symbol, setSymbol] = useState('');
   const [riskData, setRiskData] = useState<RiskMetrics | null>(null);
@@ -245,9 +405,14 @@ export default function RiskAnalysisPage() {
   });
   const { watchlist } = useWatchlist();
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [openHelp, setOpenHelp] = useState<string | null>(null);
 
   const toggleSection = (key: string) => {
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleHelp = (key: string) => {
+    setOpenHelp(prev => (prev === key ? null : key));
   };
 
   const analyze = async (sym: string, range?: '6mo' | '1y' | '3y' | '5y' | '10y') => {
@@ -273,7 +438,7 @@ export default function RiskAnalysisPage() {
 
       // Fetch fundamental analysis in the background (don't block)
       setFundsLoading(true);
-      assetService.getFundamentalAnalysis(s)
+      assetService.getFundamentalAnalysis(s, rangeToUse)
         .then((analysis) => setFundamentalAnalysis(analysis))
         .catch(() => setFundamentalAnalysis(null))
         .finally(() => setFundsLoading(false));
@@ -283,7 +448,6 @@ export default function RiskAnalysisPage() {
         localStorage.setItem('risk_history', JSON.stringify(next));
         return next;
       });
-      setActiveTab('QUANTS');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al analizar el activo');
       setRiskData(null);
@@ -603,37 +767,150 @@ export default function RiskAnalysisPage() {
           )}
 
           {activeTab === 'FUNDS' && (
-            <div className="space-y-5">
-              {/* Metric cards row (existing financial data) */}
+            <div className="space-y-6">
+              {/* Metric cards row */}
               {financialData && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {'marketCap' in financialData && financialData.marketCap != null && (
-                    <MetricCard label="Market Cap" value={formatCompactNumber(financialData.marketCap)} />
-                  )}
-                  {'peRatio' in financialData && financialData.peRatio != null && (
-                    <MetricCard label="P/E Ratio" value={financialData.peRatio.toFixed(2)} />
-                  )}
-                  {'beta' in financialData && financialData.beta != null && (
-                    <MetricCard label="Beta" value={financialData.beta.toFixed(2)} />
-                  )}
-                  {'eps' in financialData && financialData.eps != null && (
-                    <MetricCard label="EPS" value={formatCurrency(financialData.eps)} />
-                  )}
-                  {'profitMargin' in financialData && financialData.profitMargin != null && (
-                    <MetricCard label="Margen Neto" value={formatPercentage(financialData.profitMargin, 2)} />
-                  )}
-                  {'roe' in financialData && financialData.roe != null && (
-                    <MetricCard label="ROE" value={formatPercentage(financialData.roe, 2)} />
-                  )}
-                  {'dividendYield' in financialData && financialData.dividendYield != null && (
-                    <MetricCard label="Dividendo" value={formatPercentage(financialData.dividendYield, 2)} />
-                  )}
-                  {financialData.fiftyTwoWeekHigh != null && financialData.fiftyTwoWeekLow != null && (
-                    <MetricCard
-                      label="Rango 52 Sem."
-                      value={`${formatCurrency(financialData.fiftyTwoWeekLow)} - ${formatCurrency(financialData.fiftyTwoWeekHigh)}`}
-                    />
-                  )}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                    <span className="text-[10px] uppercase tracking-widest font-bold text-gray-500 dark:text-gray-400">
+                      Datos actuales — independientes del horizonte seleccionado
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {(() => {
+                      const qType = financialData.quoteType?.toUpperCase() || 'EQUITY';
+                      
+                      if (qType === 'CRYPTOCURRENCY') {
+                        const f = financialData as any;
+                        return (
+                          <>
+                            <MetricCard label="Market Cap" value={formatCompactNumber(f.marketCap)} />
+                            <MetricCard label="Oferta Circulante" value={formatCompactNumber(f.circulatingSupply)} />
+                            <MetricCard label="Oferta Máxima" value={f.maxSupply ? formatCompactNumber(f.maxSupply) : 'Sin límite'} />
+                            <MetricCard label="Volumen 24h" value={formatCompactNumber(f.volume24h)} />
+                            <MetricCard 
+                              label="Rango 52 Sem." 
+                              value={`${formatCurrency(f.fiftyTwoWeekLow)} - ${formatCurrency(f.fiftyTwoWeekHigh)}`} 
+                            />
+                            <MetricCard 
+                              label="Cambio Anual" 
+                              value={formatPercentage(f.fiftyTwoWeekChange)} 
+                              color={(f.fiftyTwoWeekChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'}
+                            />
+                          </>
+                        );
+                      }
+
+                      if (qType === 'ETF') {
+                        const f = financialData as any;
+                        return (
+                          <>
+                            <MetricCard label="Activos (AUM)" value={formatCompactNumber(f.totalAssets)} tooltip="Valor total bajo gestión" />
+                            <MetricCard label="P/E (Ponderado)" value={f.peRatio?.toFixed(2) || 'N/A'} tooltip="Media ponderada del P/E de los activos" />
+                            <MetricCard label="Div. Yield" value={formatPercentage(f.dividendYield)} tooltip="Rentabilidad por dividendo distribuida" />
+                            <MetricCard label="Precio NAV" value={formatCurrency(f.navPrice)} tooltip="Valor Liquidativo Neto" />
+                            <MetricCard label="Beta (3 años)" value={f.beta3Year?.toFixed(2) || 'N/A'} tooltip="Volatilidad respecto a su Benchmark" />
+                            <MetricCard label="Retorno 5 años" value={formatPercentage(f.fiveYearAverageReturn)} tooltip="Rentabilidad media anualizada" />
+                            <MetricCard label="Retorno YTD" value={formatPercentage(f.ytdReturn)} tooltip="Retorno en el año actual" />
+                            <MetricCard label="Gastos (TER)" value={formatPercentage(f.annualReportExpenseRatio, 2)} tooltip="Comisión total de gestión anual" />
+                          </>
+                        );
+                      }
+
+                      // Default (EQUITY)
+                      return (
+                        <>
+                          {financialData.marketCap != null && (
+                            <MetricCard label="Market Cap (Actual)" value={formatCompactNumber(financialData.marketCap)} />
+                          )}
+                          {'peRatio' in financialData && financialData.peRatio != null && (
+                            <MetricCard label="P/E Ratio (Actual)" value={financialData.peRatio.toFixed(2)} />
+                          )}
+                          {'beta' in financialData && financialData.beta != null && (
+                            <MetricCard label="Beta (Actual)" value={financialData.beta.toFixed(2)} />
+                          )}
+                          {'eps' in financialData && financialData.eps != null && (
+                            <MetricCard label="EPS (Actual)" value={formatCurrency(financialData.eps)} />
+                          )}
+                          {'profitMargin' in financialData && financialData.profitMargin != null && (
+                            <MetricCard label="Margen Neto (Actual)" value={formatPercentage(financialData.profitMargin, 2)} />
+                          )}
+                          {'roe' in financialData && financialData.roe != null && (
+                            <MetricCard label="ROE (Actual)" value={formatPercentage(financialData.roe, 2)} />
+                          )}
+                          {'dividendYield' in financialData && financialData.dividendYield != null && (
+                            <MetricCard label="Dividendo (Actual)" value={formatPercentage(financialData.dividendYield, 2)} />
+                          )}
+                          {financialData.fiftyTwoWeekHigh != null && financialData.fiftyTwoWeekLow != null && (
+                            <MetricCard
+                              label="Rango 52 Sem. (Actual)"
+                              value={`${formatCurrency(financialData.fiftyTwoWeekLow)} - ${formatCurrency(financialData.fiftyTwoWeekHigh)}`}
+                            />
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                  
+                  {/* Glossary Layer */}
+                  <EducationPanel isOpen={openHelp === 'glossary'} onToggle={() => toggleHelp('glossary')}>
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                        {Object.keys(METRIC_DEFINITIONS).filter(key => {
+                          const f = financialData as any;
+                          const val = key === 'week52Range' ? f.fiftyTwoWeekHigh :
+                                      key === 'netMargin' ? f.profitMargin :
+                                      key === 'dividend' ? f.dividendYield : f[key];
+                          return val !== null && val !== undefined && val !== '' && val !== 'N/A';
+                        }).map((key) => {
+                          const item = (METRIC_DEFINITIONS as any)[key];
+                          return (
+                            <div key={key} className="space-y-1">
+                              <p className="font-bold text-gray-900 dark:text-gray-100 text-xs">{item.label}</p>
+                              <p className="text-gray-500 dark:text-gray-400 text-xs leading-relaxed">{item.definition}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Missing Metrics */}
+                      {Object.keys(METRIC_DEFINITIONS).filter(key => {
+                        const f = financialData as any;
+                        const val = key === 'week52Range' ? f.fiftyTwoWeekHigh :
+                                    key === 'netMargin' ? f.profitMargin :
+                                    key === 'dividend' ? f.dividendYield : f[key];
+                        return val === null || val === undefined || val === '' || val === 'N/A';
+                      }).length > 0 && (
+                        <div className="pt-4 border-t border-gray-100 dark:border-gray-800/50">
+                          <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500 mb-3">
+                            Métricas no disponibles para este activo
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 opacity-60">
+                            {Object.keys(METRIC_DEFINITIONS).filter(key => {
+                              const f = financialData as any;
+                              const val = key === 'week52Range' ? f.fiftyTwoWeekHigh :
+                                          key === 'netMargin' ? f.profitMargin :
+                                          key === 'dividend' ? f.dividendYield : f[key];
+                              return val === null || val === undefined || val === '' || val === 'N/A';
+                            }).map((key) => {
+                              const item = (METRIC_DEFINITIONS as any)[key];
+                              const qType = financialData?.quoteType?.toUpperCase() || 'EQUITY';
+                              const assetType = qType.includes('ETF') ? 'ETF' : qType.includes('CRYPTO') ? 'CRYPTOCURRENCY' : 'EQUITY';
+                              const note = (MISSING_METRIC_NOTES[assetType] as any)?.[key] || MISSING_METRIC_NOTES.GENERIC.default;
+                              
+                              return (
+                                <div key={key} className="space-y-0.5">
+                                  <p className="font-semibold text-gray-500 dark:text-gray-400 text-[11px]">{item.label}</p>
+                                  <p className="text-gray-400 dark:text-gray-500 text-[10px] italic leading-snug">— {note}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </EducationPanel>
                 </div>
               )}
 
@@ -659,7 +936,7 @@ export default function RiskAnalysisPage() {
                     <FundamentalScoreGauge score={fundamentalAnalysis.outlookScore} outlook={fundamentalAnalysis.outlook} />
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-sm leading-relaxed">
-                        <RichText text={fundamentalAnalysis.sections.summary.content} />
+                        <RichText text={fundamentalAnalysis.sections.summary?.content || ''} />
                       </p>
                       <p className="text-white/60 text-xs mt-2">
                         Analizado: {new Date(fundamentalAnalysis.analyzedAt).toLocaleString('es-ES')}
@@ -667,59 +944,89 @@ export default function RiskAnalysisPage() {
                     </div>
                   </div>
 
+                  {/* Horizon Logic summary */}
+                  {fundamentalAnalysis.sections.horizon && (
+                    <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-xl border border-primary-100 dark:border-primary-800 flex items-start gap-3">
+                      <div className="p-2 bg-primary-100 dark:bg-primary-800 rounded-lg text-primary-600 dark:text-primary-400">
+                        <Hourglass className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-primary-900 dark:text-primary-100 text-sm">
+                          {fundamentalAnalysis.sections.horizon.title}
+                        </h4>
+                        <p className="text-primary-800 dark:text-primary-200 text-xs leading-relaxed mt-1 italic">
+                          {fundamentalAnalysis.sections.horizon.content}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Section Cards */}
-                  {([
-                    { key: 'overview',      icon: <Activity className="w-4 h-4" />,  color: 'text-blue-500',   bg: 'bg-blue-50 dark:bg-blue-900/20',     border: 'border-blue-200 dark:border-blue-800' },
-                    { key: 'valuation',     icon: <PieChart className="w-4 h-4" />,  color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-900/20', border: 'border-violet-200 dark:border-violet-800' },
-                    { key: 'profitability', icon: <DollarSign className="w-4 h-4" />,color: 'text-green-500',  bg: 'bg-green-50 dark:bg-green-900/20',   border: 'border-green-200 dark:border-green-800' },
-                    { key: 'growth',        icon: <GrowthIcon className="w-4 h-4" />, color: 'text-teal-500',   bg: 'bg-teal-50 dark:bg-teal-900/20',     border: 'border-teal-200 dark:border-teal-800' },
-                    { key: 'stability',     icon: <Shield className="w-4 h-4" />,    color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20',  border: 'border-indigo-200 dark:border-indigo-800' },
-                    { key: 'risks',         icon: <AlertTriangle className="w-4 h-4" />, color: 'text-rose-500', bg: 'bg-rose-50 dark:bg-rose-900/20',    border: 'border-rose-200 dark:border-rose-800' },
-                  ] as { key: keyof typeof fundamentalAnalysis.sections; icon: React.ReactNode; color: string; bg: string; border: string }[]).map(({ key, icon, color, bg, border }) => {
-                    const section = fundamentalAnalysis.sections[key];
-                    const isRisks = key === 'risks';
-                    const isExpanded = expandedSections[key] ?? false;
+                  <div className="flex flex-col gap-4">
+                    {Object.entries(fundamentalAnalysis.sections)
+                      .filter(([key]) => !['summary', 'horizon'].includes(key))
+                      .map(([key, section]) => {
+                        const styleMap: Record<string, { icon: React.ReactNode; color: string; bg: string; border: string }> = {
+                          overview:      { icon: <Activity className="w-4 h-4" />,  color: 'text-blue-500',   bg: 'bg-blue-50 dark:bg-blue-900/20',     border: 'border-blue-200 dark:border-blue-800' },
+                          valuation:     { icon: <PieChart className="w-4 h-4" />,  color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-900/20', border: 'border-violet-200 dark:border-violet-800' },
+                          profitability: { icon: <DollarSign className="w-4 h-4" />,color: 'text-green-500',  bg: 'bg-green-50 dark:bg-green-900/20',   border: 'border-green-200 dark:border-green-800' },
+                          growth:        { icon: <GrowthIcon className="w-4 h-4" />, color: 'text-teal-500',   bg: 'bg-teal-50 dark:bg-teal-900/20',     border: 'border-teal-200 dark:border-teal-800' },
+                          stability:     { icon: <Shield className="w-4 h-4" />,    color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20',  border: 'border-indigo-200 dark:border-indigo-800' },
+                          risks:         { icon: <AlertTriangle className="w-4 h-4" />, color: 'text-red-500',    bg: 'bg-red-50 dark:bg-red-900/20',       border: 'border-red-200 dark:border-red-800' },
+                        };
+                        
+                        const style = styleMap[key] || styleMap.overview;
+                        const isExpanded = expandedSections[key] ?? false;
 
-                    const riskBullets = isRisks
-                      ? section.content.split('\n\n').filter(Boolean)
-                      : [];
+                        return (
+                          <div key={key} className={`rounded-xl border ${style.border} overflow-hidden`}>
+                            <button
+                              onClick={() => toggleSection(key)}
+                              className={`w-full flex items-center justify-between px-4 py-3 ${style.bg} text-left transition-colors hover:brightness-95`}
+                            >
+                              <div className={`flex items-center gap-2 font-semibold text-sm ${style.color}`}>
+                                {style.icon}
+                                <span className="text-gray-900 dark:text-white">{section.title}</span>
+                              </div>
+                              {isExpanded
+                                ? <ChevronUp className="w-4 h-4 text-gray-400" />
+                                : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                            </button>
 
-                    return (
-                      <div key={key} className={`rounded-xl border ${border} overflow-hidden`}>
-                        <button
-                          onClick={() => toggleSection(key)}
-                          className={`w-full flex items-center justify-between px-4 py-3 ${bg} text-left transition-colors hover:brightness-95`}
-                        >
-                          <div className={`flex items-center gap-2 font-semibold text-sm ${color}`}>
-                            {icon}
-                            <span className="text-gray-900 dark:text-white">{section.title}</span>
-                          </div>
-                          {isExpanded
-                            ? <ChevronUp className="w-4 h-4 text-gray-400" />
-                            : <ChevronDown className="w-4 h-4 text-gray-400" />}
-                        </button>
+                            {isExpanded && (
+                              <div className="px-4 py-3 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
+                                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                  <RichText text={section.content} />
+                                </p>
 
-                        {isExpanded && (
-                          <div className="px-4 py-3 bg-white dark:bg-gray-800">
-                            {isRisks ? (
-                              <ul className="space-y-2">
-                                {riskBullets.map((bullet, bi) => (
-                                  <li key={bi} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                    <span className="mt-1 w-2 h-2 rounded-full bg-rose-400 flex-shrink-0" />
-                                    <RichText text={bullet} />
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                                <RichText text={section.content} />
-                              </p>
+                                {/* Section Education Layer */}
+                                <EducationPanel
+                                  isOpen={openHelp === `section-${key}`}
+                                  onToggle={() => toggleHelp(`section-${key}`)}
+                                >
+                                  <div className="space-y-3">
+                                    <div>
+                                      <p className="text-[10px] uppercase font-bold text-primary-500/70 tracking-tight mb-1">Qué analiza esta sección</p>
+                                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        {SECTION_HELP[key]?.what || 'Análisis detallado de este factor para el activo.'}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] uppercase font-bold text-primary-500/70 tracking-tight mb-1">Por qué importa en este horizonte</p>
+                                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed italic">
+                                        {['6mo', '1y'].includes(selectedRange) ? (SECTION_HELP[key]?.short || 'Factor relevante a corto plazo.') :
+                                         selectedRange === '3y' ? (SECTION_HELP[key]?.mid || 'Factor relevante a medio plazo.') : 
+                                         (SECTION_HELP[key]?.long || 'Factor determinante a largo plazo.')}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </EducationPanel>
+                              </div>
                             )}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                  </div>
                 </div>
               )}
 

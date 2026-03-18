@@ -1,4 +1,5 @@
 export const formatCurrency = (value: number, currency = 'USD'): string => {
+  if (value === null || value === undefined || isNaN(value)) return 'N/A';
   return new Intl.NumberFormat('es-ES', {
     style: 'currency',
     currency,
@@ -8,6 +9,7 @@ export const formatCurrency = (value: number, currency = 'USD'): string => {
 };
 
 export const formatPercentage = (value: number, decimals = 2): string => {
+  if (value === null || value === undefined || isNaN(value)) return 'N/A';
   return `${(value * 100).toFixed(decimals)}%`;
 };
 
