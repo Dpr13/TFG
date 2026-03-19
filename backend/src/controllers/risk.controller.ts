@@ -11,14 +11,19 @@ const riskService = new RiskService();
  */
 export const getRiskMetrics = async (req: Request, res: Response) => {
   const { symbol } = req.params;
+  const { range } = req.query;
 
   if (!symbol || typeof symbol !== 'string') {
     res.status(400).json({ error: 'Symbol parameter is required' });
     return;
   }
 
+  // Validar rango
+  const validRanges = ['6mo', '1y', '3y', '5y', '10y'];
+  const selectedRange = range && validRanges.includes(range as string) ? (range as '6mo' | '1y' | '3y' | '5y' | '10y') : '1y';
+
   try {
-    const riskMetrics = await riskService.calculateRiskMetrics(symbol);
+    const riskMetrics = await riskService.calculateRiskMetrics(symbol, selectedRange);
     res.json(riskMetrics);
   } catch (error) {
     // Handle insufficient data error

@@ -91,10 +91,14 @@ export default function RegisterPage() {
       setError('El nombre no puede estar vacío.');
       return;
     }
-    if (password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres.');
+    
+    // Validar todas las reglas de contraseña
+    const failingRules = RULES.filter(r => !r.test(password));
+    if (failingRules.length > 0) {
+      setError(`La contraseña no cumple con los requisitos de seguridad: mínimo 8 caracteres, una mayúscula, un número y un símbolo.`);
       return;
     }
+
     if (password !== confirm) {
       setError('Las contraseñas no coinciden.');
       return;
@@ -104,7 +108,9 @@ export default function RegisterPage() {
       await register({ name: name.trim(), email, password });
       navigate('/', { replace: true });
     } catch (err: any) {
-      setError(err.message ?? 'Error al crear la cuenta');
+      console.error('Registration error:', err);
+      const backendError = err.response?.data?.error;
+      setError(backendError || 'Error al crear la cuenta. Inténtelo de nuevo.');
     }
   };
 
@@ -185,12 +191,6 @@ export default function RegisterPage() {
                 </p>
               </div>
 
-              {/* Demo hint */}
-              <div className="mb-6 px-4 py-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
-                <p className="text-xs text-primary-700 dark:text-primary-300 font-medium">
-                  Modo demo — el registro se guarda localmente. Cuando haya backend se conectará automáticamente.
-                </p>
-              </div>
 
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 {/* Nombre */}

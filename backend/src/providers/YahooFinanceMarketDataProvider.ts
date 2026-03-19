@@ -1,50 +1,28 @@
-import axios from 'axios';
+import yahooFinanceDefault from 'yahoo-finance2';
 import { MarketDataProvider } from './interfaces/MarketDataProvider';
 import { FinancialData, StockFinancialData, CryptoFinancialData } from '../models/financialData';
 
-/**
- * Yahoo Finance API response types
- */
-interface YahooFinanceChartResponse {
-  chart: {
-    result: Array<{
-      meta: {
-        symbol: string;
-        currency: string;
-        regularMarketPrice: number;
-      };
-      timestamp: number[];
-      indicators: {
-        quote: Array<{
-          open: number[];
-          high: number[];
-          low: number[];
-          close: number[];
-          volume: number[];
-        }>;
-      };
-    }>;
-    error: null | {
-      code: string;
-      description: string;
-    };
-  };
-}
+// Initialize the YahooFinance class instance required for yahoo-finance2 v3+
+const yahooFinance: any = new (yahooFinanceDefault as any)({ suppressNotices: ['yahooSurvey'] });
 
 /**
  * Yahoo Finance implementation of MarketDataProvider
- * Fetches real market data from Yahoo Finance API (free, no API key required)
- * Supports both stocks and cryptocurrencies
+ * Fetches real market data using the official yahoo-finance2 library
+ * Handles required crumb/authentication automatically under the hood
  */
 export class YahooFinanceMarketDataProvider implements MarketDataProvider {
-  private readonly baseUrl = 'https://query1.finance.yahoo.com/v8/finance/chart';
   private readonly cryptoSymbols = ['BTC', 'ETH', 'BITCOIN', 'ETHEREUM'];
 
   /**
    * Check if symbol is a cryptocurrency
    */
   private isCrypto(symbol: string): boolean {
-    return this.cryptoSymbols.includes(symbol.toUpperCase());
+    const s = symbol.toUpperCase();
+    return this.cryptoSymbols.includes(s) || 
+           s.endsWith('-USD') || 
+           s.endsWith('-BTC') || 
+           s.endsWith('-ETH') || 
+           s.endsWith('-EUR');
   }
 
   /**
@@ -54,432 +32,231 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
   private getYahooSymbol(symbol: string): string {
     const upperSymbol = symbol.toUpperCase();
     if (this.isCrypto(upperSymbol)) {
-      // Para criptomonedas, usar formato BTC-USD
       if (upperSymbol === 'BITCOIN') return 'BTC-USD';
       if (upperSymbol === 'ETHEREUM') return 'ETH-USD';
-      return `${upperSymbol}-USD`;
+      if (!upperSymbol.includes('-')) return `${upperSymbol}-USD`;
     }
     return upperSymbol;
   }
 
   /**
-   * Get historical prices from Yahoo Finance API
-   * @param symbol - Stock symbol (e.g., 'AAPL', 'GOOGL') or crypto (e.g., 'BTC', 'ETH')
-   * @param interval - Interval (e.g., '1min', '5min', '1h', '1d')
-   * @returns Array of historical prices ordered by date, or null if not found
+   * Get historical prices
    */
   async getHistoricalPrices(
     symbol: string,
-    interval?: string
+    interval: string = '1d',
+    range: string = '1y'
   ): Promise<Array<{ date: string; close: number }> | null> {
     try {
       const yahooSymbol = this.getYahooSymbol(symbol);
-      // Validar y mapear intervalos soportados por Yahoo Finance
-      const allowedIntervals = ['1m','2m','5m','15m','30m','60m','90m','1d','5d','1wk','1mo','3mo'];
-      // Mapear intervalos de usuario a los de Yahoo
-      const intervalMap: Record<string, string> = {
-        '1min': '1m',
-        '2min': '2m',
-        '5min': '5m',
-        '15min': '15m',
-        '30min': '30m',
-        '1h': '60m',
-        '4h': '60m', // Yahoo no soporta 4h, usar 1h
-        '12h': '90m', // Yahoo no soporta 12h, usar 90m (más cercano)
-        '1d': '1d',
-        '5h': '5h',
-        '1wk': '1wk',
-        '1mo': '1mo',
-        '3mo': '3mo'
+
+      const intervalMap: Record<string, '1m' | '2m' | '5m' | '15m' | '30m' | '60m' | '90m' | '1h' | '1d' | '5d' | '1wk' | '1mo' | '3mo'> = {
+        '1min': '1m', '2min': '2m', '5min': '5m', '15min': '15m',
+        '30min': '30m', '1h': '60m', '4h': '60m', '12h': '60m',
+        '1d': '1d', '1wk': '1wk', '1mo': '1mo', '3mo': '3mo',
       };
-      let yfInterval = '1d';
-      if (interval && intervalMap[interval]) {
-        yfInterval = intervalMap[interval];
-      }
-      if (!allowedIntervals.includes(yfInterval)) {
-        yfInterval = '1d';
-      }
-
-      // Ajustar el rango según el intervalo para que sea coherente
-      let range = '1y';
+      const mappedInterval = intervalMap[interval] || '1d';
       
-      // Mapear intervalos a rangos temporales lógicos
-      if (yfInterval === '1m' || yfInterval === '2m' || yfInterval === '5m') {
-        range = '1d'; // Intervalos cortos: últimas 24 horas
-      } else if (yfInterval === '15m' || yfInterval === '30m') {
-        range = '5d'; // Intervalos medianos: últimos 5 días
-      } else if (yfInterval === '60m' || yfInterval === '90m') {
-        range = '1mo'; // 1 hora: último mes
-      } else if (yfInterval === '1d') {
-        range = '3mo'; // Diario: últimos 3 meses
-      } else if (yfInterval === '5d') {
-        range = '6mo'; // 5 días: últimos 6 meses
-      } else if (yfInterval === '1wk') {
-        range = '1y'; // Semanal: último año
-      } else if (yfInterval === '1mo') {
-        range = '5y'; // Mensual: últimos 5 años
-      } else if (yfInterval === '3mo') {
-        range = 'max'; // Trimestral: máximo disponible
-      }
-
-      const response = await axios.get<YahooFinanceChartResponse>(
-        `${this.baseUrl}/${yahooSymbol}`,
-        {
-          params: {
-            interval: yfInterval,
-            range,
-            includePrePost: false
-          },
-          timeout: 10000,
+      // Auto-determine range if not provided or if user provided range is incompatible with interval
+      // For short intervals, we need shorter ranges
+      let effectiveRange = range;
+      if (!range || range === '1y') {
+        if (['1m', '2m', '5m', '15m', '30m'].includes(mappedInterval)) {
+          effectiveRange = '5d'; // Intraday data typically available for last 5 days
+        } else if (['60m'].includes(mappedInterval)) {
+          effectiveRange = '2y'; // Hourly data for last 2 years (supports 4h and 12h aggregations)
+        } else if (['90m'].includes(mappedInterval)) {
+          effectiveRange = '2y'; // 90m data for last 2 years
+        } else if (['1d'].includes(mappedInterval)) {
+          effectiveRange = '1y'; // Daily data for last year
+        } else if (['5d', '1wk'].includes(mappedInterval)) {
+          effectiveRange = '2y'; // Weekly/5-day for last 2 years
+        } else if (['1mo', '3mo'].includes(mappedInterval)) {
+          effectiveRange = '5y'; // Monthly data for last 5 years
         }
-      );
+      }
 
-      if (response.data.chart.error) {
-        console.error(
-          `Yahoo Finance API error for ${symbol}: ${response.data.chart.error.description}`
-        );
+      const now = new Date();
+      let period1 = new Date();
+      
+      switch (effectiveRange) {
+        case '1d': period1.setDate(now.getDate() - 1); break;
+        case '5d': period1.setDate(now.getDate() - 5); break;
+        case '1mo': period1.setMonth(now.getMonth() - 1); break;
+        case '3mo': period1.setMonth(now.getMonth() - 3); break;
+        case '6mo': period1.setMonth(now.getMonth() - 6); break;
+        case 'ytd': period1 = new Date(now.getFullYear(), 0, 1); break;
+        case '1y': period1.setFullYear(now.getFullYear() - 1); break;
+        case '2y': period1.setFullYear(now.getFullYear() - 2); break;
+        case '3y': period1.setFullYear(now.getFullYear() - 3); break;
+        case '5y': period1.setFullYear(now.getFullYear() - 5); break;
+        case '10y': period1.setFullYear(now.getFullYear() - 10); break;
+        case 'max': period1 = new Date('1970-01-01'); break;
+        default: period1.setFullYear(now.getFullYear() - 1);
+      }
+
+      const queryOptions: any = { period1, interval: mappedInterval };
+      
+      console.log(`[YahooFinance] Requesting chart for ${yahooSymbol}, interval: ${interval} (mapped: ${mappedInterval}), effectiveRange: ${effectiveRange}`);
+      const result: any = await yahooFinance.chart(yahooSymbol, queryOptions);
+      
+      if (!result || !result.quotes || result.quotes.length === 0) {
+        console.warn(`[YahooFinance] No price data received for ${symbol} (${yahooSymbol}). Result:`, result ? (result.quotes ? `${result.quotes.length} quotes` : 'no quotes field') : 'null result');
         return null;
       }
 
-      const result = response.data.chart.result[0];
-
-      if (!result || !result.timestamp || result.timestamp.length === 0) {
-        console.error(`No data found for symbol: ${symbol}`);
-        return null;
-      }
-
-      const timestamps = result.timestamp;
-      const closes = result.indicators.quote[0].close;
-
-      // Convert timestamps to dates and pair with close prices
-      const prices = timestamps
-        .map((timestamp, index) => {
-          // Si es intradía, mostrar hora
-          const dateObj = new Date(timestamp * 1000);
-          const date = yfInterval.endsWith('m')
-            ? dateObj.toISOString().replace('T', ' ').substring(0, 16)
-            : dateObj.toISOString().split('T')[0];
-          return {
-            date,
-            close: closes[index],
-          };
-        })
-        .filter(price => price.close !== null && !isNaN(price.close));
-
-      // Sort by date ascending
-      prices.sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-      );
-
-      return prices;
+      console.log(`[YahooFinance] Successfully fetched ${result.quotes.length} quotes for ${symbol} with interval ${interval}`);
+      const prices = result.quotes
+        .filter((q: any) => q.close !== null && !isNaN(q.close as number))
+        .map((q: any) => ({
+          date: q.date instanceof Date ? q.date.toISOString() : new Date(q.date).toISOString(),
+          close: q.close as number,
+        }));
+        
+      return prices.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        // 4xx means the symbol doesn't exist or is invalid — treat as not found
-        if (error.response && error.response.status >= 400 && error.response.status < 500) {
-          console.error(`Symbol not found on Yahoo Finance: ${symbol} (status ${error.response.status})`);
-          return null;
-        }
-        console.error(
-          `HTTP error fetching data from Yahoo Finance for ${symbol}:`,
-          error.message
-        );
-        if (error.response) {
-          console.error('Status:', error.response.status);
-          console.error('Data:', JSON.stringify(error.response.data, null, 2));
-        }
-        throw new Error(
-          `Failed to fetch data from Yahoo Finance: ${error.message}`
-        );
-      }
-      console.error('Unexpected error fetching Yahoo Finance data:', error);
-      throw error;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[YahooFinance] Exception fetching historical prices for ${symbol}:`, errorMsg);
+      return null;
     }
   }
 
   /**
-   * Get latest price for a symbol
-   * @param symbol - Stock or crypto symbol
-   * @returns Latest price or null if not found
+   * Get latest price
    */
   async getLatestPrice(symbol: string): Promise<number | null> {
-    const prices = await this.getHistoricalPrices(symbol);
-    if (!prices || prices.length === 0) {
-      return null;
+    try {
+      const yahooSymbol = this.getYahooSymbol(symbol);
+      const quote: any = await yahooFinance.quote(yahooSymbol);
+      return quote?.regularMarketPrice ?? null;
+    } catch (error) {
+       console.error(`Error fetching latest price for ${symbol}:`, error);
+       return null;
     }
-    return prices[prices.length - 1].close;
   }
 
   /**
-   * Validate and get basic info for a symbol
-   * @param symbol - Stock or crypto symbol to validate
-   * @returns Asset info if valid, null if not found
+   * Validate symbol
    */
-  async validateSymbol(symbol: string): Promise<{
-    symbol: string;
-    name: string;
-    type: 'stock' | 'crypto' | 'forex';
-  } | null> {
+  async validateSymbol(symbol: string): Promise<{ symbol: string; name: string; type: 'stock' | 'crypto' | 'forex' } | null> {
     try {
       const yahooSymbol = this.getYahooSymbol(symbol);
+      console.log(`[YahooFinance] Validating symbol: ${symbol} -> ${yahooSymbol}`);
+      const quote: any = await yahooFinance.quote(yahooSymbol);
       
-      // Try to fetch latest data to verify symbol exists
-      const response = await axios.get<YahooFinanceChartResponse>(
-        `${this.baseUrl}/${yahooSymbol}`,
-        {
-          params: {
-            interval: '1d',
-            range: '5d',
-          },
-          timeout: 5000,
-        }
-      );
-
-      if (response.data.chart.error || !response.data.chart.result[0]) {
+      if (!quote) {
+        console.warn(`[YahooFinance] Quote validation returned null for ${yahooSymbol}`);
         return null;
       }
 
-      const result = response.data.chart.result[0];
       const upperSymbol = symbol.toUpperCase();
-      
-      return {
+      const isCryptoAsset = this.isCrypto(upperSymbol) || quote.quoteType === 'CRYPTOCURRENCY';
+      const result: { symbol: string; name: string; type: 'stock' | 'crypto' | 'forex' } = {
         symbol: upperSymbol,
-        name: upperSymbol, // Yahoo Finance API básica no incluye nombres completos
-        type: this.isCrypto(upperSymbol) ? 'crypto' : 'stock',
+        name: quote.shortName || quote.longName || upperSymbol,
+        type: isCryptoAsset ? 'crypto' : 'stock',
       };
+      
+      console.log(`[YahooFinance] Symbol validated successfully: ${JSON.stringify(result)}`);
+      return result;
     } catch (error) {
-      console.error(`Failed to validate symbol ${symbol}:`, error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[YahooFinance] Symbol validation failed for ${symbol}:`, errorMsg);
       return null;
     }
   }
 
   /**
-   * Check if Yahoo Finance service is available
+   * Health check
    */
   async healthCheck(): Promise<boolean> {
     try {
-      // Try fetching a common symbol to verify service availability
       const result = await this.getLatestPrice('AAPL');
       return result !== null;
-    } catch (error) {
-      console.error('Yahoo Finance health check failed:', error);
+    } catch {
       return false;
     }
   }
 
   /**
-   * Get financial data for a given symbol
-   * Uses Yahoo Finance quoteSummary API to fetch detailed financial information
-   * Falls back to basic data from chart endpoint if quoteSummary is unavailable (401 errors)
-   * @param symbol - Stock or crypto symbol
-   * @returns Financial data or null if not found
+   * Get financial data (Now using yahoo-finance2 quoteSummary to dodge 401 Unauthorized errors)
    */
   async getFinancialData(symbol: string): Promise<FinancialData | null> {
     try {
       const yahooSymbol = this.getYahooSymbol(symbol);
       const isCryptoAsset = this.isCrypto(symbol);
 
-      // Yahoo Finance quoteSummary endpoint provides detailed financial data
-      const response = await axios.get(
-        `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${yahooSymbol}`,
-        {
-          params: {
-            modules: isCryptoAsset 
-              ? 'price,summaryDetail' 
-              : 'price,summaryDetail,defaultKeyStatistics,financialData',
-          },
-          timeout: 10000,
-        }
-      );
+      const modules = ['price', 'summaryDetail', 'defaultKeyStatistics', 'financialData'] as const;
 
-      if (!response.data?.quoteSummary?.result?.[0]) {
+      const data: any = await yahooFinance.quoteSummary(yahooSymbol, { modules: modules as any } as any);
+
+      if (!data) {
         console.error(`No financial data found for symbol: ${symbol}`);
         return null;
       }
 
-      const data = response.data.quoteSummary.result[0];
       const price = data.price || {};
       const summaryDetail = data.summaryDetail || {};
-      const keyStats = data.defaultKeyStatistics || {};
-      const financialData = data.financialData || {};
-
-      if (isCryptoAsset) {
-        // Crypto financial data
-        const cryptoData: CryptoFinancialData = {
+      
+      if (isCryptoAsset || price.quoteType === 'CRYPTOCURRENCY') {
+        return {
           symbol: symbol.toUpperCase(),
-          marketCap: price.marketCap?.raw || summaryDetail.marketCap?.raw,
-          volume24h: summaryDetail.volume?.raw || summaryDetail.averageVolume?.raw,
-          circulatingSupply: price.circulatingSupply?.raw,
-          totalSupply: price.circulatingSupply?.raw, // Crypto APIs often use same value
-          maxSupply: undefined, // Not readily available in Yahoo Finance
-          fiftyTwoWeekHigh: summaryDetail.fiftyTwoWeekHigh?.raw,
-          fiftyTwoWeekLow: summaryDetail.fiftyTwoWeekLow?.raw,
-          allTimeHigh: undefined, // Not available in Yahoo Finance
-          allTimeLow: undefined,
-          athDate: undefined,
-          atlDate: undefined,
+          marketCap: price.marketCap || summaryDetail.marketCap,
+          volume24h: summaryDetail.volume24Hr || summaryDetail.volume || price.regularMarketVolume,
+          circulatingSupply: price.circulatingSupply || summaryDetail.circulatingSupply,
+          totalSupply: price.circulatingSupply || summaryDetail.totalSupply, 
+          maxSupply: summaryDetail.maxSupply,
+          fiftyTwoWeekHigh: summaryDetail.fiftyTwoWeekHigh,
+          fiftyTwoWeekLow: summaryDetail.fiftyTwoWeekLow,
+          fiftyTwoWeekChange: summaryDetail.fiftyTwoWeekChange || price.regularMarketChangePercent,
+          quoteType: price.quoteType || summaryDetail.quoteType || 'CRYPTOCURRENCY',
+          financialCurrency: price.currency || summaryDetail.currency,
           lastUpdated: new Date().toISOString(),
-        };
-        return cryptoData;
+        } as CryptoFinancialData;
       } else {
-        // Stock financial data
-        const stockData: StockFinancialData = {
+        const keyStats = data.defaultKeyStatistics || {};
+        const financialData = data.financialData || {};
+
+        return {
           symbol: symbol.toUpperCase(),
-          
-          // Valuation Measures
-          marketCap: price.marketCap?.raw || summaryDetail.marketCap?.raw,
-          enterpriseValue: keyStats.enterpriseValue?.raw,
-          peRatio: summaryDetail.trailingPE?.raw || keyStats.trailingPE?.raw,
-          pegRatio: keyStats.pegRatio?.raw,
-          priceToSales: keyStats.priceToSalesTrailing12Months?.raw,
-          priceToBook: keyStats.priceToBook?.raw,
-          evToEbitda: keyStats.enterpriseToEbitda?.raw,
-          
-          // Financial Highlights
-          eps: keyStats.trailingEps?.raw,
-          dividendYield: summaryDetail.dividendYield?.raw || keyStats.yield?.raw,
-          beta: keyStats.beta?.raw || summaryDetail.beta?.raw,
-          roe: financialData.returnOnEquity?.raw,
-          roa: financialData.returnOnAssets?.raw,
-          profitMargin: financialData.profitMargins?.raw,
-          operatingMargin: financialData.operatingMargins?.raw,
-          
-          // Trading Info
-          fiftyTwoWeekHigh: summaryDetail.fiftyTwoWeekHigh?.raw,
-          fiftyTwoWeekLow: summaryDetail.fiftyTwoWeekLow?.raw,
-          averageVolume: summaryDetail.averageVolume?.raw || summaryDetail.averageVolume10days?.raw,
-          sharesOutstanding: keyStats.sharesOutstanding?.raw,
-          
+          marketCap: price.marketCap || summaryDetail.marketCap,
+          enterpriseValue: keyStats.enterpriseValue,
+          peRatio: summaryDetail.trailingPE || keyStats.trailingPE,
+          pegRatio: keyStats.pegRatio,
+          priceToSales: keyStats.priceToSalesTrailing12Months,
+          priceToBook: keyStats.priceToBook,
+          evToEbitda: keyStats.enterpriseToEbitda,
+          eps: keyStats.trailingEps || summaryDetail.trailingEps,
+          dividendYield: summaryDetail.dividendYield || keyStats.yield,
+          beta: keyStats.beta || summaryDetail.beta,
+          roe: financialData.returnOnEquity,
+          roa: financialData.returnOnAssets,
+          profitMargin: financialData.profitMargins,
+          operatingMargin: financialData.operatingMargins,
+          fiftyTwoWeekHigh: summaryDetail.fiftyTwoWeekHigh,
+          fiftyTwoWeekLow: summaryDetail.fiftyTwoWeekLow,
+          averageVolume: summaryDetail.averageVolume || summaryDetail.averageVolume10days,
+          sharesOutstanding: keyStats.sharesOutstanding,
           lastUpdated: new Date().toISOString(),
-        };
-        return stockData;
+          quoteType: price.quoteType || summaryDetail.quoteType,
+
+          // ETF specific fields
+          totalAssets: summaryDetail.totalAssets,
+          navPrice: summaryDetail.navPrice,
+          beta3Year: keyStats.beta3Year,
+          threeYearAverageReturn: keyStats.threeYearAverageReturn,
+          fiveYearAverageReturn: keyStats.fiveYearAverageReturn,
+          ytdReturn: keyStats.ytdReturn || summaryDetail.ytdReturn,
+          annualReportExpenseRatio: keyStats.annualReportExpenseRatio,
+          fundFamily: price.fundFamily,
+          fundInceptionDate: keyStats.fundInceptionDate,
+
+          financialCurrency: price.currency || summaryDetail.currency,
+          exchange: price.exchangeName || price.exchange,
+        } as StockFinancialData;
       }
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        // If we get a 401 error, quoteSummary requires authentication
-        // Fall back to basic data from chart endpoint
-        if (error.response?.status === 401) {
-          console.log(`quoteSummary endpoint requires auth for ${symbol}, using basic data from chart endpoint`);
-          return this.getBasicFinancialDataFromChart(symbol);
-        }
-        
-        console.error(
-          `HTTP error fetching financial data from Yahoo Finance for ${symbol}:`,
-          error.message
-        );
-        if (error.response) {
-          console.error('Status:', error.response.status);
-        }
-      } else {
-        console.error('Unexpected error fetching financial data:', error);
-      }
-      return null;
-    }
-  }
-
-  /**
-   * Get basic financial data from chart endpoint (fallback when quoteSummary is unavailable)
-   * @param symbol - Stock or crypto symbol
-   * @returns Basic financial data or null if not found
-   */
-  private async getBasicFinancialDataFromChart(symbol: string): Promise<FinancialData | null> {
-    try {
-      const yahooSymbol = this.getYahooSymbol(symbol);
-      const isCryptoAsset = this.isCrypto(symbol);
-
-      console.log(`Fetching basic data from chart endpoint for ${symbol}`);
-
-      // Fetch 1 year of daily data to calculate 52-week high/low
-      const response = await axios.get<YahooFinanceChartResponse>(
-        `${this.baseUrl}/${yahooSymbol}`,
-        {
-          params: {
-            interval: '1d',
-            range: '1y',
-          },
-          timeout: 10000,
-        }
-      );
-
-      if (response.data.chart.error) {
-        console.error(`Chart API error: ${response.data.chart.error.description}`);
-        return null;
-      }
-
-      if (!response.data.chart.result[0]) {
-        console.error('No chart data in response');
-        return null;
-      }
-
-      const result = response.data.chart.result[0];
-      const meta = result.meta;
-      const closes = result.indicators.quote[0].close.filter((c: number) => c !== null && !isNaN(c));
-      const volumes = result.indicators.quote[0].volume.filter((v: number) => v !== null && !isNaN(v));
-
-      console.log(`Chart data: ${closes.length} price points, ${volumes.length} volume points`);
-
-      if (closes.length === 0) {
-        console.error('No valid close prices found');
-        return null;
-      }
-
-      const fiftyTwoWeekHigh = Math.max(...closes);
-      const fiftyTwoWeekLow = Math.min(...closes);
-      const averageVolume = volumes.length > 0 
-        ? volumes.reduce((a: number, b: number) => a + b, 0) / volumes.length 
-        : undefined;
-
-      console.log(`Calculated: High=$${fiftyTwoWeekHigh}, Low=$${fiftyTwoWeekLow}, AvgVol=${averageVolume}`);
-
-      if (isCryptoAsset) {
-        const cryptoData: CryptoFinancialData = {
-          symbol: symbol.toUpperCase(),
-          marketCap: null,
-          volume24h: volumes.length > 0 ? volumes[volumes.length - 1] : null,
-          circulatingSupply: null,
-          totalSupply: null,
-          maxSupply: null,
-          fiftyTwoWeekHigh,
-          fiftyTwoWeekLow,
-          allTimeHigh: null,
-          allTimeLow: null,
-          athDate: null,
-          atlDate: null,
-          lastUpdated: new Date().toISOString(),
-        };
-        console.log(`Returning crypto data for ${symbol}:`, JSON.stringify(cryptoData, null, 2));
-        return cryptoData;
-      } else {
-        const stockData: StockFinancialData = {
-          symbol: symbol.toUpperCase(),
-          marketCap: null,
-          enterpriseValue: null,
-          peRatio: null,
-          pegRatio: null,
-          priceToSales: null,
-          priceToBook: null,
-          evToEbitda: null,
-          eps: null,
-          dividendYield: null,
-          beta: null,
-          roe: null,
-          roa: null,
-          profitMargin: null,
-          operatingMargin: null,
-          fiftyTwoWeekHigh,
-          fiftyTwoWeekLow,
-          averageVolume,
-          sharesOutstanding: null,
-          lastUpdated: new Date().toISOString(),
-        };
-        console.log(`Returning stock data for ${symbol}:`, JSON.stringify(stockData, null, 2));
-        return stockData;
-      }
-    } catch (error) {
-      console.error(`Error fetching basic financial data from chart for ${symbol}:`, error);
-      if (axios.isAxiosError(error) && error.response) {
-        console.error(`Response status: ${error.response.status}`);
-        console.error(`Response data:`, error.response.data);
-      }
+      console.error(`Error fetching financial data from yahoo-finance2 for ${symbol}:`, error);
       return null;
     }
   }

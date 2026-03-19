@@ -68,9 +68,22 @@ export class MarketDataRepository {
   }
 
   /**
-   * Get asset by symbol (from predefined list)
+   * Get asset by symbol (using Yahoo Finance, fallback to local if not found)
    */
   static async getAssetBySymbol(symbol: string): Promise<Asset | undefined> {
+    // Intenta buscar usando Yahoo Finance
+    const provider = new YahooFinanceMarketDataProvider();
+    const result = await provider.validateSymbol(symbol);
+    if (result) {
+      const knownAsset = this.KNOWN_ASSETS[result.symbol];
+      return {
+        id: result.symbol,
+        symbol: result.symbol,
+        name: knownAsset?.name || result.name,
+        type: knownAsset?.type || result.type,
+      };
+    }
+    // Fallback a la lista local si Yahoo Finance no lo encuentra
     const all = await this.getAllAssets();
     return all.find((asset) => asset.symbol.toUpperCase() === symbol.toUpperCase());
   }
@@ -83,13 +96,19 @@ export class MarketDataRepository {
   }
 
   /**
-   * Get price history for a specific asset by symbol (from JSON file)
+   * Get price history for a specific asset by symbol (using Yahoo Finance)
    */
-  static async getPriceHistoryBySymbol(symbol: string): Promise<Price[]> {
-    const asset = await this.getAssetBySymbol(symbol);
-    if (!asset) {
+  static async getPriceHistoryBySymbol(symbol: string, interval?: string, range?: string): Promise<Price[]> {
+    const provider = new YahooFinanceMarketDataProvider();
+    const prices = await provider.getHistoricalPrices(symbol, interval, range);
+    if (!prices) {
       return [];
     }
-    return this.getPriceHistoryByAssetId(asset.id);
+    // Adaptar al modelo Price correctamente
+    return prices.map((p) => ({
+      assetId: symbol.toUpperCase(),
+      date: p.date,
+      price: p.close,
+    }));
   }
 }

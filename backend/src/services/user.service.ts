@@ -21,14 +21,14 @@ export const userService = {
     return user ? toUserResponse(user) : undefined;
   },
 
-  async loginUser(dto: LoginDTO): Promise<User | null> {
+  async loginUser(dto: LoginDTO): Promise<User> {
     const user = await userRepository.findByEmail(dto.email);
     if (!user) {
-      return null;
+      throw new Error('user_not_found');
     }
     const validPassword = await bcrypt.compare(dto.password, user.passwordHash);
     if (!validPassword) {
-      return null;
+      throw new Error('invalid_password');
     }
     return user;
   },

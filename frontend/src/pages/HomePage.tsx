@@ -15,19 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWatchlist } from '@hooks/useWatchlist';
 import { useFetch } from '@hooks/useFetch';
 import { newsService, operationService, strategyService } from '@services/index';
-import type { Operation, Strategy } from '../types';
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-interface NewsArticle {
-  id: string;
-  title: string;
-  url: string;
-  publishedAt: string;
-  publisher: string;
-  thumbnail?: string;
-  relatedTickers: string[];
-}
+import type { Operation, Strategy, NewsArticle } from '../types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -382,17 +370,18 @@ export default function HomePage() {
         </div>
 
         {loadingNews && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="flex flex-col gap-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden animate-pulse"
+                className="flex items-start gap-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 animate-pulse"
               >
-                <div className="h-40 bg-gray-200 dark:bg-gray-700" />
-                <div className="p-4 space-y-2">
+                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gray-200 dark:bg-gray-700" />
+                <div className="flex-1 space-y-2">
                   <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/4" />
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full" />
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" />
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
                 </div>
               </div>
             ))}
@@ -400,7 +389,7 @@ export default function HomePage() {
         )}
 
         {!loadingNews && newsData?.articles && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="flex flex-col gap-3">
             {newsData.articles.slice(0, 3).map((article) => {
               const published = new Date(article.publishedAt);
               const isToday = published.toDateString() === new Date().toDateString();
@@ -411,30 +400,19 @@ export default function HomePage() {
                   href={article.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700
+                  className="group flex items-start gap-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700
                            shadow-sm hover:shadow-md hover:border-blue-400 dark:hover:border-blue-500
-                           transition-all overflow-hidden"
+                           transition-all p-4"
                 >
-                  {/* Thumbnail */}
-                  {article.thumbnail ? (
-                    <div className="w-full h-40 overflow-hidden bg-gray-100 dark:bg-gray-700">
-                      <img
-                        src={article.thumbnail}
-                        alt={article.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-full h-40 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 flex items-center justify-center">
-                      <Newspaper className="w-10 h-10 text-blue-400" />
-                    </div>
-                  )}
+                  {/* Icono */}
+                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mt-0.5">
+                    <Newspaper className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                  </div>
 
                   {/* Content */}
-                  <div className="p-4 space-y-2">
+                  <div className="flex-1 min-w-0 space-y-1.5">
                     {/* Tickers */}
-                    {article.relatedTickers.length > 0 && (
+                    {article.relatedTickers && article.relatedTickers.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {article.relatedTickers.slice(0, 3).map((t) => (
                           <span
@@ -448,22 +426,21 @@ export default function HomePage() {
                       </div>
                     )}
 
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white leading-snug line-clamp-2">
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white leading-snug line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {article.title}
                     </h4>
 
-                    <div className="flex items-center justify-between pt-1 text-xs text-gray-500 dark:text-gray-400">
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        <span className="truncate max-w-[120px]">{article.publisher}</span>
-                        <span>·</span>
-                        <span className={isToday ? 'text-green-600 dark:text-green-400 font-medium' : ''}>
-                          {timeAgo(article.publishedAt)}
-                        </span>
-                      </div>
-                      <ExternalLink className="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500 transition-colors flex-shrink-0" />
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      <Clock className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate max-w-[140px]">{article.publisher}</span>
+                      <span>·</span>
+                      <span className={isToday ? 'text-green-600 dark:text-green-400 font-medium' : ''}>
+                        {timeAgo(article.publishedAt)}
+                      </span>
                     </div>
                   </div>
+
+                  <ExternalLink className="w-3.5 h-3.5 text-gray-400 group-hover:text-blue-500 transition-colors flex-shrink-0 mt-1" />
                 </a>
               );
             })}
