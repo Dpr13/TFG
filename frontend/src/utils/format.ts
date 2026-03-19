@@ -41,3 +41,9 @@ export const formatDateTime = (date: string | Date): string => {
     minute: '2-digit',
   }).format(d);
 };
+
+export const formatDateSimple = (date: string | Date): string => {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (!d || isNaN(d.getTime())) return 'N/A';
+  return d.toISOString().split('T')[0];
+};
