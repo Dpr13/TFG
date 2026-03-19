@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Search, TrendingUp, Loader2, AlertTriangle,
   ShieldCheck, ShieldAlert, BarChart2, Activity,
@@ -183,6 +183,28 @@ const SECTION_HELP: Record<string, { what: string; short: string; mid: string; l
     mid: 'Enfoque en cambios en el sector o competencia que erosionen la ventaja.',
     long: 'Enfoque en riesgos existenciales, regulatorios o de obsolescencia del activo.'
   }
+};
+
+const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d', '1wk', '1mo'] as const;
+type IntervalMode = typeof INTERVALS[number];
+
+const VALID_RANGES: Record<IntervalMode, string[]> = {
+  '1m': ['6mo'],
+  '5m': ['6mo'],
+  '15m': ['6mo'],
+  '1h': ['6mo', '1y'],
+  '4h': ['6mo', '1y'],
+  '1d': ['6mo', '1y', '3y', '5y', '10y'],
+  '1wk': ['1y', '3y', '5y', '10y'],
+  '1mo': ['3y', '5y', '10y'],
+};
+
+const DEFAULT_INTERVAL: Record<string, IntervalMode> = {
+  '6mo': '1d',
+  '1y': '1d',
+  '3y': '1wk',
+  '5y': '1wk',
+  '10y': '1mo',
 };
 
 // ── Risk Gauge ────────────────────────────────────────────────────────────────
@@ -397,7 +419,7 @@ export default function RiskAnalysisPage() {
   const [financialData, setFinancialData] = useState<FinancialData | null>(null);
   const [fundamentalAnalysis, setFundamentalAnalysis] = useState<FundamentalAnalysis | null>(null);
   const [fundsLoading, setFundsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'QUANTS' | 'FUNDS' | 'TECH'>('FUNDS');
+  const [activeTab, setActiveTab] = useState<'QUANTS' | 'FUNDS' | 'TECH'>('TECH');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRange, setSelectedRange] = useState<'6mo' | '1y' | '3y' | '5y' | '10y'>('1y');
@@ -407,6 +429,22 @@ export default function RiskAnalysisPage() {
   const { watchlist } = useWatchlist();
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [openHelp, setOpenHelp] = useState<string | null>(null);
+  const [selectedInterval, setSelectedInterval] = useState<IntervalMode>('1d');
+  const [intervalToast, setIntervalToast] = useState<string | null>(null);
+
+  // Auto-adjust interval if global range changes to an incompatible one (e.g., from another tab)
+  useEffect(() => {
+    if (activeTab === 'TECH') {
+      const validForCurrentInterval = VALID_RANGES[selectedInterval].includes(selectedRange);
+      if (!validForCurrentInterval) {
+        const newInterval = DEFAULT_INTERVAL[selectedRange];
+        setSelectedInterval(newInterval);
+        setIntervalToast(`Intervalo ajustado a ${newInterval}`);
+        const t = setTimeout(() => setIntervalToast(null), 4000);
+        return () => clearTimeout(t);
+      }
+    }
+  }, [selectedRange, activeTab, selectedInterval]);
 
   const toggleSection = (key: string) => {
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
@@ -486,21 +524,64 @@ export default function RiskAnalysisPage() {
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Período:</span>
           {(['6mo', '1y', '3y', '5y', '10y'] as const).map((range) => {
             const labels = { '6mo': '6 meses', '1y': '1 año', '3y': '3 años', '5y': '5 años', '10y': '10 años' };
+            const isRangeValid = activeTab === 'TECH' ? VALID_RANGES[selectedInterval].includes(range) : true;
             return (
-              <button
+              <div
                 key={range}
-                onClick={() => setSelectedRange(range)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  selectedRange === range
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
+                className="relative flex items-center"
+                title={!isRangeValid ? `No compatible con intervalo ${selectedInterval}` : undefined}
               >
-                {labels[range]}
-              </button>
+                <button
+                  onClick={() => isRangeValid && setSelectedRange(range)}
+                  disabled={!isRangeValid}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    selectedRange === range
+                      ? 'bg-primary-600 text-white'
+                      : !isRangeValid
+                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 opacity-40 cursor-not-allowed'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {labels[range]}
+                </button>
+              </div>
             );
           })}
         </div>
+
+        {/* Interval Selector (Only in TECH tab) */}
+        {activeTab === 'TECH' && (
+          <div className="flex flex-wrap items-center mt-3 p-3 gap-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-700 relative">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Intervalo:</span>
+            {INTERVALS.map((inv) => (
+              <button
+                key={inv}
+                onClick={() => {
+                  setSelectedInterval(inv);
+                  if (!VALID_RANGES[inv].includes(selectedRange)) {
+                    const validRanges = VALID_RANGES[inv];
+                    const nextRange = validRanges.includes('1y') && !validRanges.includes('3y') ? '1y' 
+                                    : validRanges.includes('10y') ? '10y' : validRanges[0];
+                    setSelectedRange(nextRange as any);
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  selectedInterval === inv
+                    ? 'bg-primary-500 text-white shadow-sm'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
+                }`}
+              >
+                {inv}
+              </button>
+            ))}
+            
+            {intervalToast && (
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 bg-primary-100 dark:bg-primary-900/40 text-primary-800 dark:text-primary-300 px-3 py-1.5 rounded-md text-xs font-medium animate-pulse">
+                {intervalToast}
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex gap-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -577,6 +658,16 @@ export default function RiskAnalysisPage() {
           {/* Tabs */}
           <div className="flex border-b border-gray-200 dark:border-gray-700">
             <button
+              onClick={() => setActiveTab('TECH')}
+              className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === 'TECH'
+                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Análisis Técnico
+            </button>
+            <button
               onClick={() => setActiveTab('FUNDS')}
               className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
                 activeTab === 'FUNDS'
@@ -595,16 +686,6 @@ export default function RiskAnalysisPage() {
               }`}
             >
               Análisis Cuantitativo
-            </button>
-            <button
-              onClick={() => setActiveTab('TECH')}
-              className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === 'TECH'
-                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
-            >
-              Análisis Técnico
             </button>
           </div>
 
@@ -1051,7 +1132,7 @@ export default function RiskAnalysisPage() {
           )}
 
           {activeTab === 'TECH' && (
-            <TechnicalAnalysisPanel symbol={symbol} selectedRange={selectedRange} />
+            <TechnicalAnalysisPanel symbol={symbol} selectedRange={selectedRange} interval={selectedInterval} />
           )}
         </div>
       )}

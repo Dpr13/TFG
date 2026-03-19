@@ -3,7 +3,7 @@ import {
   Loader2, AlertTriangle, Download, Eye, EyeOff,
 } from 'lucide-react';
 import { assetService } from '@services/index';
-import type { TechnicalAnalysisResult, TechnicalSignalClass, SignalBreakdown } from '@types/index';
+import type { TechnicalAnalysisResult, TechnicalSignalClass, SignalBreakdown } from '@/types/index';
 
 // ── Lightweight Charts global ────────────────────────────────────────────
 declare const LightweightCharts: any;
@@ -71,7 +71,10 @@ function BreakdownBar({ item }: { item: SignalBreakdown }) {
 }
 
 // ── Helper: parse date to Lightweight Charts format ──────────────────────
-function toChartTime(dateStr: string): string {
+function toChartTime(dateStr: string, isIntraday: boolean = false): string | number {
+  if (isIntraday) {
+    return Math.floor(Date.parse(dateStr) / 1000);
+  }
   return dateStr.split('T')[0];
 }
 
@@ -82,9 +85,10 @@ function toChartTime(dateStr: string): string {
 interface TechnicalAnalysisPanelProps {
   symbol: string;
   selectedRange: string;
+  interval?: string;
 }
 
-export default function TechnicalAnalysisPanel({ symbol, selectedRange }: TechnicalAnalysisPanelProps) {
+export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval }: TechnicalAnalysisPanelProps) {
   const [data, setData] = useState<TechnicalAnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +106,30 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
   // Side panel for SR levels
   const [hoveredSR, setHoveredSR] = useState<{ type: 'R' | 'S', price: number, date: string } | null>(null);
 
+  // Limit banner state
+  const [showLimitBanner, setShowLimitBanner] = useState(false);
+
+  useEffect(() => {
+    if (!interval) return;
+    const limits = { '1m': 7, '5m': 60, '15m': 60 };
+    if (interval in limits) {
+      const dismissed = sessionStorage.getItem(`dismissed_limit_${interval}`);
+      if (!dismissed) {
+        setShowLimitBanner(true);
+      } else {
+        setShowLimitBanner(false);
+      }
+    } else {
+      setShowLimitBanner(false);
+    }
+  }, [interval]);
+
+  const dismissBanner = () => {
+    if (!interval) return;
+    sessionStorage.setItem(`dismissed_limit_${interval}`, 'true');
+    setShowLimitBanner(false);
+  };
+
   // Chart refs
   const mainChartRef = useRef<HTMLDivElement>(null);
   const volumeChartRef = useRef<HTMLDivElement>(null);
@@ -117,7 +145,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     let cancelled = false;
     setLoading(true);
     setError(null);
-    assetService.getTechnicalAnalysis(symbol, selectedRange)
+    assetService.getTechnicalAnalysis(symbol, selectedRange, interval)
       .then((result) => { if (!cancelled) setData(result); })
       .catch((err: any) => {
         if (!cancelled) {
@@ -127,7 +155,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [symbol, selectedRange]);
+  }, [symbol, selectedRange, interval]);
 
   // ── Build charts ──────────────────────────────────────────────────────
 
@@ -138,16 +166,18 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     chartsRef.current = [];
     mainSeriesRefs.current = [];
 
+    const isIntraday = ['1m', '5m', '15m', '1h', '4h'].includes(data.interval || interval || '1d');
+
     const darkTheme = {
       layout: { background: { color: '#1f2937' }, textColor: '#9ca3af' },
       grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
       crosshair: { mode: 0 },
       rightPriceScale: { borderColor: '#4b5563' },
-      timeScale: { borderColor: '#4b5563', timeVisible: false },
+      timeScale: { borderColor: '#4b5563', timeVisible: isIntraday },
     };
 
     const candles = data.candles.map(c => ({
-      time: toChartTime(c.date),
+      time: toChartTime(c.date, isIntraday),
       open: c.open, high: c.high, low: c.low, close: c.close,
     }));
 
@@ -181,29 +211,39 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
       const addOverlay = (seriesData: any[], color: string, style: number, width: number, title?: string, conf?: any) => {
         if (!seriesData || seriesData.length === 0) return null;
         const line = chart.addLineSeries({ color, lineWidth: width, lineStyle: style, title, ...conf });
-        line.setData(seriesData.map((p: any) => ({ time: toChartTime(p.time), value: p.value })));
+        line.setData(seriesData.map((p: any) => ({ time: toChartTime(p.time, isIntraday), value: p.value })));
         return line;
       };
 
       if (showSMA20) {
         const s = addOverlay(data.sma20, '#93c5fd', 0, 1, 'SMA20');
-        mainSeriesRefs.current.push({ type: 'SMA20', series: s, lastValue: data.sma20[data.sma20.length - 1].value, color: '#93c5fd', priority: 5 });
+        if (s && data.sma20.length > 0) {
+          mainSeriesRefs.current.push({ type: 'SMA20', series: s, lastValue: data.sma20[data.sma20.length - 1].value, color: '#93c5fd', priority: 5 });
+        }
       }
       if (showSMA50) {
         const s = addOverlay(data.sma50, '#fb923c', 0, 1, 'SMA50');
-        mainSeriesRefs.current.push({ type: 'SMA50', series: s, lastValue: data.sma50[data.sma50.length - 1].value, color: '#fb923c', priority: 7 });
+        if (s && data.sma50.length > 0) {
+          mainSeriesRefs.current.push({ type: 'SMA50', series: s, lastValue: data.sma50[data.sma50.length - 1].value, color: '#fb923c', priority: 7 });
+        }
       }
       if (showSMA200) {
         const s = addOverlay(data.sma200, '#ef4444', 0, 2, 'SMA200');
-        mainSeriesRefs.current.push({ type: 'SMA200', series: s, lastValue: data.sma200[data.sma200.length - 1].value, color: '#ef4444', priority: 8 });
+        if (s && data.sma200.length > 0) {
+          mainSeriesRefs.current.push({ type: 'SMA200', series: s, lastValue: data.sma200[data.sma200.length - 1].value, color: '#ef4444', priority: 8 });
+        }
       }
       if (showEMA20) {
         const s = addOverlay(data.ema20, '#60a5fa', 1, 1, 'EMA20');
-        mainSeriesRefs.current.push({ type: 'EMA20', series: s, lastValue: data.ema20[data.ema20.length - 1].value, color: '#60a5fa', priority: 1 });
+        if (s && data.ema20.length > 0) {
+          mainSeriesRefs.current.push({ type: 'EMA20', series: s, lastValue: data.ema20[data.ema20.length - 1].value, color: '#60a5fa', priority: 1 });
+        }
       }
       if (showEMA50) {
         const s = addOverlay(data.ema50, '#a78bfa', 1, 1, 'EMA50');
-        mainSeriesRefs.current.push({ type: 'EMA50', series: s, lastValue: data.ema50[data.ema50.length - 1].value, color: '#a78bfa', priority: 2 });
+        if (s && data.ema50.length > 0) {
+          mainSeriesRefs.current.push({ type: 'EMA50', series: s, lastValue: data.ema50[data.ema50.length - 1].value, color: '#a78bfa', priority: 2 });
+        }
       }
 
       // Bollinger Bands (custom blue style & filled area)
@@ -225,7 +265,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
           priceLineVisible: false,
         });
         fillSeries.setData(data.bollinger.upper.map((p) => ({ 
-          time: toChartTime(p.time), 
+          time: toChartTime(p.time, isIntraday), 
           value: p.value 
         })));
         
@@ -244,6 +284,8 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
       // Hide/Show labels based on collision logic (run on scale changes)
       const updateAxisLabelVisibility = () => {
         const scale = chart.priceScale('right');
+        if (!scale || typeof scale.getVisiblePriceRange !== 'function') return;
+        
         const visibleRange = scale.getVisiblePriceRange();
         if (!visibleRange) return;
 
@@ -319,6 +361,8 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
           return;
         }
         const scale = chart.priceScale('right');
+        if (!scale || typeof scale.coordinateToPrice !== 'function') return;
+        
         const priceAtMouse = scale.coordinateToPrice(param.point.y);
         if (priceAtMouse === null) return;
         
@@ -339,8 +383,8 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
         }
         const d = param.seriesData.get(candleSeries);
         if (d) {
-          const vol = data.candles.find(c => toChartTime(c.date) === param.time as string)?.volume;
-          legendEl.textContent = `O: ${d.open?.toFixed(2)}  H: ${d.high?.toFixed(2)}  L: ${d.low?.toFixed(2)}  C: ${d.close?.toFixed(2)}  V: ${vol != null ? formatOBV(vol) : '-'}`;
+          const vol = data.candles.find(c => toChartTime(c.date, isIntraday) === param.time)?.volume;
+          legendEl.textContent = `${symbol} · ${data.interval} | O: ${d.open?.toFixed(2)}  H: ${d.high?.toFixed(2)}  L: ${d.low?.toFixed(2)}  C: ${d.close?.toFixed(2)}  V: ${vol != null ? formatOBV(vol) : '-'}`;
         }
       });
 
@@ -366,7 +410,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
         priceScaleId: 'vol',
       });
       volumeSeries.setData(data.candles.map(c => ({
-        time: toChartTime(c.date),
+        time: toChartTime(c.date, isIntraday),
         value: c.volume,
         color: c.close >= c.open ? 'rgba(38,166,154,0.5)' : 'rgba(239,83,80,0.5)',
       })));
@@ -381,7 +425,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
           },
         });
         chart.priceScale('obv').applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
-        obvSeries.setData(data.obv.map(p => ({ time: toChartTime(p.time), value: p.value })));
+        obvSeries.setData(data.obv.map(p => ({ time: toChartTime(p.time, isIntraday), value: p.value })));
       }
 
       chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
@@ -395,7 +439,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
       chartsRef.current.push(chart);
 
       const rsiSeries = chart.addLineSeries({ color: '#a78bfa', lineWidth: 1.5, title: 'RSI(14)' });
-      rsiSeries.setData(data.rsi.map(p => ({ time: toChartTime(p.time), value: p.value })));
+      rsiSeries.setData(data.rsi.map(p => ({ time: toChartTime(p.time, isIntraday), value: p.value })));
 
       rsiSeries.createPriceLine({ price: 70, color: '#ef4444', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '' });
       rsiSeries.createPriceLine({ price: 30, color: '#22c55e', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '' });
@@ -413,15 +457,15 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
 
       const histSeries = chart.addHistogramSeries({ priceScaleId: 'macd', title: 'Hist' });
       histSeries.setData(data.macd.histogram.map(p => ({
-        time: toChartTime(p.time), value: p.value,
+        time: toChartTime(p.time, isIntraday), value: p.value,
         color: p.value >= 0 ? 'rgba(38,166,154,0.7)' : 'rgba(239,83,80,0.7)',
       })));
 
       const macdLine = chart.addLineSeries({ color: '#60a5fa', lineWidth: 1.5, title: 'MACD', priceScaleId: 'macd' });
-      macdLine.setData(data.macd.macdLine.map(p => ({ time: toChartTime(p.time), value: p.value })));
+      macdLine.setData(data.macd.macdLine.map(p => ({ time: toChartTime(p.time, isIntraday), value: p.value })));
 
       const sigLine = chart.addLineSeries({ color: '#fb923c', lineWidth: 1, title: 'Signal', priceScaleId: 'macd' });
-      sigLine.setData(data.macd.signalLine.map(p => ({ time: toChartTime(p.time), value: p.value })));
+      sigLine.setData(data.macd.signalLine.map(p => ({ time: toChartTime(p.time, isIntraday), value: p.value })));
 
       macdLine.createPriceLine({ price: 0, color: '#6b7280', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
       chart.priceScale('macd').applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
@@ -436,7 +480,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
         ch.timeScale().subscribeVisibleLogicalRangeChange((range: any) => { if (range) primary.timeScale().setVisibleLogicalRange(range); });
       });
     }
-  }, [data, showSMA20, showSMA50, showSMA200, showEMA20, showEMA50, showBollinger, showRSI, showMACD]);
+  }, [data, showSMA20, showSMA50, showSMA200, showEMA20, showEMA50, showBollinger, showRSI, showMACD, symbol, interval]);
 
   useEffect(() => {
     buildCharts();
@@ -520,6 +564,21 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
       <p className="text-[10px] text-gray-500 dark:text-gray-500 leading-relaxed px-1 -mt-4 text-right">
         Señal informativa y automática; no constituye asesoría de inversión.
       </p>
+
+      {/* ── Limit Banner ── */}
+      {showLimitBanner && interval && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-3 flex items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0" />
+            <p className="text-yellow-800 dark:text-yellow-300 text-sm">
+              ⚠ Los datos de intervalo <strong>{interval}</strong> en Yahoo Finance tienen un límite de <strong>{interval === '1m' ? '7' : '60'} días históricos</strong>.
+            </p>
+          </div>
+          <button onClick={dismissBanner} className="text-yellow-600 hover:text-yellow-800 dark:text-yellow-500 dark:hover:text-yellow-400">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      )}
 
       {/* ── Controls bar ── */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">

@@ -29,9 +29,10 @@ export class TechnicalAnalysisService {
 
   // ── Public API ──────────────────────────────────────────────────────────
 
-  async analyze(symbol: string, range: string = '1y'): Promise<TechnicalAnalysisResult> {
+  async analyze(symbol: string, range: string = '1y', customInterval?: string): Promise<TechnicalAnalysisResult> {
     const config = RANGE_CONFIG[range] || RANGE_CONFIG['1y'];
-    const candles = await this.fetchOHLCV(symbol, config.period, config.interval);
+    const activeInterval = customInterval || config.interval;
+    const candles = await this.fetchOHLCV(symbol, config.period, activeInterval);
 
     if (candles.length < 30) {
       throw new Error('No hay suficientes datos históricos para este activo en Yahoo Finance.');
@@ -66,7 +67,13 @@ export class TechnicalAnalysisService {
     const obv = hasVolume ? this.calcOBV(closes, volumes, dates) : [];
 
     // Support & Resistance
-    const window = SR_WINDOW[range] || 10;
+    const windowMap: Record<string, number> = {
+      '1m': 20, '5m': 20, '15m': 20,
+      '1h': 15, '4h': 15,
+      '1d': 10,
+      '1wk': 6, '1mo': 6,
+    };
+    const window = windowMap[activeInterval] || 10;
     const { supports, resistances } = this.calcSupportResistance(highs, lows, closes, dates, window);
 
     // Signal
@@ -75,7 +82,7 @@ export class TechnicalAnalysisService {
     return {
       symbol: symbol.toUpperCase(),
       range,
-      interval: config.interval,
+      interval: activeInterval,
       candles,
       sma20, sma50, sma200, ema20, ema50,
       bollinger, rsi, macd, obv,
@@ -102,22 +109,68 @@ export class TechnicalAnalysisService {
       default:     period1.setFullYear(now.getFullYear() - 1);
     }
 
-    const result: any = await yahooFinance.chart(yahooSymbol, { period1, interval });
+    const fetchInterval = interval === '4h' ? '1h' : interval;
+
+    // Cap the requested period based on Yahoo Finance limits for intraday data
+    if (fetchInterval === '1m') {
+      const maxPast = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000); // 6 days to be safe
+      if (period1 < maxPast) period1 = maxPast;
+    } else if (['5m', '15m'].includes(fetchInterval)) {
+      const maxPast = new Date(now.getTime() - 58 * 24 * 60 * 60 * 1000); // 58 days to be safe
+      if (period1 < maxPast) period1 = maxPast;
+    } else if (['1h', '90m'].includes(fetchInterval)) {
+      const maxPast = new Date(now.getTime() - 728 * 24 * 60 * 60 * 1000); // 728 days to be safe
+      if (period1 < maxPast) period1 = maxPast;
+    }
+
+    const result: any = await yahooFinance.chart(yahooSymbol, { period1, interval: fetchInterval });
 
     if (!result?.quotes?.length) {
       return [];
     }
 
-    return result.quotes
-      .filter((q: any) => q.close != null && !isNaN(q.close) && q.open != null && q.high != null && q.low != null)
-      .map((q: any) => ({
-        date: (q.date instanceof Date ? q.date : new Date(q.date)).toISOString().split('T')[0],
-        open: q.open as number,
-        high: q.high as number,
-        low: q.low as number,
-        close: q.close as number,
-        volume: (q.volume as number) || 0,
-      }));
+    let quotes = result.quotes
+      .filter((q: any) => q.close != null && !isNaN(q.close) && q.open != null && q.high != null && q.low != null);
+
+    if (interval === '4h') {
+      const resampled: any[] = [];
+      let currentGroup: any = null;
+      let currentGroupId = -1;
+
+      for (const q of quotes) {
+        const d = q.date instanceof Date ? q.date : new Date(q.date);
+        const groupId = Math.floor(d.getTime() / (4 * 60 * 60 * 1000));
+        
+        if (groupId !== currentGroupId) {
+          if (currentGroup) resampled.push(currentGroup);
+          currentGroup = {
+            date: d,
+            open: q.open,
+            high: q.high,
+            low: q.low,
+            close: q.close,
+            volume: q.volume || 0,
+          };
+          currentGroupId = groupId;
+        } else {
+          currentGroup.high = Math.max(currentGroup.high, q.high);
+          currentGroup.low = Math.min(currentGroup.low, q.low);
+          currentGroup.close = q.close;
+          currentGroup.volume += (q.volume || 0);
+        }
+      }
+      if (currentGroup) resampled.push(currentGroup);
+      quotes = resampled;
+    }
+
+    return quotes.map((q: any) => ({
+      date: (q.date instanceof Date ? q.date : new Date(q.date)).toISOString(),
+      open: q.open as number,
+      high: q.high as number,
+      low: q.low as number,
+      close: q.close as number,
+      volume: (q.volume as number) || 0,
+    }));
   }
 
   private getYahooSymbol(symbol: string): string {
