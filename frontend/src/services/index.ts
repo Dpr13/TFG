@@ -2,9 +2,9 @@ import apiClient from './api';
 import axios from 'axios';
 import type {
   Asset,
-  Price,
   RiskMetrics,
   FinancialData,
+  FundamentalAnalysis,
   Operation,
   CreateOperationDTO,
   UpdateOperationDTO,
@@ -14,6 +14,7 @@ import type {
   UpdateStrategyDTO,
   StrategyPerformance,
   PsychoAnalysisSummary,
+  NewsArticle
 } from '../types';
 
 /**
@@ -50,6 +51,12 @@ export const assetService = {
     const response = await apiClient.get<FinancialData>(`/assets/${symbol}/financial`);
     return response.data;
   },
+
+  // Obtener análisis fundamental estructurado
+  getFundamentalAnalysis: async (symbol: string, range: string = '1y'): Promise<FundamentalAnalysis> => {
+    const response = await apiClient.get<FundamentalAnalysis>(`/assets/${symbol}/fundamental-analysis?range=${range}`);
+    return response.data;
+  },
 };
 
 export const priceService = {
@@ -70,10 +77,12 @@ export const priceService = {
 
 export const riskService = {
   // Calcular métricas de riesgo
-  calculateRisk: async (symbol: string): Promise<RiskMetrics> => {
+  calculateRisk: async (symbol: string, range: '6mo' | '1y' | '3y' | '5y' | '10y' = '1y'): Promise<RiskMetrics> => {
     try {
+      const params = new URLSearchParams();
+      params.append('range', range);
       const response = await apiClient.get<RiskMetrics>(
-        `/assets/${symbol}/risk`
+        `/assets/${symbol}/risk?${params.toString()}`
       );
       return response.data;
     } catch (err) {

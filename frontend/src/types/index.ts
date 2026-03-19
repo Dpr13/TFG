@@ -29,6 +29,8 @@ export interface RiskMetrics {
     start: string;
     end: string;
   };
+  interval?: string;
+  range?: string;
 }
 
 export interface StockFinancialData {
@@ -58,6 +60,19 @@ export interface StockFinancialData {
   averageVolume?: number | null;
   sharesOutstanding?: number | null;
   
+  // ETF specific
+  totalAssets?: number | null;
+  navPrice?: number | null;
+  beta3Year?: number | null;
+  threeYearAverageReturn?: number | null;
+  fiveYearAverageReturn?: number | null;
+  ytdReturn?: number | null;
+  annualReportExpenseRatio?: number | null;
+  fundFamily?: string | null;
+  fundInceptionDate?: string | null;
+
+  quoteType?: string | null;
+  
   lastUpdated: string;
 }
 
@@ -80,6 +95,8 @@ export interface CryptoFinancialData {
   // Trading Info
   fiftyTwoWeekHigh?: number | null;
   fiftyTwoWeekLow?: number | null;
+  fiftyTwoWeekChange?: number | null;
+  quoteType?: string | null;
   
   lastUpdated: string;
 }
@@ -211,4 +228,31 @@ export interface StrategyPerformance {
   bestTrade: number;
   worstTrade: number;
   totalInvested: number;
+}
+
+export interface NewsArticle {
+  id: string;
+  title: string;
+  url: string;
+  source: string;
+  publisher?: string;
+  publishedAt: string;
+  summary?: string;
+  relatedTickers?: string[];
+}
+
+export type FundamentalOutlook = 'STRONG' | 'MODERATE' | 'WEAK';
+
+export interface AnalysisSection {
+  title: string;
+  content: string;
+}
+
+export interface FundamentalAnalysis {
+  symbol: string;
+  assetType: 'stock' | 'crypto' | 'etf';
+  outlook: FundamentalOutlook;
+  outlookScore: number;
+  sections: Record<string, AnalysisSection>;
+  analyzedAt: string;
 }

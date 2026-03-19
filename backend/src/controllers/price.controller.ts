@@ -27,7 +27,10 @@ export const getPriceHistory = async (req: Request, res: Response) => {
     const result = await priceService.getPriceHistory(symbol, interval);
 
     if (!result) {
-      res.status(404).json({ error: `Asset with symbol '${symbol}' not found` });
+      res.status(404).json({ 
+        error: `No se encontraron datos de precio para '${symbol}'`,
+        details: 'Verifica que el símbolo sea válido (ej: AAPL, GOOGL, BTC, etc.)'
+      });
       return;
     }
 
