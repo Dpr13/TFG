@@ -39,7 +39,40 @@ apiClient.interceptors.response.use(
       sessionStorage.removeItem('tfg_auth_token');
       sessionStorage.removeItem('tfg_auth_user');
       window.location.href = '/login';
+      return Promise.reject(error);
     }
+
+    // --- Lógica de reintento ---
+    const config = error.config;
+    
+    // Si no hay config o ya superamos los intentos (máximo 3 peticiones en total = 2 reintentos)
+    // El usuario pidió "máximo de 3 peticiones", eso significa la original + 2 reintentos.
+    if (!config || (config.__retryCount || 0) >= 2) {
+      console.error('API Error (Max retries reached or non-retryable):', error.response?.data || error.message);
+      return Promise.reject(error);
+    }
+
+    // Inicializar contador de reintentos
+    config.__retryCount = config.__retryCount || 0;
+
+    // Solo reintentar en ciertos errores:
+    // - Errores de red (sin respuesta)
+    // - Errores 5xx del servidor
+    // - Timeouts
+    const isNetworkError = !error.response;
+    const isServerError = error.response && error.response.status >= 500;
+    const isTimeout = error.code === 'ECONNABORTED';
+
+    if (isNetworkError || isServerError || isTimeout) {
+      config.__retryCount += 1;
+      console.warn(`Retrying request (${config.__retryCount + 1}/3): ${config.url}`);
+      
+      // Esperar 1 segundo antes del reintento
+      return new Promise(resolve => setTimeout(resolve, 1000))
+        .then(() => apiClient(config));
+    }
+    // ---------------------------
+
     console.error('API Error:', error.response?.data || error.message);
     return Promise.reject(error);
   }
