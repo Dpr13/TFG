@@ -1,0 +1,626 @@
+import { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  Loader2, AlertTriangle, Download, Eye, EyeOff,
+} from 'lucide-react';
+import { assetService } from '@services/index';
+import type { TechnicalAnalysisResult, TechnicalSignalClass, SignalBreakdown } from '../types';
+
+// ── Lightweight Charts global ────────────────────────────────────────────
+declare const LightweightCharts: any;
+
+// ── Constants ────────────────────────────────────────────────────────────
+const SIGNAL_COLORS: Record<TechnicalSignalClass, { text: string; bg: string; border: string }> = {
+  'COMPRA FUERTE': { text: 'text-green-400', bg: 'bg-gradient-to-r from-green-700 to-green-600', border: 'border-green-500' },
+  'COMPRA':        { text: 'text-green-400', bg: 'bg-gradient-to-r from-green-800 to-green-700', border: 'border-green-600' },
+  'NEUTRAL':       { text: 'text-yellow-400', bg: 'bg-gradient-to-r from-yellow-800 to-amber-700', border: 'border-yellow-600' },
+  'VENTA':         { text: 'text-red-400', bg: 'bg-gradient-to-r from-red-800 to-red-700', border: 'border-red-600' },
+  'VENTA FUERTE':  { text: 'text-red-400', bg: 'bg-gradient-to-r from-red-900 to-red-800', border: 'border-red-500' },
+};
+
+// ── Format helper: abbreviated numbers (OBV, Volume) ─────────────────────
+function formatCompactValue(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? '-' : '';
+  if (abs >= 1_000_000_000) return sign + (abs / 1_000_000_000).toFixed(2) + 'B';
+  if (abs >= 1_000_000)     return sign + (abs / 1_000_000).toFixed(2) + 'M';
+  if (abs >= 1_000)         return sign + (abs / 1_000).toFixed(1) + 'K';
+  return sign + abs.toFixed(0);
+}
+
+// ── Signal Score Gauge (SVG arc) ─────────────────────────────────────────
+function SignalGauge({ score, classification }: { score: number; classification: TechnicalSignalClass }) {
+  const radius = 44;
+  const circumference = Math.PI * radius;
+  const progress = (score / 100) * circumference;
+  const color =
+    score >= 80 ? '#22c55e' :
+    score >= 60 ? '#4ade80' :
+    score >= 40 ? '#eab308' :
+    score >= 20 ? '#ef4444' : '#dc2626';
+
+  return (
+    <div className="flex flex-col items-center flex-shrink-0">
+      <svg width="110" height="65" viewBox="0 0 110 65">
+        <path d="M11,58 A44,44 0 0,1 99,58" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="9" strokeLinecap="round" />
+        <path d="M11,58 A44,44 0 0,1 99,58" fill="none" stroke={color} strokeWidth="9" strokeLinecap="round"
+          strokeDasharray={`${progress} ${circumference}`} />
+        <text x="55" y="52" textAnchor="middle" fontSize="22" fontWeight="bold" fill="white">{score}</text>
+        <text x="55" y="63" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.6)">/100</text>
+      </svg>
+      <span className="text-xs font-bold mt-1" style={{ color }}>{classification}</span>
+    </div>
+  );
+}
+
+// ── Breakdown Bar ────────────────────────────────────────────────────────
+function BreakdownBar({ item }: { item: SignalBreakdown }) {
+  const pct = item.maxScore > 0 ? (item.score / item.maxScore) * 100 : 0;
+  const color = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500';
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs">
+        <span className="text-gray-300 font-medium">{item.name}</span>
+        <span className="text-gray-400">{item.score}/{item.maxScore}</span>
+      </div>
+      <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <p className="text-[10px] text-gray-500 leading-tight">{item.detail}</p>
+    </div>
+  );
+}
+
+// ── Helper: parse date to Lightweight Charts format ──────────────────────
+function toChartTime(dateStr: string): string {
+  return dateStr.split('T')[0];
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// TECHNICAL ANALYSIS PANEL — embedded inside RiskAnalysisPage as a tab
+// Props: symbol + selectedRange already set by the parent page
+// ══════════════════════════════════════════════════════════════════════════
+
+interface TechnicalAnalysisPanelProps {
+  symbol: string;
+  selectedRange: string;
+}
+
+export default function TechnicalAnalysisPanel({ symbol, selectedRange }: TechnicalAnalysisPanelProps) {
+  const [data, setData] = useState<TechnicalAnalysisResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Overlay toggles
+  const [showSMA20, setShowSMA20] = useState(false);
+  const [showSMA50, setShowSMA50] = useState(true);
+  const [showSMA200, setShowSMA200] = useState(true);
+  const [showEMA20, setShowEMA20] = useState(false);
+  const [showEMA50, setShowEMA50] = useState(false);
+  const [showBollinger, setShowBollinger] = useState(true);
+  const [showRSI, setShowRSI] = useState(true);
+  const [showMACD, setShowMACD] = useState(true);
+
+  // Chart refs
+  const mainChartRef = useRef<HTMLDivElement>(null);
+  const volumeChartRef = useRef<HTMLDivElement>(null);
+  const rsiChartRef = useRef<HTMLDivElement>(null);
+  const macdChartRef = useRef<HTMLDivElement>(null);
+  const chartsContainerRef = useRef<HTMLDivElement>(null);
+  const chartsRef = useRef<any[]>([]);
+
+  // ── Fetch data when symbol or range changes ───────────────────────────
+  useEffect(() => {
+    if (!symbol) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    assetService.getTechnicalAnalysis(symbol, selectedRange)
+      .then((result) => { if (!cancelled) setData(result); })
+      .catch((err: any) => {
+        if (!cancelled) {
+          setError(err?.response?.data?.error || err?.message || 'Error al analizar el activo');
+          setData(null);
+        }
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [symbol, selectedRange]);
+
+  // ── Build charts ──────────────────────────────────────────────────────
+
+  const buildCharts = useCallback(() => {
+    if (!data || typeof LightweightCharts === 'undefined') return;
+
+    // Clean up
+    chartsRef.current.forEach(c => { try { c.remove(); } catch {} });
+    chartsRef.current = [];
+
+    const darkTheme = {
+      layout: { background: { color: '#1f2937' }, textColor: '#9ca3af' },
+      grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
+      crosshair: { mode: 0 },
+      rightPriceScale: { borderColor: '#4b5563' },
+      timeScale: { borderColor: '#4b5563', timeVisible: false },
+    };
+
+    const candles = data.candles.map(c => ({
+      time: toChartTime(c.date),
+      open: c.open, high: c.high, low: c.low, close: c.close,
+    }));
+
+    const lastClose = data.candles.length > 0 ? data.candles[data.candles.length - 1].close : 0;
+
+    // ── Main Chart ──
+    if (mainChartRef.current) {
+      mainChartRef.current.innerHTML = '';
+      const chart = LightweightCharts.createChart(mainChartRef.current, {
+        ...darkTheme,
+        width: mainChartRef.current.clientWidth,
+        height: 420,
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+      });
+      chartsRef.current.push(chart);
+
+      const candleSeries = chart.addCandlestickSeries({
+        upColor: '#26a69a', downColor: '#ef5350',
+        borderUpColor: '#26a69a', borderDownColor: '#ef5350',
+        wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+      });
+      candleSeries.setData(candles);
+
+      // ── Moving Average Overlays (hide axis labels to reduce clutter) ──
+      if (showSMA20 && data.sma20.length > 0) {
+        const s = chart.addLineSeries({ color: '#93c5fd', lineWidth: 1, lastValueVisible: false, priceLineVisible: false });
+        s.setData(data.sma20.map(p => ({ time: toChartTime(p.time), value: p.value })));
+      }
+      if (showSMA50 && data.sma50.length > 0) {
+        const s = chart.addLineSeries({ color: '#fb923c', lineWidth: 1, lastValueVisible: false, priceLineVisible: false });
+        s.setData(data.sma50.map(p => ({ time: toChartTime(p.time), value: p.value })));
+      }
+      if (showSMA200 && data.sma200.length > 0) {
+        const s = chart.addLineSeries({ color: '#ef4444', lineWidth: 2, lastValueVisible: false, priceLineVisible: false });
+        s.setData(data.sma200.map(p => ({ time: toChartTime(p.time), value: p.value })));
+      }
+      if (showEMA20 && data.ema20.length > 0) {
+        const s = chart.addLineSeries({ color: '#60a5fa', lineWidth: 1, lineStyle: 1, lastValueVisible: false, priceLineVisible: false });
+        s.setData(data.ema20.map(p => ({ time: toChartTime(p.time), value: p.value })));
+      }
+      if (showEMA50 && data.ema50.length > 0) {
+        const s = chart.addLineSeries({ color: '#a78bfa', lineWidth: 1, lineStyle: 1, lastValueVisible: false, priceLineVisible: false });
+        s.setData(data.ema50.map(p => ({ time: toChartTime(p.time), value: p.value })));
+      }
+
+      // ── Bollinger Bands (brighter, dashed, with area fill) ──
+      if (showBollinger && data.bollinger.upper.length > 0) {
+        const sUp = chart.addLineSeries({
+          color: 'rgba(100, 160, 255, 0.9)', lineWidth: 1, lineStyle: 2,
+          lastValueVisible: false, priceLineVisible: false,
+        });
+        sUp.setData(data.bollinger.upper.map(p => ({ time: toChartTime(p.time), value: p.value })));
+
+        const sLow = chart.addLineSeries({
+          color: 'rgba(100, 160, 255, 0.9)', lineWidth: 1, lineStyle: 2,
+          lastValueVisible: false, priceLineVisible: false,
+        });
+        sLow.setData(data.bollinger.lower.map(p => ({ time: toChartTime(p.time), value: p.value })));
+
+        // Area fill between bands using areaSeries on upper band
+        const fillSeries = chart.addAreaSeries({
+          topColor: 'rgba(100, 160, 255, 0.12)',
+          bottomColor: 'rgba(100, 160, 255, 0.04)',
+          lineColor: 'rgba(0,0,0,0)',
+          lineWidth: 0,
+          lastValueVisible: false,
+          priceLineVisible: false,
+        });
+        fillSeries.setData(data.bollinger.upper.map(p => ({ time: toChartTime(p.time), value: p.value })));
+      }
+
+      // ── Support / Resistance — max 2 closest to price, hidden axis labels ──
+      const sortByProximity = (levels: typeof data.supports) =>
+        [...levels].sort((a, b) => Math.abs(a.price - lastClose) - Math.abs(b.price - lastClose)).slice(0, 2);
+
+      sortByProximity(data.supports).forEach(level => {
+        candleSeries.createPriceLine({
+          price: level.price,
+          color: '#22c55e',
+          lineWidth: 1,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: false,
+          title: `S ${level.price.toFixed(2)}`,
+        });
+      });
+      sortByProximity(data.resistances).forEach(level => {
+        candleSeries.createPriceLine({
+          price: level.price,
+          color: '#ef4444',
+          lineWidth: 1,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: false,
+          title: `R ${level.price.toFixed(2)}`,
+        });
+      });
+
+      // Legend on crosshair
+      const legendEl = document.createElement('div');
+      legendEl.style.cssText = 'position:absolute;top:8px;left:12px;z-index:10;font-size:11px;color:#d1d5db;pointer-events:none;font-family:monospace;';
+      mainChartRef.current.style.position = 'relative';
+      mainChartRef.current.appendChild(legendEl);
+
+      chart.subscribeCrosshairMove((param: any) => {
+        if (!param.time || !param.seriesData) {
+          legendEl.textContent = '';
+          return;
+        }
+        const d = param.seriesData.get(candleSeries);
+        if (d) {
+          const vol = data.candles.find(c => toChartTime(c.date) === param.time as string)?.volume;
+          legendEl.textContent = `O: ${d.open?.toFixed(2)}  H: ${d.high?.toFixed(2)}  L: ${d.low?.toFixed(2)}  C: ${d.close?.toFixed(2)}  V: ${vol != null ? formatCompactValue(vol) : '-'}`;
+        }
+      });
+
+      chart.timeScale().fitContent();
+    }
+
+    // ── Volume Chart with formatted OBV ──
+    if (volumeChartRef.current && data.hasVolume) {
+      volumeChartRef.current.innerHTML = '';
+      const chart = LightweightCharts.createChart(volumeChartRef.current, {
+        ...darkTheme,
+        width: volumeChartRef.current.clientWidth,
+        height: 120,
+        rightPriceScale: { borderColor: '#4b5563' },
+      });
+      chartsRef.current.push(chart);
+
+      const volumeSeries = chart.addHistogramSeries({
+        priceFormat: {
+          type: 'custom',
+          formatter: (price: number) => formatCompactValue(price),
+        },
+        priceScaleId: 'vol',
+      });
+      volumeSeries.setData(data.candles.map(c => ({
+        time: toChartTime(c.date),
+        value: c.volume,
+        color: c.close >= c.open ? 'rgba(38,166,154,0.5)' : 'rgba(239,83,80,0.5)',
+      })));
+
+      // OBV line with custom formatter
+      if (data.obv.length > 0) {
+        const obvSeries = chart.addLineSeries({
+          color: '#818cf8', lineWidth: 1, title: 'OBV',
+          priceScaleId: 'obv',
+          priceFormat: {
+            type: 'custom',
+            formatter: (price: number) => formatCompactValue(price),
+          },
+        });
+        chart.priceScale('obv').applyOptions({
+          scaleMargins: { top: 0.1, bottom: 0.1 },
+        });
+        obvSeries.setData(data.obv.map(p => ({ time: toChartTime(p.time), value: p.value })));
+      }
+
+      chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
+      chart.timeScale().fitContent();
+    }
+
+    // ── RSI Chart ──
+    if (rsiChartRef.current && showRSI && data.rsi.length > 0) {
+      rsiChartRef.current.innerHTML = '';
+      const chart = LightweightCharts.createChart(rsiChartRef.current, {
+        ...darkTheme,
+        width: rsiChartRef.current.clientWidth,
+        height: 120,
+      });
+      chartsRef.current.push(chart);
+
+      const rsiSeries = chart.addLineSeries({ color: '#a78bfa', lineWidth: 1.5, title: 'RSI(14)' });
+      rsiSeries.setData(data.rsi.map(p => ({ time: toChartTime(p.time), value: p.value })));
+
+      rsiSeries.createPriceLine({ price: 70, color: '#ef4444', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '' });
+      rsiSeries.createPriceLine({ price: 30, color: '#22c55e', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '' });
+      rsiSeries.createPriceLine({ price: 50, color: '#6b7280', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
+
+      chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } });
+      chart.timeScale().fitContent();
+    }
+
+    // ── MACD Chart ──
+    if (macdChartRef.current && showMACD && data.macd.macdLine.length > 0) {
+      macdChartRef.current.innerHTML = '';
+      const chart = LightweightCharts.createChart(macdChartRef.current, {
+        ...darkTheme,
+        width: macdChartRef.current.clientWidth,
+        height: 120,
+      });
+      chartsRef.current.push(chart);
+
+      const histSeries = chart.addHistogramSeries({ priceScaleId: 'macd', title: 'Hist' });
+      histSeries.setData(data.macd.histogram.map(p => ({
+        time: toChartTime(p.time),
+        value: p.value,
+        color: p.value >= 0 ? 'rgba(38,166,154,0.7)' : 'rgba(239,83,80,0.7)',
+      })));
+
+      const macdLine = chart.addLineSeries({ color: '#60a5fa', lineWidth: 1.5, title: 'MACD', priceScaleId: 'macd' });
+      macdLine.setData(data.macd.macdLine.map(p => ({ time: toChartTime(p.time), value: p.value })));
+
+      const sigLine = chart.addLineSeries({ color: '#fb923c', lineWidth: 1, title: 'Signal', priceScaleId: 'macd' });
+      sigLine.setData(data.macd.signalLine.map(p => ({ time: toChartTime(p.time), value: p.value })));
+
+      macdLine.createPriceLine({ price: 0, color: '#6b7280', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
+      chart.priceScale('macd').applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
+      chart.timeScale().fitContent();
+    }
+
+    // ── Sync time scales ──
+    if (chartsRef.current.length > 1) {
+      const primary = chartsRef.current[0];
+      chartsRef.current.slice(1).forEach(ch => {
+        primary.timeScale().subscribeVisibleLogicalRangeChange((range: any) => {
+          if (range) ch.timeScale().setVisibleLogicalRange(range);
+        });
+        ch.timeScale().subscribeVisibleLogicalRangeChange((range: any) => {
+          if (range) primary.timeScale().setVisibleLogicalRange(range);
+        });
+      });
+    }
+  }, [data, showSMA20, showSMA50, showSMA200, showEMA20, showEMA50, showBollinger, showRSI, showMACD]);
+
+  useEffect(() => {
+    buildCharts();
+    return () => {
+      chartsRef.current.forEach(c => { try { c.remove(); } catch {} });
+      chartsRef.current = [];
+    };
+  }, [buildCharts]);
+
+  // Resize handler
+  useEffect(() => {
+    const handleResize = () => {
+      chartsRef.current.forEach((chart, idx) => {
+        const refs = [mainChartRef, volumeChartRef, rsiChartRef, macdChartRef];
+        const ref = refs[idx];
+        if (ref?.current) chart.applyOptions({ width: ref.current.clientWidth });
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // ── Export PNG ─────────────────────────────────────────────────────────
+  const exportPNG = () => {
+    if (!chartsContainerRef.current) return;
+    const totalHeight = Array.from(chartsContainerRef.current.children).reduce((h, el) => h + (el as HTMLElement).offsetHeight, 0);
+    const width = (chartsContainerRef.current.firstElementChild as HTMLElement)?.offsetWidth || 800;
+
+    const mergedCanvas = document.createElement('canvas');
+    mergedCanvas.width = width * 2;
+    mergedCanvas.height = totalHeight * 2;
+    const ctx = mergedCanvas.getContext('2d')!;
+    ctx.scale(2, 2);
+    ctx.fillStyle = '#1f2937';
+    ctx.fillRect(0, 0, width, totalHeight);
+
+    let yOffset = 0;
+    chartsRef.current.forEach(chart => {
+      try {
+        const canvas = chart.takeScreenshot();
+        ctx.drawImage(canvas, 0, yOffset, width, canvas.height * (width / canvas.width));
+        yOffset += canvas.height * (width / canvas.width);
+      } catch {}
+    });
+
+    const link = document.createElement('a');
+    link.download = `${data?.symbol || 'chart'}_technical_${selectedRange}.png`;
+    link.href = mergedCanvas.toDataURL('image/png');
+    link.click();
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+        <Loader2 className="w-6 h-6 animate-spin text-primary-500 mr-3" />
+        <span className="text-gray-500 dark:text-gray-400">Generando análisis técnico...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center gap-3">
+        <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
+        <p className="text-red-800 dark:text-red-300 text-sm">{error}</p>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+        <p className="text-gray-500 dark:text-gray-400">Datos técnicos no disponibles para este activo.</p>
+      </div>
+    );
+  }
+
+  const signalStyle = SIGNAL_COLORS[data.signal.classification];
+
+  return (
+    <div className="space-y-5">
+
+      {/* ── Signal card ── */}
+      <div className={`rounded-xl p-5 flex flex-col sm:flex-row items-center gap-5 ${signalStyle.bg} border ${signalStyle.border}`}>
+        <SignalGauge score={data.signal.score} classification={data.signal.classification} />
+        <div className="flex-1 min-w-0">
+          <p className="text-white text-sm leading-relaxed">{data.signal.explanation}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+            {data.signal.breakdown.map((item, idx) => (
+              <BreakdownBar key={idx} item={item} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Legal disclaimer */}
+      <p className="text-xs text-gray-500 dark:text-gray-500 leading-relaxed px-1">
+        Esta señal es puramente informativa y se genera de forma automática a partir de indicadores técnicos.
+        No constituye asesoramiento financiero ni recomendación de inversión.
+      </p>
+
+      {/* ── Controls bar ── */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* MA checkboxes */}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider mr-1">Medias:</span>
+            {[
+              { label: 'SMA 20', checked: showSMA20, set: setShowSMA20, color: '#93c5fd', style: 'solid' as const },
+              { label: 'SMA 50', checked: showSMA50, set: setShowSMA50, color: '#fb923c', style: 'solid' as const },
+              { label: 'SMA 200', checked: showSMA200, set: setShowSMA200, color: '#ef4444', style: 'solid' as const },
+              { label: 'EMA 20', checked: showEMA20, set: setShowEMA20, color: '#60a5fa', style: 'dashed' as const },
+              { label: 'EMA 50', checked: showEMA50, set: setShowEMA50, color: '#a78bfa', style: 'dashed' as const },
+              { label: 'Bollinger', checked: showBollinger, set: setShowBollinger, color: 'rgba(100,160,255,0.9)', style: 'dashed' as const },
+            ].map(({ label, checked, set, color, style }) => (
+              <label key={label} className="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => set(!checked)}
+                  className="rounded border-gray-500 text-primary-500 focus:ring-primary-500 focus:ring-offset-0 w-3.5 h-3.5"
+                />
+                <span
+                  className="w-4 h-0.5 rounded"
+                  style={{
+                    backgroundColor: color,
+                    borderBottom: style === 'dashed' ? `2px dashed ${color}` : 'none',
+                    height: style === 'dashed' ? 0 : 2,
+                  }}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+
+          <div className="h-6 w-px bg-gray-700" />
+
+          {/* Panel toggles */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowRSI(!showRSI)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                showRSI ? 'bg-primary-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+              }`}
+            >
+              {showRSI ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+              RSI
+            </button>
+            <button
+              onClick={() => setShowMACD(!showMACD)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                showMACD ? 'bg-primary-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+              }`}
+            >
+              {showMACD ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+              MACD
+            </button>
+          </div>
+
+          <div className="h-6 w-px bg-gray-700" />
+
+          {/* Export */}
+          <button
+            onClick={exportPNG}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Exportar PNG
+          </button>
+        </div>
+      </div>
+
+      {/* ── Charts area ── */}
+      <div ref={chartsContainerRef} className="space-y-1">
+        {/* Main candlestick chart */}
+        <div className="bg-gray-800 rounded-t-xl overflow-hidden border border-gray-700">
+          <div ref={mainChartRef} />
+        </div>
+
+        {/* Volume chart */}
+        {data.hasVolume && (
+          <div className="bg-gray-800 overflow-hidden border-x border-b border-gray-700">
+            <div ref={volumeChartRef} />
+          </div>
+        )}
+
+        {/* RSI chart */}
+        {showRSI && data.rsi.length > 0 && (
+          <div className="bg-gray-800 overflow-hidden border-x border-b border-gray-700">
+            <div className="px-3 pt-1.5 pb-0">
+              <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">RSI (14)</span>
+            </div>
+            <div ref={rsiChartRef} />
+          </div>
+        )}
+
+        {/* MACD chart */}
+        {showMACD && data.macd.macdLine.length > 0 && (
+          <div className="bg-gray-800 rounded-b-xl overflow-hidden border-x border-b border-gray-700">
+            <div className="px-3 pt-1.5 pb-0">
+              <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">MACD (12, 26, 9)</span>
+            </div>
+            <div ref={macdChartRef} />
+          </div>
+        )}
+      </div>
+
+      {/* ── Support / Resistance table ── */}
+      {(data.supports.length > 0 || data.resistances.length > 0) && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-gray-200 dark:border-gray-700">
+          <h4 className="font-semibold text-gray-900 dark:text-white mb-3 text-sm">
+            Niveles de Soporte y Resistencia
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Supports */}
+            <div>
+              <p className="text-xs font-bold text-green-500 uppercase tracking-wider mb-2">Soportes</p>
+              {data.supports.length === 0 ? (
+                <p className="text-xs text-gray-500">No se detectaron soportes claros</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {data.supports.map((s, i) => (
+                    <div key={i} className="flex items-center justify-between bg-green-900/10 rounded-lg px-3 py-2">
+                      <span className="text-sm font-mono font-semibold text-green-400">${s.price.toFixed(2)}</span>
+                      <span className="text-xs text-gray-400">{s.date.split('T')[0]}</span>
+                      <span className="text-xs text-gray-500">Fuerza: {s.strength}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Resistances */}
+            <div>
+              <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">Resistencias</p>
+              {data.resistances.length === 0 ? (
+                <p className="text-xs text-gray-500">No se detectaron resistencias claras</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {data.resistances.map((r, i) => (
+                    <div key={i} className="flex items-center justify-between bg-red-900/10 rounded-lg px-3 py-2">
+                      <span className="text-sm font-mono font-semibold text-red-400">${r.price.toFixed(2)}</span>
+                      <span className="text-xs text-gray-400">{r.date.split('T')[0]}</span>
+                      <span className="text-xs text-gray-500">Fuerza: {r.strength}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
