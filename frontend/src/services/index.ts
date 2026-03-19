@@ -59,8 +59,10 @@ export const assetService = {
   },
 
   // Obtener análisis técnico completo (indicadores + señal)
-  getTechnicalAnalysis: async (symbol: string, range: string = '1y') => {
-    const response = await apiClient.get(`/assets/${symbol}/technical-analysis?range=${range}`, {
+  getTechnicalAnalysis: async (symbol: string, range: string = '1y', interval?: string) => {
+    let url = `/assets/${symbol}/technical-analysis?range=${range}`;
+    if (interval) url += `&interval=${interval}`;
+    const response = await apiClient.get(url, {
       timeout: 30000, // Extended timeout for heavy computation
     });
     return response.data;

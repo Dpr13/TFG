@@ -15,11 +15,11 @@ export const getTechnicalAnalysis = async (req: Request, res: Response) => {
     return;
   }
 
-  const { range } = req.query;
+  const { range, interval } = req.query;
   const selectedRange = (range as string) || '1y';
 
   try {
-    const analysis = await analysisService.analyze(symbol, selectedRange);
+    const analysis = await analysisService.analyze(symbol, selectedRange, interval as string);
     res.json(analysis);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
