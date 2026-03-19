@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { authService, type AuthUser, type LoginCredentials, type RegisterCredentials } from '../services/auth.service';
+import { useTheme } from './ThemeContext';
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -15,8 +16,16 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { setDarkMode } = useTheme();
   const [user, setUser] = useState<AuthUser | null>(() => authService.getStoredUser());
   const [isLoading, setIsLoading] = useState(false);
+
+  // Sincronizar el tema cuando el usuario cambia
+  useEffect(() => {
+    if (user) {
+      setDarkMode(user.darkMode);
+    }
+  }, [user?.darkMode, setDarkMode]);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
     setIsLoading(true);

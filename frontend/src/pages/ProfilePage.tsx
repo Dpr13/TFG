@@ -1,16 +1,18 @@
 import { User, Mail, Bell, Moon, Shield, Lock, Save, X, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { authService } from '../services/auth.service';
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
+  const { setDarkMode } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,8 +37,11 @@ export default function ProfilePage() {
         notificationsEnabled: user.notificationsEnabled,
         darkMode: user.darkMode,
       });
+      // Asegurar que el tema visual refleje el estado guardado del usuario al cargar la página
+      // por si se cambió y no se llegó a guardar
+      setDarkMode(user.darkMode);
     }
-  }, [user]);
+  }, [user, setDarkMode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,10 +56,10 @@ export default function ProfilePage() {
         notificationsEnabled: formData.notificationsEnabled,
         darkMode: formData.darkMode,
       });
-      
+
       updateUser(updatedUser);
       setProfileSuccess('Perfil actualizado correctamente');
-      
+
       setTimeout(() => setProfileSuccess(null), 3000);
     } catch (err: any) {
       setProfileError(err.response?.data?.error || 'Error al actualizar el perfil');
@@ -84,11 +89,11 @@ export default function ProfilePage() {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
       });
-      
+
       setPasswordSuccess('Contraseña actualizada correctamente');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setShowPasswordSection(false);
-      
+
       setTimeout(() => setPasswordSuccess(null), 3000);
     } catch (err: any) {
       setPasswordError(err.response?.data?.error || 'Error al cambiar la contraseña');
@@ -99,6 +104,23 @@ export default function ProfilePage() {
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleDarkModeToggle = async (value: boolean) => {
+    setFormData(prev => ({ ...prev, darkMode: value }));
+    setDarkMode(value);
+    
+    try {
+      const updatedUser = await authService.updateProfile({
+        ...formData,
+        darkMode: value,
+      });
+      updateUser(updatedUser);
+    } catch (err: any) {
+      setFormData(prev => ({ ...prev, darkMode: !value }));
+      setDarkMode(!value);
+      setProfileError('Error al guardar la preferencia de modo oscuro');
+    }
   };
 
   const handlePasswordFieldChange = (field: string, value: string) => {
@@ -245,7 +267,7 @@ export default function ProfilePage() {
                   <input
                     type="checkbox"
                     checked={formData.darkMode}
-                    onChange={(e) => handleChange('darkMode', e.target.checked)}
+                    onChange={(e) => handleDarkModeToggle(e.target.checked)}
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 
@@ -271,6 +293,7 @@ export default function ProfilePage() {
                       notificationsEnabled: user.notificationsEnabled,
                       darkMode: user.darkMode,
                     });
+                    setDarkMode(user.darkMode);
                   }
                   setProfileError(null);
                   setProfileSuccess(null);
