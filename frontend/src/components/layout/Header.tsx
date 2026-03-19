@@ -1,4 +1,4 @@
-import { BarChart3, User, LogOut } from 'lucide-react';
+import { User, LogOut } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -16,7 +16,7 @@ export default function Header() {
       <div className="px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <BarChart3 className="w-8 h-8 text-primary-600" />
+            <img src="/Logo.png" alt="Logo" className="w-10 h-10 object-contain" />
             <div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">
                 Análisis de Riesgo Financiero
