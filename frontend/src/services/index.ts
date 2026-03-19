@@ -57,6 +57,14 @@ export const assetService = {
     const response = await apiClient.get<FundamentalAnalysis>(`/assets/${symbol}/fundamental-analysis?range=${range}`);
     return response.data;
   },
+
+  // Obtener análisis técnico completo (indicadores + señal)
+  getTechnicalAnalysis: async (symbol: string, range: string = '1y') => {
+    const response = await apiClient.get(`/assets/${symbol}/technical-analysis?range=${range}`, {
+      timeout: 30000, // Extended timeout for heavy computation
+    });
+    return response.data;
+  },
 };
 
 export const priceService = {

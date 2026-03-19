@@ -8,6 +8,7 @@ import { riskService, assetService } from '@services/index';
 import { useWatchlist } from '@hooks/useWatchlist';
 import { formatPercentage, formatCompactNumber, formatCurrency, formatDateSimple } from '@utils/format';
 import type { RiskMetrics, FinancialData, FundamentalAnalysis } from '../types';
+import TechnicalAnalysisPanel from '../components/TechnicalAnalysisPanel';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -396,7 +397,7 @@ export default function RiskAnalysisPage() {
   const [financialData, setFinancialData] = useState<FinancialData | null>(null);
   const [fundamentalAnalysis, setFundamentalAnalysis] = useState<FundamentalAnalysis | null>(null);
   const [fundsLoading, setFundsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'QUANTS' | 'FUNDS'>('FUNDS');
+  const [activeTab, setActiveTab] = useState<'QUANTS' | 'FUNDS' | 'TECH'>('FUNDS');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRange, setSelectedRange] = useState<'6mo' | '1y' | '3y' | '5y' | '10y'>('1y');
@@ -594,6 +595,16 @@ export default function RiskAnalysisPage() {
               }`}
             >
               Análisis Cuantitativo
+            </button>
+            <button
+              onClick={() => setActiveTab('TECH')}
+              className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === 'TECH'
+                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Análisis Técnico
             </button>
           </div>
 
@@ -1037,6 +1048,10 @@ export default function RiskAnalysisPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {activeTab === 'TECH' && (
+            <TechnicalAnalysisPanel symbol={symbol} selectedRange={selectedRange} />
           )}
         </div>
       )}
