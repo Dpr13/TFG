@@ -23,7 +23,8 @@ export class MockMarketDataProvider implements MarketDataProvider {
       return null;
     }
 
-    let priceHistory = await MarketDataRepository.getPriceHistoryBySymbol(symbol);
+    // Usar el JSON local (no Yahoo Finance)
+    let priceHistory = MarketDataRepository.getPriceHistoryByAssetId(symbol.toUpperCase());
 
     // Filtrar por interval si se proporciona
     if (interval) {

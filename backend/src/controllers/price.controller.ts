@@ -37,6 +37,15 @@ export const getPriceHistory = async (req: Request, res: Response) => {
     res.json(result);
   } catch (error) {
     console.error('Error fetching price history:', error);
+
+    const message = error instanceof Error ? error.message : String(error);
+    if (message === 'PROVIDER_UNAVAILABLE') {
+      res.status(503).json({
+        error: 'Proveedor de mercado no disponible (Yahoo Finance). Revisa tu conexión/VPN y vuelve a intentarlo.',
+      });
+      return;
+    }
+
     res.status(500).json({
       error: 'Failed to fetch price history',
       message: error instanceof Error ? error.message : 'Unknown error',

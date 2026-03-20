@@ -50,42 +50,81 @@ export class MarketDataRepository {
    * Allows searching any symbol, not just the predefined list
    */
   static async searchAssetBySymbol(symbol: string): Promise<Asset | null> {
-    const provider = new YahooFinanceMarketDataProvider();
-    const result = await provider.validateSymbol(symbol);
-
-    if (!result) {
-      return null;
+    const upper = symbol.toUpperCase();
+    const known = this.KNOWN_ASSETS[upper];
+    if (known) {
+      return {
+        id: upper,
+        symbol: upper,
+        name: known.name,
+        type: known.type,
+      };
     }
 
-    const knownAsset = this.KNOWN_ASSETS[result.symbol];
-
-    return {
-      id: result.symbol,
-      symbol: result.symbol,
-      name: knownAsset?.name || result.name,
-      type: knownAsset?.type || result.type,
-    };
-  }
-
-  /**
-   * Get asset by symbol (using Yahoo Finance, fallback to local if not found)
-   */
-  static async getAssetBySymbol(symbol: string): Promise<Asset | undefined> {
-    // Intenta buscar usando Yahoo Finance
     const provider = new YahooFinanceMarketDataProvider();
-    const result = await provider.validateSymbol(symbol);
-    if (result) {
+    try {
+      const result = await provider.validateSymbol(symbol);
+
+      if (!result) {
+        return null;
+      }
+
       const knownAsset = this.KNOWN_ASSETS[result.symbol];
+
       return {
         id: result.symbol,
         symbol: result.symbol,
         name: knownAsset?.name || result.name,
         type: knownAsset?.type || result.type,
       };
+    } catch (err) {
+      // If Yahoo is down, we can only resolve known assets.
+      if (err instanceof Error && err.message === 'PROVIDER_UNAVAILABLE') {
+        throw err;
+      }
+      throw err;
     }
+  }
+
+  /**
+   * Get asset by symbol (using Yahoo Finance, fallback to local if not found)
+   */
+  static async getAssetBySymbol(symbol: string): Promise<Asset | undefined> {
+    const upper = symbol.toUpperCase();
+    const known = this.KNOWN_ASSETS[upper];
+    if (known) {
+      return {
+        id: upper,
+        symbol: upper,
+        name: known.name,
+        type: known.type,
+      };
+    }
+
+    // Intenta buscar usando Yahoo Finance
+    const provider = new YahooFinanceMarketDataProvider();
+    try {
+      const result = await provider.validateSymbol(symbol);
+      if (result) {
+        const knownAsset = this.KNOWN_ASSETS[result.symbol];
+        return {
+          id: result.symbol,
+          symbol: result.symbol,
+          name: knownAsset?.name || result.name,
+          type: knownAsset?.type || result.type,
+        };
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message === 'PROVIDER_UNAVAILABLE') {
+        // Provider down: just fall back to local suggestions (none for unknown symbols)
+        return undefined;
+      }
+      throw err;
+    }
+
     // Fallback a la lista local si Yahoo Finance no lo encuentra
     const all = await this.getAllAssets();
-    return all.find((asset) => asset.symbol.toUpperCase() === symbol.toUpperCase());
+    return all.find((asset) => asset.symbol.toUpperCase() === upper);
   }
 
   /**

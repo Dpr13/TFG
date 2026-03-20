@@ -46,6 +46,22 @@ export const assetService = {
     return response.data;
   },
 
+  // Obtener los activos buscados por el usuario
+  getUserSearchedAssets: async (): Promise<Asset[]> => {
+    const response = await apiClient.get<Asset[]>('/assets/searched');
+    return response.data;
+  },
+
+  // Guardar un activo buscado para el usuario
+  saveSearchedAsset: async (symbol: string, name: string, type: 'stock' | 'crypto' | 'forex'): Promise<Asset> => {
+    const response = await apiClient.post<Asset>('/assets/searched', {
+      assetSymbol: symbol,
+      assetName: name,
+      assetType: type,
+    });
+    return response.data;
+  },
+
   // Obtener datos financieros de un activo
   getFinancialData: async (symbol: string): Promise<FinancialData> => {
     const response = await apiClient.get<FinancialData>(`/assets/${symbol}/financial`);
