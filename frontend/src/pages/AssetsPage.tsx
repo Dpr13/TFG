@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Search, Loader2, Plus, Star } from 'lucide-react';
 import { useFetch } from '@hooks/useFetch';
@@ -24,8 +24,33 @@ export default function AssetsPage() {
     []
   );
 
-  // Combinar activos sugeridos con activos buscados
-  const allAssets = [...(Array.isArray(assets) ? assets : []), ...searchedAssets];
+  // Cargar activos buscados del usuario al montar el componente
+  useEffect(() => {
+    const loadSearchedAssets = async () => {
+      try {
+        const userSearchedAssets = await assetService.getUserSearchedAssets();
+        setSearchedAssets(userSearchedAssets || []);
+      } catch (err) {
+        // No mostrar error si no está autenticado o si hay un problema
+        // Los activos simplemente no se cargarán desde el backend
+        console.warn('Could not load user searched assets:', err);
+      }
+    };
+
+    loadSearchedAssets();
+  }, []);
+
+  // Combinar activos: primero los buscados, luego los sugeridos, máximo 18
+  const allAssets = [
+    ...searchedAssets,
+    ...(Array.isArray(assets) ? assets : [])
+  ].reduce((unique: Asset[], asset) => {
+    // Evitar duplicados
+    if (!unique.some(a => a.symbol === asset.symbol)) {
+      unique.push(asset);
+    }
+    return unique;
+  }, []).slice(0, 18); // Limitar a 18 activos
 
   const baseAssets = activeView === 'watchlist' ? watchlist : allAssets;
 
@@ -45,12 +70,23 @@ export default function AssetsPage() {
 
     try {
       const asset = await assetService.searchAssetBySymbol(searchQuery.trim());
-      
-      // Verificar si ya existe en la lista
-      const exists = allAssets.some(a => a.symbol === asset.symbol);
-      if (!exists) {
-        setSearchedAssets(prev => [...prev, asset]);
+
+      // Siempre mover el activo buscado al principio (más reciente primero)
+      // Incluso si ya estaba en la lista "sugeridos" o ya fue buscado antes.
+      setSearchedAssets((prev) => [asset, ...prev.filter((a) => a.symbol !== asset.symbol)]);
+
+      // Guardar en el backend (sin bloquear si falla)
+      // Esto también actualiza el searched_at si ya existía.
+      try {
+        await assetService.saveSearchedAsset(asset.symbol, asset.name, asset.type);
+      } catch (err) {
+        console.warn('Warning: Could not save searched asset to backend:', err);
+        // El activo se muestra aunque no se haya guardado en el backend
       }
+
+      // Mantener la búsqueda activa para que la lista quede filtrada
+      // (si prefieres no tocar el input, cambia esto por no hacer nada)
+      setSearchQuery(asset.symbol);
     } catch (err: any) {
       setSearchError(
         err.response?.data?.error ||
@@ -270,3 +306,4 @@ export default function AssetsPage() {
     </div>
   );
 }
+

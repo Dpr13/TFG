@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import Header from './Header';
 import Sidebar from './Sidebar';
+import Footer from './Footer';
 
 interface LayoutProps {
   children: ReactNode;
@@ -8,15 +9,18 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       <Header />
-      <div className="flex">
+      <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 p-6 ml-64">
-          <div className="max-w-7xl mx-auto">
-            {children}
-          </div>
-        </main>
+        <div className="flex-1 flex flex-col min-h-[calc(100vh-73px)] ml-64">
+          <main className="flex-1 p-6 mb-16">
+            <div className="max-w-7xl mx-auto w-full">
+              {children}
+            </div>
+          </main>
+          <Footer />
+        </div>
       </div>
     </div>
   );
