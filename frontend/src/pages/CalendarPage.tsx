@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { operationService } from '../services';
-import type { Operation, DailyStats } from '../types';
+import { useState, useEffect, useMemo } from 'react';
+import { operationService, strategyService } from '../services';
+import type { Operation, DailyStats, Strategy } from '../types';
 import DailyOperationsModal from '../components/DailyOperationsModal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -11,10 +11,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 //
 // EXPANSIONES FUTURAS:
 // - Vista semanal y anual
-// - Heatmap de rentabilidad con gradientes
+// - [HECHO] Heatmap de rentabilidad con gradientes
 // - Exportar calendario a PDF/imagen
 // - Anotaciones/notas diarias sin operaciones
-// - Filtrado por símbolo/estrategia
+// - [HECHO] Filtrado por símbolo/estrategia
 // - Vista comparativa de múltiples meses
 // - Integración con festividades/eventos de mercado
 // - Notificaciones de anomalías (mejor/peor día histórico, etc)
@@ -28,11 +28,52 @@ export default function CalendarPage() {
   const [monthlyStats, setMonthlyStats] = useState<Map<string, DailyStats>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>('');
+
+  // Filtra las estadísticas por estrategia calculando localmente desde las operaciones
+  const filteredStats = useMemo(() => {
+    if (!selectedStrategyId) return monthlyStats;
+    const filtered = operations.filter((op) => op.strategyId === selectedStrategyId);
+    const statsMap = new Map<string, DailyStats>();
+    filtered.forEach((op) => {
+      const existing = statsMap.get(op.date);
+      if (existing) {
+        statsMap.set(op.date, {
+          ...existing,
+          totalPnL: existing.totalPnL + op.pnl,
+          operationCount: existing.operationCount + 1,
+          isProfit: existing.totalPnL + op.pnl > 0,
+        });
+      } else {
+        statsMap.set(op.date, {
+          date: op.date,
+          totalPnL: op.pnl,
+          totalPnLPercentage: op.pnlPercentage ?? 0,
+          operationCount: 1,
+          isProfit: op.pnl > 0,
+        });
+      }
+    });
+    return statsMap;
+  }, [selectedStrategyId, operations, monthlyStats]);
+
+  const maxAbsPnL = useMemo(() => {
+    let max = 0;
+    filteredStats.forEach((stat) => {
+      if (Math.abs(stat.totalPnL) > max) max = Math.abs(stat.totalPnL);
+    });
+    return max || 1;
+  }, [filteredStats]);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedDayOperations, setSelectedDayOperations] = useState<Operation[]>([]);
   const [selectedDayStats, setSelectedDayStats] = useState<DailyStats | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    strategyService.getAllStrategies().then(setStrategies).catch(console.error);
+  }, []);
 
   // Fetch monthly data
   useEffect(() => {
@@ -72,10 +113,12 @@ export default function CalendarPage() {
     const dateStr = formatDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
     setSelectedDate(dateStr);
 
-    const dayOps = operations.filter((op) => op.date === dateStr);
+    const dayOps = operations.filter(
+      (op) => op.date === dateStr && (!selectedStrategyId || op.strategyId === selectedStrategyId)
+    );
     setSelectedDayOperations(dayOps);
 
-    const stats = monthlyStats.get(dateStr);
+    const stats = filteredStats.get(dateStr);
     setSelectedDayStats(stats || null);
 
     setIsModalOpen(true);
@@ -84,7 +127,9 @@ export default function CalendarPage() {
   const handleOperationAdded = async () => {
     await fetchMonthlyData();
     if (selectedDate) {
-      const dayOps = operations.filter((op) => op.date === selectedDate);
+      const dayOps = operations.filter(
+        (op) => op.date === selectedDate && (!selectedStrategyId || op.strategyId === selectedStrategyId)
+      );
       setSelectedDayOperations(dayOps);
     }
   };
@@ -92,13 +137,18 @@ export default function CalendarPage() {
   const handleOperationDeleted = async () => {
     await fetchMonthlyData();
     if (selectedDate) {
-      const dayOps = operations.filter((op) => op.date === selectedDate);
+      const dayOps = operations.filter(
+        (op) => op.date === selectedDate && (!selectedStrategyId || op.strategyId === selectedStrategyId)
+      );
       setSelectedDayOperations(dayOps);
     }
   };
 
   const formatDate = (date: Date) => {
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const getDaysInMonth = (date: Date) => {
@@ -106,7 +156,8 @@ export default function CalendarPage() {
   };
 
   const getFirstDayOfMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    // Convertir de 0=Domingo a 0=Lunes para coincidir con las cabeceras
+    return (new Date(date.getFullYear(), date.getMonth(), 1).getDay() + 6) % 7;
   };
 
   const previousMonth = () => {
@@ -165,7 +216,7 @@ export default function CalendarPage() {
         {/* Calendar Header */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
           {/* Month Navigation */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <button
               onClick={previousMonth}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
@@ -184,6 +235,33 @@ export default function CalendarPage() {
               <ChevronRight className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </button>
           </div>
+
+          {/* Strategy Filter */}
+          {strategies.length > 0 && (
+            <div className="flex items-center gap-2 mb-6">
+              <label className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                Estrategia:
+              </label>
+              <select
+                value={selectedStrategyId}
+                onChange={(e) => setSelectedStrategyId(e.target.value)}
+                className="px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">Todas</option>
+                {strategies.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              {selectedStrategyId && (
+                <button
+                  onClick={() => setSelectedStrategyId('')}
+                  className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Weekday Headers */}
           <div className="grid grid-cols-7 gap-2 mb-2">
@@ -207,22 +285,22 @@ export default function CalendarPage() {
               const dateStr = formatDate(
                 new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
               );
-              const stats = monthlyStats.get(dateStr);
+              const stats = filteredStats.get(dateStr);
               const isProfit = stats && stats.totalPnL > 0;
               const isLoss = stats && stats.totalPnL < 0;
 
-              let bgColor = 'bg-gray-50 dark:bg-gray-700';
-              if (isProfit) {
-                bgColor = 'bg-green-100 dark:bg-green-900';
-              } else if (isLoss) {
-                bgColor = 'bg-red-100 dark:bg-red-900';
-              }
+              const intensity = stats ? Math.min(Math.abs(stats.totalPnL) / maxAbsPnL, 1) : 0;
+              const alpha = stats ? (0.15 + intensity * 0.75).toFixed(2) : '0';
+              const bgStyle = stats
+                ? { backgroundColor: isProfit ? `rgba(34,197,94,${alpha})` : `rgba(239,68,68,${alpha})` }
+                : undefined;
 
               return (
                 <button
                   key={day}
                   onClick={() => handleDayClick(day)}
-                  className={`aspect-square p-2 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-primary-400 transition-all cursor-pointer ${bgColor}`}
+                  style={bgStyle}
+                  className={`aspect-square p-2 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-primary-400 transition-all cursor-pointer ${!stats ? 'bg-gray-50 dark:bg-gray-700' : ''}`}
                 >
                   <div className="h-full flex flex-col items-start justify-start">
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">

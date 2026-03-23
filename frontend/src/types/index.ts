@@ -206,11 +206,18 @@ export interface BehaviorStats {
   longestLossStreak: number;
 }
 
+export interface RiskAlert {
+  type: 'overtrading' | 'revenge_trading' | 'loss_spiral';
+  severity: 'low' | 'medium' | 'high';
+  message: string;
+}
+
 export interface PsychoAnalysisSummary {
   generalStats: GeneralStats;
   assetStats: AssetStats[];
   temporalStats: TemporalStats;
   behaviorStats: BehaviorStats;
+  alerts: RiskAlert[];
 }
 export interface UpdateStrategyDTO {
   name?: string;
