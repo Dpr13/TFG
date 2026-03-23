@@ -85,6 +85,16 @@ export const assetService = {
   },
 };
 
+export const recommendationService = {
+  // Calculate recommendation levels (SL, TP, Risk)
+  calculate: async (data: import('../types/recommendation').RecommendationRequest): Promise<import('../types/recommendation').RecommendationResult> => {
+    const response = await apiClient.post<import('../types/recommendation').RecommendationResult>('/recommendation/calculate', data, {
+      timeout: 30000,
+    });
+    return response.data;
+  },
+};
+
 export const priceService = {
   // Obtener histórico de precios
   getPriceHistory: async (

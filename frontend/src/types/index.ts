@@ -335,3 +335,5 @@ export interface TechnicalAnalysisResult {
   hasVolume: boolean;
   analyzedAt: string;
 }
+
+export * from './recommendation';

@@ -491,9 +491,9 @@ export class TechnicalAnalysisService {
       let bbScore = 0;
       let bbDetail = '';
 
-      if (lastClose > lastUpper) { bbScore = 5; bbDetail = 'Precio fuera de banda superior (sobrecompra)'; }
-      else if (lastClose < lastLower) { bbScore = 5; bbDetail = 'Precio fuera de banda inferior (sobrevendido)'; }
-      else { bbScore = 15; bbDetail = 'Precio dentro de las bandas (comportamiento normal)'; }
+      if (lastClose > lastUpper) { bbScore = 0; bbDetail = 'Precio por encima de la banda superior (sobrecompra, señal bajista)'; }
+      else if (lastClose < lastLower) { bbScore = 15; bbDetail = 'Precio por debajo de la banda inferior (sobrevendido, oportunidad de compra)'; }
+      else { bbScore = 7; bbDetail = 'Precio dentro de las bandas (comportamiento neutral)'; }
 
       breakdown.push({ name: 'Bandas de Bollinger', score: bbScore, maxScore: 15, detail: bbDetail });
       totalScore += bbScore;

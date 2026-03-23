@@ -65,7 +65,7 @@ function BreakdownBar({ item }: { item: SignalBreakdown }) {
       <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <p className="text-[10px] text-gray-500 leading-tight">{item.detail}</p>
+      <p className="text-[10.5px] text-gray-200 leading-tight font-medium">{item.detail}</p>
     </div>
   );
 }
