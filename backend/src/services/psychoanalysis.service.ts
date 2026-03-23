@@ -5,6 +5,7 @@ import {
   TemporalStats,
   BehaviorStats,
   PsychoAnalysisSummary,
+  RiskAlert,
 } from '../models/psychoanalysis';
 
 // ============================================================================
@@ -35,12 +36,14 @@ export const psychoanalysisService = {
     const assetStats = calculateAssetStats(operations);
     const temporalStats = calculateTemporalStats(operations);
     const behaviorStats = calculateBehaviorStats(operations);
+    const alerts = detectRiskAlerts(operations);
 
     return {
       generalStats,
       assetStats,
       temporalStats,
       behaviorStats,
+      alerts,
     };
   },
 };
@@ -78,6 +81,7 @@ function getEmptySummary(): PsychoAnalysisSummary {
       longestWinStreak: 0,
       longestLossStreak: 0,
     },
+    alerts: [],
   };
 }
 
@@ -263,4 +267,77 @@ function calculateBehaviorStats(operations: Operation[]): BehaviorStats {
     longestWinStreak,
     longestLossStreak,
   };
+}
+
+function detectRiskAlerts(operations: Operation[]): RiskAlert[] {
+  const alerts: RiskAlert[] = [];
+  const sorted = [...operations].sort((a, b) => a.date.localeCompare(b.date));
+
+  // --- Over-trading: días con volumen anormalmente alto ---
+  const opsByDay = new Map<string, number>();
+  sorted.forEach(op => opsByDay.set(op.date, (opsByDay.get(op.date) || 0) + 1));
+
+  const dayCount = opsByDay.size || 1;
+  const avgDayOps = operations.length / dayCount;
+  const threshold = Math.max(8, Math.round(avgDayOps * 3));
+  const overtradingDays = [...opsByDay.entries()].filter(([, count]) => count >= threshold);
+  const maxDayOps = Math.max(...opsByDay.values());
+
+  if (overtradingDays.length > 0) {
+    alerts.push({
+      type: 'overtrading',
+      severity: overtradingDays.length >= 3 ? 'high' : overtradingDays.length >= 2 ? 'medium' : 'low',
+      message: `Se detectaron ${overtradingDays.length} día(s) con volumen de operaciones anormalmente alto (máximo: ${maxDayOps} ops en un día, media: ${avgDayOps.toFixed(1)}).`,
+    });
+  }
+
+  // --- Revenge trading: pico de operaciones tras 3+ pérdidas consecutivas ---
+  let consecutiveLosses = 0;
+  let revengeDetected = false;
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (sorted[i].pnl < 0) {
+      consecutiveLosses++;
+    } else {
+      consecutiveLosses = 0;
+    }
+
+    if (consecutiveLosses >= 3) {
+      const nextOps = sorted.slice(i + 1, i + 4);
+      const nextDates = new Set(nextOps.map(op => op.date));
+      if (nextOps.length >= 3 && nextDates.size === 1) {
+        revengeDetected = true;
+        break;
+      }
+    }
+  }
+
+  if (revengeDetected) {
+    alerts.push({
+      type: 'revenge_trading',
+      severity: 'high',
+      message: 'Se detectó posible revenge trading: aumento brusco de operaciones tras una racha de 3 o más pérdidas consecutivas.',
+    });
+  }
+
+  // --- Loss spiral: pérdidas consecutivas de magnitud creciente ---
+  let spiralCount = 0;
+  for (let i = 2; i < sorted.length; i++) {
+    const a = sorted[i - 2].pnl;
+    const b = sorted[i - 1].pnl;
+    const c = sorted[i].pnl;
+    if (a < 0 && b < 0 && c < 0 && Math.abs(b) > Math.abs(a) && Math.abs(c) > Math.abs(b)) {
+      spiralCount++;
+    }
+  }
+
+  if (spiralCount >= 2) {
+    alerts.push({
+      type: 'loss_spiral',
+      severity: spiralCount >= 4 ? 'high' : 'medium',
+      message: `Se detectaron ${spiralCount} secuencias de pérdidas crecientes. Las pérdidas aumentan progresivamente en magnitud.`,
+    });
+  }
+
+  return alerts;
 }

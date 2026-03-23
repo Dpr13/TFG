@@ -264,6 +264,11 @@ export const psychoanalysisService = {
     });
     return response.data;
   },
+
+  getAnalysisByStrategy: async (strategyId: string): Promise<PsychoAnalysisSummary> => {
+    const response = await apiClient.get<PsychoAnalysisSummary>(`/psychoanalysis/strategy/${strategyId}`);
+    return response.data;
+  },
 };
 
 export interface WatchlistItem {
