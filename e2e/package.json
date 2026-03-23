@@ -1,0 +1,17 @@
+{
+  "name": "tfg-e2e",
+  "version": "1.0.0",
+  "description": "Tests E2E con Selenium para TFG",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "mocha --timeout 30000 tests/**/*.test.js",
+    "test:headed": "HEADLESS=false mocha --timeout 30000 tests/**/*.test.js"
+  },
+  "dependencies": {
+    "selenium-webdriver": "^4.27.0"
+  },
+  "devDependencies": {
+    "mocha": "^10.7.0"
+  }
+}
