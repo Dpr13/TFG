@@ -13,6 +13,18 @@ const yahooFinance: any = new (yahooFinanceDefault as any)({ suppressNotices: ['
 export class YahooFinanceMarketDataProvider implements MarketDataProvider {
   private readonly cryptoSymbols = ['BTC', 'ETH', 'BITCOIN', 'ETHEREUM'];
 
+  private isProviderUnavailableError(message: string): boolean {
+    const msg = message.toLowerCase();
+    return (
+      msg.includes('fetch failed') ||
+      msg.includes('enotfound') ||
+      msg.includes('econnreset') ||
+      msg.includes('etimedout') ||
+      msg.includes('eai_again') ||
+      msg.includes('network')
+    );
+  }
+
   /**
    * Check if symbol is a cryptocurrency
    */
@@ -98,7 +110,13 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
       const queryOptions: any = { period1, interval: mappedInterval };
       
       console.log(`[YahooFinance] Requesting chart for ${yahooSymbol}, interval: ${interval} (mapped: ${mappedInterval}), effectiveRange: ${effectiveRange}`);
-      const result: any = await yahooFinance.chart(yahooSymbol, queryOptions);
+      // Some symbols return slightly "invalid" shapes (e.g., meta.currency: null) that trip runtime schema validation.
+      // Prefer returning partial data over failing the request.
+      const result: any = await yahooFinance.chart(
+        yahooSymbol,
+        queryOptions,
+        { validateResult: false } as any
+      );
       
       if (!result || !result.quotes || result.quotes.length === 0) {
         console.warn(`[YahooFinance] No price data received for ${symbol} (${yahooSymbol}). Result:`, result ? (result.quotes ? `${result.quotes.length} quotes` : 'no quotes field') : 'null result');
@@ -117,6 +135,30 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[YahooFinance] Exception fetching historical prices for ${symbol}:`, errorMsg);
+
+      if (this.isProviderUnavailableError(errorMsg)) {
+        throw new Error('PROVIDER_UNAVAILABLE');
+      }
+
+      // If yahoo-finance2 throws a validation error but still provides a partial result,
+      // use it instead of returning null.
+      const anyErr = error as any;
+      const validationResult = anyErr?.result;
+      if (anyErr?.name === 'FailedYahooValidationError' && validationResult?.quotes?.length) {
+        try {
+          const prices = validationResult.quotes
+            .filter((q: any) => q.close !== null && !isNaN(q.close as number))
+            .map((q: any) => ({
+              date: q.date instanceof Date ? q.date.toISOString() : new Date(q.date).toISOString(),
+              close: q.close as number,
+            }));
+
+          return prices.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        } catch (inner) {
+          console.error('[YahooFinance] Failed to recover prices from validation error result:', inner);
+        }
+      }
+
       return null;
     }
   }
@@ -162,6 +204,12 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[YahooFinance] Symbol validation failed for ${symbol}:`, errorMsg);
+
+      // Distinguish "symbol not found" from "provider unreachable"
+      if (this.isProviderUnavailableError(errorMsg)) {
+        throw new Error('PROVIDER_UNAVAILABLE');
+      }
+
       return null;
     }
   }
@@ -188,7 +236,13 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
 
       const modules = ['price', 'summaryDetail', 'defaultKeyStatistics', 'financialData'] as const;
 
-      const data: any = await yahooFinance.quoteSummary(yahooSymbol, { modules: modules as any } as any);
+      // Some symbols return slightly "invalid" shapes (e.g., currency: null) that trip runtime schema validation.
+      // We prefer returning partial data over failing the entire request.
+      const data: any = await yahooFinance.quoteSummary(
+        yahooSymbol,
+        { modules: modules as any } as any,
+        { validateResult: false } as any
+      );
 
       if (!data) {
         console.error(`No financial data found for symbol: ${symbol}`);
@@ -256,7 +310,73 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
         } as StockFinancialData;
       }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`Error fetching financial data from yahoo-finance2 for ${symbol}:`, error);
+
+      if (this.isProviderUnavailableError(errorMsg)) {
+        throw new Error('PROVIDER_UNAVAILABLE');
+      }
+
+      // If yahoo-finance2 throws a validation error but still provides a partial result,
+      // use it instead of returning a misleading 404.
+      const anyErr = error as any;
+      if (anyErr?.name === 'FailedYahooValidationError' && anyErr?.result) {
+        try {
+          const data: any = anyErr.result;
+          const price = data.price || {};
+          const summaryDetail = data.summaryDetail || {};
+          const isCryptoFallback = this.isCrypto(symbol) || price.quoteType === 'CRYPTOCURRENCY';
+
+          if (isCryptoFallback) {
+            return {
+              symbol: symbol.toUpperCase(),
+              marketCap: price.marketCap || summaryDetail.marketCap,
+              volume24h: summaryDetail.volume24Hr || summaryDetail.volume || price.regularMarketVolume,
+              circulatingSupply: price.circulatingSupply || summaryDetail.circulatingSupply,
+              totalSupply: price.circulatingSupply || summaryDetail.totalSupply,
+              maxSupply: summaryDetail.maxSupply,
+              fiftyTwoWeekHigh: summaryDetail.fiftyTwoWeekHigh,
+              fiftyTwoWeekLow: summaryDetail.fiftyTwoWeekLow,
+              fiftyTwoWeekChange: summaryDetail.fiftyTwoWeekChange || price.regularMarketChangePercent,
+              quoteType: price.quoteType || summaryDetail.quoteType || 'CRYPTOCURRENCY',
+              financialCurrency: price.currency || summaryDetail.currency,
+              lastUpdated: new Date().toISOString(),
+            } as CryptoFinancialData;
+          }
+
+          const keyStats = data.defaultKeyStatistics || {};
+          const financialData = data.financialData || {};
+
+          return {
+            symbol: symbol.toUpperCase(),
+            marketCap: price.marketCap || summaryDetail.marketCap,
+            enterpriseValue: keyStats.enterpriseValue,
+            peRatio: summaryDetail.trailingPE || keyStats.trailingPE,
+            pegRatio: keyStats.pegRatio,
+            priceToSales: keyStats.priceToSalesTrailing12Months,
+            priceToBook: keyStats.priceToBook,
+            evToEbitda: keyStats.enterpriseToEbitda,
+            eps: keyStats.trailingEps || summaryDetail.trailingEps,
+            dividendYield: summaryDetail.dividendYield || keyStats.yield,
+            beta: keyStats.beta || summaryDetail.beta,
+            roe: financialData.returnOnEquity,
+            roa: financialData.returnOnAssets,
+            profitMargin: financialData.profitMargins,
+            operatingMargin: financialData.operatingMargins,
+            fiftyTwoWeekHigh: summaryDetail.fiftyTwoWeekHigh,
+            fiftyTwoWeekLow: summaryDetail.fiftyTwoWeekLow,
+            averageVolume: summaryDetail.averageVolume || summaryDetail.averageVolume10days,
+            sharesOutstanding: keyStats.sharesOutstanding,
+            lastUpdated: new Date().toISOString(),
+            quoteType: price.quoteType || summaryDetail.quoteType,
+            financialCurrency: price.currency || summaryDetail.currency,
+            exchange: price.exchangeName || price.exchange,
+          } as StockFinancialData;
+        } catch (inner) {
+          console.error('Failed to recover from yahoo-finance2 validation error:', inner);
+        }
+      }
+
       return null;
     }
   }

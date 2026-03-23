@@ -46,6 +46,22 @@ export const assetService = {
     return response.data;
   },
 
+  // Obtener los activos buscados por el usuario
+  getUserSearchedAssets: async (): Promise<Asset[]> => {
+    const response = await apiClient.get<Asset[]>('/assets/searched');
+    return response.data;
+  },
+
+  // Guardar un activo buscado para el usuario
+  saveSearchedAsset: async (symbol: string, name: string, type: 'stock' | 'crypto' | 'forex'): Promise<Asset> => {
+    const response = await apiClient.post<Asset>('/assets/searched', {
+      assetSymbol: symbol,
+      assetName: name,
+      assetType: type,
+    });
+    return response.data;
+  },
+
   // Obtener datos financieros de un activo
   getFinancialData: async (symbol: string): Promise<FinancialData> => {
     const response = await apiClient.get<FinancialData>(`/assets/${symbol}/financial`);
@@ -55,6 +71,26 @@ export const assetService = {
   // Obtener análisis fundamental estructurado
   getFundamentalAnalysis: async (symbol: string, range: string = '1y'): Promise<FundamentalAnalysis> => {
     const response = await apiClient.get<FundamentalAnalysis>(`/assets/${symbol}/fundamental-analysis?range=${range}`);
+    return response.data;
+  },
+
+  // Obtener análisis técnico completo (indicadores + señal)
+  getTechnicalAnalysis: async (symbol: string, range: string = '1y', interval?: string) => {
+    let url = `/assets/${symbol}/technical-analysis?range=${range}`;
+    if (interval) url += `&interval=${interval}`;
+    const response = await apiClient.get(url, {
+      timeout: 30000, // Extended timeout for heavy computation
+    });
+    return response.data;
+  },
+};
+
+export const recommendationService = {
+  // Calculate recommendation levels (SL, TP, Risk)
+  calculate: async (data: import('../types/recommendation').RecommendationRequest): Promise<import('../types/recommendation').RecommendationResult> => {
+    const response = await apiClient.post<import('../types/recommendation').RecommendationResult>('/recommendation/calculate', data, {
+      timeout: 30000,
+    });
     return response.data;
   },
 };
