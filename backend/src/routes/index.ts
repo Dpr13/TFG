@@ -8,6 +8,7 @@ import strategiesRouter from './strategies.routes';
 import psychoanalysisRouter from './psychoanalysis.routes';
 import newsRouter from './news.routes';
 import watchlistRouter from './watchlist.routes';
+import recommendationRouter from './recommendation.routes'; // Added
 
 const router = Router();
 
@@ -23,5 +24,6 @@ router.use('/', strategiesRouter);
 router.use('/', psychoanalysisRouter);
 router.use('/', newsRouter);
 router.use('/', watchlistRouter);
+router.use('/', recommendationRouter); // Added
 
 export default router;

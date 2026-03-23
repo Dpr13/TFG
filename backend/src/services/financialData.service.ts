@@ -1,6 +1,7 @@
 import { MarketDataProvider } from '../providers/interfaces/MarketDataProvider';
 import { ProviderFactory } from '../providers/ProviderFactory';
-import { FinancialData } from '../models/financialData';
+import { CryptoFinancialData, FinancialData, StockFinancialData } from '../models/financialData';
+import { MarketDataRepository } from '../repositories/marketData.repository';
 
 /**
  * Service layer for financial data operations
@@ -21,12 +22,43 @@ export class FinancialDataService {
    * financial highlights, and market data
    */
   async getFinancialData(symbol: string): Promise<FinancialData | null> {
-    const financialData = await this.provider.getFinancialData(symbol);
+    try {
+      const financialData = await this.provider.getFinancialData(symbol);
+      return financialData;
+    } catch (err) {
+      if (err instanceof Error && err.message === 'PROVIDER_UNAVAILABLE') {
+        // Yahoo Finance no está accesible: devolver un placeholder para activos conocidos
+        const asset = await MarketDataRepository.getAssetBySymbol(symbol);
+        if (!asset) {
+          return null;
+        }
 
-    if (!financialData) {
-      return null;
+        if (asset.type === 'crypto') {
+          const cryptoData: CryptoFinancialData = {
+            symbol: asset.symbol.toUpperCase(),
+            marketCap: undefined,
+            volume24h: undefined,
+            circulatingSupply: undefined,
+            totalSupply: undefined,
+            maxSupply: undefined,
+            fiftyTwoWeekHigh: undefined,
+            fiftyTwoWeekLow: undefined,
+            lastUpdated: new Date().toISOString(),
+          };
+          return cryptoData;
+        }
+
+        const stockData: StockFinancialData = {
+          symbol: asset.symbol.toUpperCase(),
+          marketCap: undefined,
+          peRatio: undefined,
+          eps: undefined,
+          lastUpdated: new Date().toISOString(),
+        };
+        return stockData;
+      }
+
+      throw err;
     }
-
-    return financialData;
   }
 }

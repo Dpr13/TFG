@@ -21,5 +21,22 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   }
 }
 
+// Middleware para autenticación opcional - no rechaza si no hay token
+export function optionalAuth(req: AuthRequest, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const secret = process.env.JWT_SECRET || 'tfg_jwt_secret_2026_secure_key';
+      const decoded = jwt.verify(token, secret) as { userId: string };
+      req.userId = decoded.userId;
+    } catch (err) {
+      // Token inválido, pero no rechazamos la solicitud
+      console.error('Invalid token:', err);
+    }
+  }
+  next();
+}
+
 // Alias para compatibilidad
 export const authenticateToken = requireAuth;

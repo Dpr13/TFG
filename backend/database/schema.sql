@@ -21,6 +21,16 @@ CREATE TABLE user_watchlists (
     UNIQUE(user_id, asset_symbol)
 );
 
+CREATE TABLE user_searched_assets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    asset_symbol VARCHAR(20) NOT NULL,
+    asset_name VARCHAR(255) NOT NULL,
+    asset_type asset_type_enum NOT NULL,
+    searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, asset_symbol)
+);
+
 CREATE TABLE price_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     symbol VARCHAR(20) NOT NULL,

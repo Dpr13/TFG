@@ -1,11 +1,13 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Layout from '@components/layout/Layout';
 import LoginPage from '@pages/LoginPage';
 import RegisterPage from '@pages/RegisterPage';
 import HomePage from '@pages/HomePage';
 import AssetsPage from '@pages/AssetsPage';
 import RiskAnalysisPage from '@pages/RiskAnalysisPage';
+import RecommendationPage from '@pages/RecommendationPage';
 import ProfilePage from '@pages/ProfilePage';
 import CalendarPage from '@pages/CalendarPage';
 import StrategiesPage from '@pages/StrategiesPage';
@@ -35,6 +37,7 @@ function AppRoutes() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/assets" element={<AssetsPage />} />
                 <Route path="/risk" element={<RiskAnalysisPage />} />
+                <Route path="/recommendation" element={<RecommendationPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/strategies" element={<StrategiesPage />} />
@@ -52,9 +55,11 @@ function AppRoutes() {
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </ThemeProvider>
     </Router>
   );
 }
