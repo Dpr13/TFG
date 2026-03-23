@@ -11,9 +11,9 @@ import { AuthRequest } from '../middleware/auth.middleware';
  * - Soft delete de estrategias (archivado)
  * - Versioning de cambios
  * - Asociación automática con operaciones nuevas
- * - Cálculo de métricas en tiempo real (PnL, win rate por estrategia)
- * - Endpoint de performance detallado
- * - Endpoint de comparación entre estrategias
+ * - [HECHO] Cálculo de métricas en tiempo real (PnL, win rate por estrategia)
+ * - [HECHO] Endpoint de performance detallado
+ * - [HECHO] Endpoint de comparación entre estrategias
  */
 
 export const strategyController = {
