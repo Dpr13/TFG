@@ -77,16 +77,20 @@ export interface BehaviorStats {
   // EXPANSIÓN: impulsivityScore?: number; // 0-100
 }
 
+// Alerta de comportamiento de riesgo detectada automáticamente
+export interface RiskAlert {
+  type: 'overtrading' | 'revenge_trading' | 'loss_spiral';
+  severity: 'low' | 'medium' | 'high';
+  message: string;
+}
+
 // Resumen general del psicoanálisis
 export interface PsychoAnalysisSummary {
   generalStats: GeneralStats;
   assetStats: AssetStats[];
   temporalStats: TemporalStats;
   behaviorStats: BehaviorStats;
-  // EXPANSIÓN: psychologicalProfile?: PsychologicalProfile;
-  // EXPANSIÓN: recommendations?: Recommendation[];
-  // EXPANSIÓN: riskFlags?: RiskFlag[];
-  // EXPANSIÓN: predictedBehavior?: PredictedBehavior;
+  alerts: RiskAlert[];
 }
 
 // EXPANSIONES FUTURAS:

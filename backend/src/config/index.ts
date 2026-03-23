@@ -23,7 +23,7 @@ const pool = new Pool({
 });
 
 // Manejar errores del pool
-pool.on('error', (err) => {
+pool.on('error', (err: Error) => {
   console.error('❌ Error inesperado en el pool de PostgreSQL:', err);
 });
 
