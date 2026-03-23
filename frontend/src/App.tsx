@@ -7,6 +7,7 @@ import RegisterPage from '@pages/RegisterPage';
 import HomePage from '@pages/HomePage';
 import AssetsPage from '@pages/AssetsPage';
 import RiskAnalysisPage from '@pages/RiskAnalysisPage';
+import RecommendationPage from '@pages/RecommendationPage';
 import ProfilePage from '@pages/ProfilePage';
 import CalendarPage from '@pages/CalendarPage';
 import StrategiesPage from '@pages/StrategiesPage';
@@ -36,6 +37,7 @@ function AppRoutes() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/assets" element={<AssetsPage />} />
                 <Route path="/risk" element={<RiskAnalysisPage />} />
+                <Route path="/recommendation" element={<RecommendationPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/strategies" element={<StrategiesPage />} />

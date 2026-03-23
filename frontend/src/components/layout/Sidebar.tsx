@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Briefcase, TrendingUp, Calendar, Zap, Brain } from 'lucide-react';
+import { Home, Briefcase, TrendingUp, Calendar, Zap, Brain, Target } from 'lucide-react';
 
 export default function Sidebar() {
   const navItems = [
     { path: '/', label: 'Inicio', icon: Home },
     { path: '/assets', label: 'Activos', icon: Briefcase },
     { path: '/risk', label: 'Análisis de Riesgo', icon: TrendingUp },
+    { path: '/recommendation', label: 'Recomendación', icon: Target },
     { path: '/calendar', label: 'Calendario', icon: Calendar },
     { path: '/strategies', label: 'Estrategias', icon: Zap },
     { path: '/psychoanalysis', label: 'Psicoanálisis', icon: Brain },
