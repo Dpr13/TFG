@@ -10,14 +10,14 @@ const technicalService = new TechnicalAnalysisService();
 
 // Map intervals to ranges that Yahoo Finance supports
 const INTERVAL_RANGE_MAP: Record<string, string> = {
-  '1m': '6mo',
-  '5m': '6mo',
-  '15m': '6mo',
-  '1h': '1y',
-  '4h': '1y',
+  '1m': '7d', // using '7d' logic, actually service caps to 6d automatically
+  '5m': '60d', // actually 6mo is allowed for 5m? No, Yahoo limits to 60d. To map, we can use '60d' or '6mo' (which gets capped). Let's use '60d' equivalent or let the cap handle it.
+  '15m': '60d',
+  '1h': '730d',
+  '4h': '60d', // using 60d
   '1d': '1y',
-  '1wk': '3y',
-  '1mo': '5y',
+  '1wk': '1y',
+  '1mo': '1y',
 };
 
 export class RecommendationService {
