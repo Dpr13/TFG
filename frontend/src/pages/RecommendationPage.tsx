@@ -31,6 +31,7 @@ export default function RecommendationPage() {
   const mainChartRef = useRef<HTMLDivElement>(null);
   const volumeChartRef = useRef<HTMLDivElement>(null);
   const chartsRef = useRef<any[]>([]);
+  const isCalculatingRef = useRef(false);
 
   // Toggles
   const [showSMA50, setShowSMA50] = useState(true);
@@ -39,55 +40,61 @@ export default function RecommendationPage() {
 
   // Recalculate Risk if capital or riskPct change (without reloading all data)
   useEffect(() => {
-    if (result && !loading) {
-      const capNum = parseFloat(capital);
-      const riskNum = parseFloat(riskPct);
-      if (!isNaN(capNum) && !isNaN(riskNum) && capNum > 0 && riskNum > 0 && riskNum <= 100) {
-        setResult((prev: RecommendationResult | null) => {
-          if (!prev) return prev;
-          const r = { ...prev };
-          r.riskManagement = { ...r.riskManagement };
-          
-          const moneyAtRisk = capNum * (riskNum / 100);
-          r.riskManagement.moneyAtRisk = moneyAtRisk;
-          
-          let posSize = 0;
-          if (r.slDistanceAbs > 0) {
-            posSize = moneyAtRisk / r.slDistanceAbs;
-          }
-          r.riskManagement.positionSize = posSize;
-          r.riskManagement.positionValue = posSize * r.entryPrice;
-          r.riskManagement.riskPctUsed = riskNum;
-          r.currency = currency;
+    if (loading) return;
 
-          // updating Warnings logic for capital
-          const warnings = r.warnings.filter((w: string) => !w.includes('capital disponible'));
-          if (r.riskManagement.positionValue > capNum) {
-            warnings.push('El tamaño de posición supera el capital disponible. Considera reducir el riesgo o aumentar el stop loss.');
-          }
-          r.warnings = warnings;
+    const capNum = parseFloat(capital);
+    const riskNum = parseFloat(riskPct);
+    
+    if (!isNaN(capNum) && !isNaN(riskNum) && capNum > 0 && riskNum > 0 && riskNum <= 100) {
+      setResult((prev: RecommendationResult | null) => {
+        if (!prev) return prev;
+        
+        const moneyAtRisk = capNum * (riskNum / 100);
+        let posSize = 0;
+        if (prev.slDistanceAbs > 0) {
+          posSize = moneyAtRisk / prev.slDistanceAbs;
+        }
+        const positionValue = posSize * prev.entryPrice;
+        
+        const warnings = prev.warnings.filter((w: string) => !w.includes('capital disponible'));
+        if (positionValue > capNum) {
+          warnings.push('El tamaño de posición supera el capital disponible. Considera reducir el riesgo o aumentar el stop loss.');
+        }
 
-          // update TPs profit
-          r.tps = r.tps.map((tp: any) => ({
-            ...tp,
-            potentialProfit: posSize * tp.distanceAbs
-          }));
-          return r;
-        });
-      }
+        const sameRisk = prev.riskManagement.moneyAtRisk === moneyAtRisk &&
+                         prev.riskManagement.positionSize === posSize &&
+                         prev.riskManagement.positionValue === positionValue &&
+                         prev.riskManagement.riskPctUsed === riskNum;
+        const sameCurrency = prev.currency === currency;
+        const sameWarnings = warnings.length === prev.warnings.length && 
+                             warnings.every((w, i) => w === prev.warnings[i]);
+
+        if (sameRisk && sameCurrency && sameWarnings) {
+          return prev;
+        }
+
+        const r = { ...prev };
+        r.riskManagement = { ...r.riskManagement, moneyAtRisk, positionSize: posSize, positionValue, riskPctUsed: riskNum };
+        r.currency = currency;
+        r.warnings = warnings;
+
+        r.tps = r.tps.map((tp: any) => ({
+          ...tp,
+          potentialProfit: posSize * tp.distanceAbs
+        }));
+        
+        return r;
+      });
     }
-  }, [capital, riskPct, currency, loading, result]);
+  }, [capital, riskPct, currency, loading]);
 
   // If SL or TP method changes, we MUST fetch from backend again to get the proper levels
-  // We'll require user to hit "Calcular" or auto-trigger it. 
-  // Requirement: "Al cambiar el método de SL o TP, recalcular y actualizar resultados y gráfico sin recargar la página."
-  // We can auto-fetch if we already have a result.
-
+  // We'll auto-fetch if we already have a result and nothing is currently being calculated.
   useEffect(() => {
-    if (result && !loading && symbol === result.symbol) {
+    if (result && !loading && !isCalculatingRef.current && symbol === result.symbol) {
       calculate();
     }
-  }, [direction, slMethod, slPct, tpMethods, rrRatio]);
+  }, [direction, slMethod, slPct, tpMethods, rrRatio, interval]);
 
   const toggleTpMethod = (method: TPMethod) => {
     setTpMethods(prev => {
@@ -100,9 +107,11 @@ export default function RecommendationPage() {
 
   const calculate = async (symToUse: string = symbol) => {
     const s = symToUse.trim().toUpperCase();
-    if (!s) return;
+    if (!s || isCalculatingRef.current) return;
+    
     setSymbol(s);
     setLoading(true);
+    isCalculatingRef.current = true;
     setError(null);
 
     try {
@@ -133,6 +142,7 @@ export default function RecommendationPage() {
       }
     } finally {
       setLoading(false);
+      isCalculatingRef.current = false;
     }
   };
 
@@ -140,7 +150,14 @@ export default function RecommendationPage() {
   // CHARTS
   // --------------------------------------------------------------------------------
   
-  const toChartTime = (dateStr: string) => dateStr.split('T')[0];
+  const isIntraday = ['1m', '5m', '15m', '1h', '4h'].includes(interval || '1d');
+
+  const toChartTime = (dateStr: string, intraday: boolean = false): string | number => {
+    if (intraday) {
+      return Math.floor(Date.parse(dateStr) / 1000);
+    }
+    return dateStr.split('T')[0];
+  };
 
   const buildCharts = useCallback(() => {
     if (!result || typeof LightweightCharts === 'undefined') return;
@@ -153,14 +170,14 @@ export default function RecommendationPage() {
       grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
       crosshair: { mode: 0 },
       rightPriceScale: { borderColor: '#4b5563' },
-      timeScale: { borderColor: '#4b5563', timeVisible: false },
+      timeScale: { borderColor: '#4b5563', timeVisible: isIntraday },
     };
 
     const uniqueDates = new Set();
     const candles = (result.candles || [])
       .filter((c: any) => c.date != null && c.open != null && c.high != null && c.low != null && c.close != null)
       .map((c: any) => ({
-        time: toChartTime(c.date),
+        time: toChartTime(c.date, isIntraday),
         open: Number(c.open), high: Number(c.high), low: Number(c.low), close: Number(c.close),
       }))
       .filter((c: any) => !isNaN(c.open) && !isNaN(c.high) && !isNaN(c.low) && !isNaN(c.close))
@@ -169,15 +186,25 @@ export default function RecommendationPage() {
         uniqueDates.add(c.time);
         return true;
       })
-      .sort((a: any, b: any) => new Date(a.time).getTime() - new Date(b.time).getTime());
+      .sort((a: any, b: any) => {
+        const timeA = typeof a.time === 'number' ? a.time * 1000 : new Date(a.time).getTime();
+        const timeB = typeof b.time === 'number' ? b.time * 1000 : new Date(b.time).getTime();
+        return timeA - timeB;
+      });
 
     if (mainChartRef.current) {
       if (candles.length === 0) return;
 
       mainChartRef.current.innerHTML = '';
-      const chart = LightweightCharts.createChart(mainChartRef.current, {
+      const chartWrapper = document.createElement('div');
+      chartWrapper.style.position = 'relative';
+      chartWrapper.style.width = '100%';
+      chartWrapper.style.height = '500px';
+      mainChartRef.current.appendChild(chartWrapper);
+
+      const chart = LightweightCharts.createChart(chartWrapper, {
         ...darkTheme,
-        width: mainChartRef.current.clientWidth,
+        width: chartWrapper.clientWidth || mainChartRef.current.clientWidth || 800,
         height: 500,
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
       });
@@ -194,13 +221,17 @@ export default function RecommendationPage() {
         const tSet = new Set();
         return (data || [])
           .filter(p => p.time != null && p.value != null && !isNaN(p.value))
-          .map(p => ({ time: toChartTime(p.time), value: Number(p.value) }))
+          .map(p => ({ time: toChartTime(p.time, isIntraday), value: Number(p.value) }))
           .filter(p => {
              if (tSet.has(p.time)) return false;
              tSet.add(p.time);
              return true;
           })
-          .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+          .sort((a, b) => {
+            const timeA = typeof a.time === 'number' ? (a.time as number) * 1000 : new Date(a.time).getTime();
+            const timeB = typeof b.time === 'number' ? (b.time as number) * 1000 : new Date(b.time).getTime();
+            return timeA - timeB;
+          });
       };
 
       // Overlays
@@ -280,8 +311,7 @@ export default function RecommendationPage() {
 
       const legendEl = document.createElement('div');
       legendEl.style.cssText = 'position:absolute;top:8px;left:12px;z-index:10;font-size:11px;color:#d1d5db;pointer-events:none;font-family:monospace;';
-      mainChartRef.current.style.position = 'relative';
-      mainChartRef.current.appendChild(legendEl);
+      chartWrapper.appendChild(legendEl);
 
       chart.subscribeCrosshairMove((param: any) => {
         if (!param.time || !param.seriesData) {
