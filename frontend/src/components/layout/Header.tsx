@@ -30,9 +30,9 @@ export default function Header() {
 
   const navItems: NavItem[] = [
     { label: 'Inicio', path: '/', isDropdown: false },
-    { 
-      label: 'Análisis', 
-      path: '/analisis', 
+    {
+      label: 'Análisis',
+      path: '/analisis',
       isDropdown: true,
       subItems: [
         { label: 'Análisis Técnico', path: '/analisis?tab=tecnico', tab: 'tecnico' },
@@ -42,8 +42,8 @@ export default function Header() {
     },
     { label: 'Recomendación', path: '/recommendation', isDropdown: false },
     { label: 'Journaling', path: '/calendar', isDropdown: false },
-    { 
-      label: 'Más', 
+    {
+      label: 'Más',
       path: '#',
       isDropdown: true,
       subItems: [
@@ -89,11 +89,11 @@ export default function Header() {
               </p>
             </div>
           </Link>
-          
+
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-1 mx-4">
             {navItems.map((item) => (
-              <div 
+              <div
                 key={item.label}
                 className={`relative group ${item.label === 'Buscar' ? 'ml-3' : ''}`}
                 onMouseEnter={() => item.isDropdown && setActiveDropdown(item.label)}
@@ -103,11 +103,10 @@ export default function Header() {
                   <Link
                     to={item.path}
                     title={item.icon ? item.label : undefined}
-                    className={`px-4 py-2 rounded-lg text-base font-medium transition-all relative flex items-center justify-center ${
-                      isItemActive(item)
-                        ? 'text-primary-600 dark:text-primary-400'
-                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
-                    }`}
+                    className={`px-4 py-2 rounded-lg text-base font-medium transition-all relative flex items-center justify-center ${isItemActive(item)
+                      ? 'text-primary-600 dark:text-primary-400'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                      }`}
                   >
                     {item.icon ? <item.icon className="w-5 h-5" /> : item.label}
                     {isItemActive(item) && (
@@ -116,11 +115,10 @@ export default function Header() {
                   </Link>
                 ) : (
                   <button
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-base font-medium transition-all ${
-                      isItemActive(item)
-                        ? 'text-primary-600 dark:text-primary-400'
-                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
-                    }`}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-base font-medium transition-all ${isItemActive(item)
+                      ? 'text-primary-600 dark:text-primary-400'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                      }`}
                   >
                     {item.label}
                     <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${activeDropdown === item.label ? 'rotate-180' : ''}`} />
@@ -129,23 +127,21 @@ export default function Header() {
 
                 {/* Dropdown Menu */}
                 {item.isDropdown && (
-                  <div 
-                    className={`absolute top-full left-0 pt-2 w-56 transition-all duration-150 transform ${
-                      activeDropdown === item.label 
-                        ? 'opacity-100 translate-y-0 pointer-events-auto' 
-                        : 'opacity-0 translate-y-1 pointer-events-none'
-                    }`}
+                  <div
+                    className={`absolute top-full left-0 pt-2 w-56 transition-all duration-150 transform ${activeDropdown === item.label
+                      ? 'opacity-100 translate-y-0 pointer-events-auto'
+                      : 'opacity-0 translate-y-1 pointer-events-none'
+                      }`}
                   >
                     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden py-1">
                       {item.subItems?.map((sub) => (
                         <Link
                           key={sub.label}
                           to={sub.path}
-                          className={`block px-4 py-2.5 text-sm transition-colors ${
-                            (sub.tab ? isTabActive(sub.tab) : isPathActive(sub.path, true))
-                              ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-semibold'
-                              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
-                          }`}
+                          className={`block px-4 py-2.5 text-sm transition-colors ${(sub.tab ? isTabActive(sub.tab) : isPathActive(sub.path, true))
+                            ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-semibold'
+                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                            }`}
                         >
                           {sub.label}
                         </Link>
@@ -171,7 +167,7 @@ export default function Header() {
                 </span>
               </div>
             )}
-            
+
             <div className="hidden sm:flex items-center space-x-1">
               <Link
                 to="/profile"
@@ -206,10 +202,9 @@ export default function Header() {
       </div>
 
       {/* Mobile Navigation Menu */}
-      <div 
-        className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
-          isMobileMenuOpen ? 'max-h-screen border-t border-gray-200 dark:border-gray-700' : 'max-h-0'
-        }`}
+      <div
+        className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'max-h-screen border-t border-gray-200 dark:border-gray-700' : 'max-h-0'
+          }`}
       >
         <div className="px-4 py-4 space-y-4 bg-gray-50 dark:bg-gray-900/50">
           {navItems.map((item) => (
@@ -217,11 +212,10 @@ export default function Header() {
               {!item.isDropdown ? (
                 <Link
                   to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-semibold transition-colors ${
-                    isItemActive(item)
-                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 shadow-sm border border-transparent hover:border-gray-200 dark:border-gray-700'
-                  }`}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-semibold transition-colors ${isItemActive(item)
+                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 shadow-sm border border-transparent hover:border-gray-200 dark:border-gray-700'
+                    }`}
                 >
                   {item.icon && <item.icon className="w-5 h-5" />}
                   {item.label}
@@ -236,11 +230,10 @@ export default function Header() {
                       <Link
                         key={sub.label}
                         to={sub.path}
-                        className={`block px-4 py-2 rounded-lg text-sm transition-colors ${
-                          (sub.tab ? isTabActive(sub.tab) : isPathActive(sub.path, true))
-                            ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium'
-                            : 'text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800'
-                        }`}
+                        className={`block px-4 py-2 rounded-lg text-sm transition-colors ${(sub.tab ? isTabActive(sub.tab) : isPathActive(sub.path, true))
+                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800'
+                          }`}
                       >
                         {sub.label}
                       </Link>
