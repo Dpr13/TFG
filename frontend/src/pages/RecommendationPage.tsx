@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Target, Search, Loader2, AlertTriangle, LayoutTemplate, ChevronDown, ChevronUp, Send, Trash2, Sparkles, Bot, User } from 'lucide-react';
+import { Target, Search, Loader2, AlertTriangle, LayoutTemplate, ChevronDown, ChevronUp, Send, Trash2, Sparkles, Bot } from 'lucide-react';
 import { recommendationService, iaService } from '@services/index';
+import { useTheme } from '@/context/ThemeContext';
 import { formatCurrency } from '@utils/format';
 import type { RecommendationRequest, RecommendationResult, SLMethod, TPMethod, IAChatMessage } from '../types';
 
@@ -11,6 +12,7 @@ const QUICK_SYMBOLS = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA', 'BTC-USD', 'ETH-
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d', '1wk', '1mo'] as const;
 
 export default function RecommendationPage() {
+  const { darkMode } = useTheme();
   const [symbol, setSymbol] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,6 +155,7 @@ export default function RecommendationPage() {
       setResult(res);
 
       // Fire AI analysis in parallel
+      window.dispatchEvent(new CustomEvent('activoAnalizado', { detail: { ticker: s } }));
       setIaLoading(true);
       setIaResumen(null);
       setIaJustificacion(null);
@@ -247,12 +250,18 @@ export default function RecommendationPage() {
     chartsRef.current.forEach(c => { try { c.remove(); } catch {} });
     chartsRef.current = [];
 
-    const darkTheme = {
+    const chartTheme = darkMode ? {
       layout: { background: { color: '#1f2937' }, textColor: '#9ca3af' },
       grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
       crosshair: { mode: 0 },
       rightPriceScale: { borderColor: '#4b5563' },
       timeScale: { borderColor: '#4b5563', timeVisible: isIntraday },
+    } : {
+      layout: { background: { color: '#ffffff' }, textColor: '#4b5563' },
+      grid: { vertLines: { color: '#f3f4f6' }, horzLines: { color: '#f3f4f6' } },
+      crosshair: { mode: 0 },
+      rightPriceScale: { borderColor: '#e5e7eb' },
+      timeScale: { borderColor: '#e5e7eb', timeVisible: isIntraday },
     };
 
     const uniqueDates = new Set();
@@ -285,7 +294,7 @@ export default function RecommendationPage() {
       mainChartRef.current.appendChild(chartWrapper);
 
       const chart = LightweightCharts.createChart(chartWrapper, {
-        ...darkTheme,
+        ...chartTheme,
         width: chartWrapper.clientWidth || mainChartRef.current.clientWidth || 800,
         height: 500,
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
@@ -354,7 +363,7 @@ export default function RecommendationPage() {
       if (result.entryPrice != null && !isNaN(result.entryPrice)) {
         candleSeries.createPriceLine({
           price: result.entryPrice,
-          color: '#ffffff',
+          color: darkMode ? '#ffffff' : '#1f2937',
           lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: true,
@@ -408,7 +417,7 @@ export default function RecommendationPage() {
 
       chart.timeScale().fitContent();
     }
-  }, [result, showSMA50, showSMA200, showBollinger]);
+  }, [result, showSMA50, showSMA200, showBollinger, darkMode, isIntraday]);
 
   useEffect(() => {
     buildCharts();
@@ -724,16 +733,16 @@ export default function RecommendationPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 
                 {/* Info Card */}
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-5 relative overflow-hidden">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm relative overflow-hidden">
                   <div className={`absolute top-0 left-0 w-1.5 h-full ${result.direction==='LONG'?'bg-green-500':'bg-red-500'}`}></div>
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="text-2xl font-bold text-white">{result.symbol} {/* -- */} <span className={result.direction==='LONG'?'text-green-500':'text-red-500'}>{result.direction}</span></h3>
-                      <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">Precio de Entrada</p>
-                      <p className="text-3xl font-mono text-white mt-1">${result.entryPrice.toFixed(2)}</p>
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{result.symbol} {/* -- */} <span className={result.direction==='LONG'?'text-green-500':'text-red-500'}>{result.direction}</span></h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-widest mt-1">Precio de Entrada</p>
+                      <p className="text-3xl font-mono text-gray-900 dark:text-white mt-1">${result.entryPrice.toFixed(2)}</p>
                     </div>
                     <div className="text-right">
-                      <span className="inline-block px-2.5 py-1 bg-gray-700 text-gray-300 rounded text-xs font-bold font-mono">
+                      <span className="inline-block px-2.5 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs font-bold font-mono border border-gray-200 dark:border-gray-600">
                         Int: {result.interval}
                       </span>
                     </div>
@@ -741,18 +750,18 @@ export default function RecommendationPage() {
                 </div>
 
                 {/* Stop Loss Card */}
-                <div className="bg-red-900/20 rounded-xl border border-red-900/40 p-5">
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-900/40 p-5">
                   <div className="flex justify-between items-center mb-2">
-                    <p className="text-xs font-bold text-red-400 uppercase tracking-widest">Stop Loss</p>
-                    <span className="px-2 py-0.5 bg-red-900/50 text-red-300 rounded text-[10px] uppercase font-bold border border-red-800/50">
+                    <p className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-widest">Stop Loss</p>
+                    <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded text-[10px] uppercase font-bold border border-red-200 dark:border-red-800/50">
                       {result.slMethodLabel}
                     </span>
                   </div>
-                  <p className="text-3xl font-mono text-red-400 font-bold">${result.sl.toFixed(2)}</p>
-                  <p className="text-sm text-red-300/70 mt-1">
-                    -{result.slDistancePct.toFixed(2)}% <span className="text-gray-500 mx-1">|</span> -${result.slDistanceAbs.toFixed(2)}
+                  <p className="text-3xl font-mono text-red-600 dark:text-red-400 font-bold">${result.sl.toFixed(2)}</p>
+                  <p className="text-sm text-red-600/70 dark:text-red-300/70 mt-1">
+                    -{result.slDistancePct.toFixed(2)}% <span className="text-gray-300 dark:text-gray-500 mx-1">|</span> -${result.slDistanceAbs.toFixed(2)}
                   </p>
-                  {result.detectedSLLevel && <p className="text-xs text-red-400/80 mt-2 italic">{result.detectedSLLevel}</p>}
+                  {result.detectedSLLevel && <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-2 italic">{result.detectedSLLevel}</p>}
                 </div>
               </div>
 
@@ -763,46 +772,46 @@ export default function RecommendationPage() {
                 {/* Take Profits */}
                 <div className="md:col-span-2 space-y-3">
                   {result.tps.map((tp: any, i: number) => (
-                    <div key={i} className="bg-green-900/10 rounded-xl border border-green-900/30 p-4 flex justify-between items-center">
+                    <div key={i} className="bg-green-50 dark:bg-green-900/10 rounded-xl border border-green-200 dark:border-green-900/30 p-4 flex justify-between items-center transition-colors">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="text-xs font-bold text-green-500 uppercase tracking-widest">Take Profit {i+1}</p>
-                          <span className="px-2 py-0.5 bg-green-900/40 text-green-300 rounded text-[10px] uppercase font-bold border border-green-800/40">
+                          <p className="text-xs font-bold text-green-600 dark:text-green-500 uppercase tracking-widest">Take Profit {i+1}</p>
+                          <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded text-[10px] uppercase font-bold border border-green-200 dark:border-green-800/40">
                             {tp.label}
                           </span>
                         </div>
-                        <p className="text-xl font-mono text-green-400 font-bold">${tp.price.toFixed(2)}</p>
-                        <p className="text-xs text-green-400/70 mt-1">
-                          +{tp.distancePct.toFixed(2)}% <span className="text-gray-500 mx-1">|</span> +${tp.distanceAbs.toFixed(2)} <span className="text-gray-500 mx-1">|</span> R/B: {tp.realRatio.toFixed(2)}
+                        <p className="text-xl font-mono text-green-600 dark:text-green-400 font-bold">${tp.price.toFixed(2)}</p>
+                        <p className="text-xs text-green-600/70 dark:text-green-400/70 mt-1">
+                          +{tp.distancePct.toFixed(2)}% <span className="text-gray-300 dark:text-gray-500 mx-1">|</span> +${tp.distanceAbs.toFixed(2)} <span className="text-gray-300 dark:text-gray-500 mx-1">|</span> R/B: {tp.realRatio.toFixed(2)}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-gray-500 mb-1">Potencial</p>
-                        <p className="text-lg font-mono text-green-400 font-bold">+{formatCurrency(tp.potentialProfit, result.currency)}</p>
+                        <p className="text-lg font-mono text-green-600 dark:text-green-400 font-bold">+{formatCurrency(tp.potentialProfit, result.currency)}</p>
                       </div>
                     </div>
                   ))}
                   {result.tps.length === 0 && (
-                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 text-center">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
                       <p className="text-sm text-gray-500">Ningún Take Profit válido calculado.</p>
                     </div>
                   )}
                 </div>
 
                 {/* Risk Management */}
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 space-y-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Riesgo / {result.currency}</p>
-                    <p className="text-xl font-mono text-white">{formatCurrency(result.riskManagement.moneyAtRisk, result.currency)}</p>
+                    <p className="text-xl font-mono text-gray-900 dark:text-white">{formatCurrency(result.riskManagement.moneyAtRisk, result.currency)}</p>
                     <p className="text-[10px] text-gray-400 mt-0.5">{result.riskManagement.riskPctUsed}% del capital</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Tamaño Posición</p>
-                    <p className="text-xl font-mono text-white">{result.riskManagement.positionSize.toFixed(4)} <span className="text-sm text-gray-400">unds</span></p>
+                    <p className="text-xl font-mono text-gray-900 dark:text-white">{result.riskManagement.positionSize.toFixed(4)} <span className="text-sm text-gray-500 dark:text-gray-400">unds</span></p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Valor Total</p>
-                    <p className="text-xl font-mono text-white">{formatCurrency(result.riskManagement.positionValue, result.currency)}</p>
+                    <p className="text-xl font-mono text-gray-900 dark:text-white">{formatCurrency(result.riskManagement.positionValue, result.currency)}</p>
                   </div>
                 </div>
 
@@ -818,14 +827,14 @@ export default function RecommendationPage() {
               {/* ══════════════════════════════════════════════════════════════════
                   MÓDULO IA 1: RESUMEN NARRATIVO
                   ══════════════════════════════════════════════════════════════════ */}
-              <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-xl border border-purple-500/20 p-5 relative overflow-hidden">
+              <div className="bg-white dark:bg-gray-800/50 rounded-xl border border-purple-200 dark:border-purple-500/20 p-5 relative overflow-hidden shadow-sm">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-purple-400" />
-                    <h4 className="text-sm font-bold text-white">Resumen IA</h4>
+                    <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Resumen IA</h4>
                   </div>
-                  <span className="px-2 py-0.5 bg-purple-900/40 text-purple-300 rounded text-[10px] font-bold border border-purple-700/40">
+                  <span className="px-2 py-0.5 bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded text-[10px] font-bold border border-purple-200 dark:border-purple-700/40">
                     Groq · Llama 3.3
                   </span>
                 </div>
@@ -839,14 +848,14 @@ export default function RecommendationPage() {
                 )}
 
                 {iaResumenError && (
-                  <p className="text-sm text-red-400">{iaResumenError}</p>
+                  <p className="text-sm text-red-600 dark:text-red-400">{iaResumenError}</p>
                 )}
 
                 {iaResumen && (
-                  <p className="text-sm text-gray-300 leading-relaxed">{iaResumen}</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{iaResumen}</p>
                 )}
 
-                <p className="text-[9px] text-gray-500 mt-3">
+                <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-3">
                   Generado automáticamente por IA. No constituye asesoramiento financiero.
                 </p>
               </div>
@@ -854,16 +863,16 @@ export default function RecommendationPage() {
               {/* ══════════════════════════════════════════════════════════════════
                   MÓDULO IA 2: JUSTIFICACIÓN DE LA SEÑAL (EXPANDIBLE)
                   ══════════════════════════════════════════════════════════════════ */}
-              <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm transition-colors">
                 <button
                   onClick={() => setShowJustificacion(!showJustificacion)}
-                  className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-gray-700/30 transition-colors"
+                  className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-indigo-400" />
-                    <span className="text-sm font-semibold text-gray-300">Ver justificación detallada (IA)</span>
+                    <Bot className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Ver justificación detallada (IA)</span>
                   </div>
-                  {showJustificacion ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                  {showJustificacion ? <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
                 </button>
 
                 {showJustificacion && (
@@ -878,11 +887,11 @@ export default function RecommendationPage() {
                     )}
 
                     {iaJustificacionError && (
-                      <p className="text-sm text-red-400">{iaJustificacionError}</p>
+                      <p className="text-sm text-red-600 dark:text-red-400">{iaJustificacionError}</p>
                     )}
 
                     {iaJustificacion && (
-                      <p className="text-sm text-gray-300 leading-relaxed">{iaJustificacion}</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{iaJustificacion}</p>
                     )}
                   </div>
                 )}
@@ -891,19 +900,19 @@ export default function RecommendationPage() {
               {/* ══════════════════════════════════════════════════════════════════
                   MÓDULO IA 3: CHAT CONTEXTUAL
                   ══════════════════════════════════════════════════════════════════ */}
-              <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                <div className="px-5 py-3 border-b border-gray-700 flex items-center justify-between">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50">
                   <div className="flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-cyan-400" />
-                    <h4 className="text-sm font-bold text-white">Chat con IA</h4>
-                    <span className="px-1.5 py-0.5 bg-cyan-900/30 text-cyan-400 rounded text-[9px] font-bold border border-cyan-800/30">
+                    <Bot className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Chat con IA</h4>
+                    <span className="px-1.5 py-0.5 bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 rounded text-[9px] font-bold border border-cyan-200 dark:border-cyan-800/30">
                       Contextual
                     </span>
                   </div>
                   {chatMessages.length > 0 && (
                     <button
                       onClick={clearChat}
-                      className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors"
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                     >
                       <Trash2 className="w-3 h-3" />
                       Limpiar chat
@@ -945,7 +954,7 @@ export default function RecommendationPage() {
                       <div className={`max-w-[80%] px-3.5 py-2.5 rounded-xl text-sm leading-relaxed ${
                         msg.role === 'user'
                           ? 'bg-primary-600 text-white rounded-br-sm'
-                          : 'bg-gray-700 text-gray-200 rounded-bl-sm'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-sm border border-gray-200 dark:border-gray-600'
                       }`}>
                         {msg.role === 'assistant' && (
                           <div className="flex items-center gap-1 mb-1">
@@ -960,15 +969,15 @@ export default function RecommendationPage() {
 
                   {chatLoading && (
                     <div className="flex justify-start">
-                      <div className="bg-gray-700 text-gray-200 px-3.5 py-2.5 rounded-xl rounded-bl-sm">
+                      <div className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3.5 py-2.5 rounded-xl rounded-bl-sm border border-gray-200 dark:border-gray-600">
                         <div className="flex items-center gap-1 mb-1">
-                          <Bot className="w-3 h-3 text-cyan-400" />
-                          <span className="text-[9px] text-cyan-400 font-bold">IA</span>
+                          <Bot className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+                          <span className="text-[9px] text-cyan-600 dark:text-cyan-400 font-bold">IA</span>
                         </div>
                         <div className="flex gap-1">
-                          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                          <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                          <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                          <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                         </div>
                       </div>
                     </div>
@@ -976,7 +985,7 @@ export default function RecommendationPage() {
                 </div>
 
                 {/* Input area */}
-                <div className="px-4 py-3 border-t border-gray-700 flex gap-2">
+                <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 flex gap-2">
                   <input
                     type="text"
                     value={chatInput}
@@ -984,12 +993,12 @@ export default function RecommendationPage() {
                     onKeyDown={(e) => e.key === 'Enter' && sendChatMessage(chatInput)}
                     placeholder={chatContextRef.current ? 'Escribe tu pregunta...' : 'Calcula una recomendación primero para activar el chat.'}
                     disabled={!chatContextRef.current || chatLoading}
-                    className="flex-1 px-3.5 py-2 border border-gray-600 rounded-lg bg-gray-700 text-sm text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-transparent outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-3.5 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-transparent outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <button
                     onClick={() => sendChatMessage(chatInput)}
                     disabled={!chatInput.trim() || chatLoading || !chatContextRef.current}
-                    className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1.5"
+                    className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1.5 shadow-sm"
                   >
                     <Send className="w-4 h-4" />
                   </button>
@@ -997,19 +1006,19 @@ export default function RecommendationPage() {
               </div>
 
               {/* Gráfico */}
-              <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                <div className="px-4 py-3 bg-gray-800 border-b border-gray-700 flex justify-between items-center">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/80 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                   <div className="flex gap-4">
-                    <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
-                      <input type="checkbox" checked={showSMA50} onChange={() => setShowSMA50(!showSMA50)} className="rounded border-gray-500 text-primary-500 w-3.5 h-3.5" />
+                    <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                      <input type="checkbox" checked={showSMA50} onChange={() => setShowSMA50(!showSMA50)} className="rounded border-gray-300 dark:border-gray-600 text-primary-500 w-3.5 h-3.5" />
                       <span className="w-4 h-0.5 rounded bg-orange-400"></span> SMA 50
                     </label>
-                    <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
-                      <input type="checkbox" checked={showSMA200} onChange={() => setShowSMA200(!showSMA200)} className="rounded border-gray-500 text-primary-500 w-3.5 h-3.5" />
+                    <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                      <input type="checkbox" checked={showSMA200} onChange={() => setShowSMA200(!showSMA200)} className="rounded border-gray-300 dark:border-gray-600 text-primary-500 w-3.5 h-3.5" />
                       <span className="w-4 h-[2px] rounded bg-red-500"></span> SMA 200
                     </label>
-                    <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
-                      <input type="checkbox" checked={showBollinger} onChange={() => setShowBollinger(!showBollinger)} className="rounded border-gray-500 text-primary-500 w-3.5 h-3.5" />
+                    <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                      <input type="checkbox" checked={showBollinger} onChange={() => setShowBollinger(!showBollinger)} className="rounded border-gray-300 dark:border-gray-600 text-primary-500 w-3.5 h-3.5" />
                       <span className="w-4 h-0 border-b-2 border-dashed border-blue-400 rounded"></span> Bollinger
                     </label>
                   </div>

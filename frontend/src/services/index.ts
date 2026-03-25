@@ -179,6 +179,18 @@ export const newsService = {
     const response = await apiClient.get(`/news${qs ? `?${qs}` : ''}`);
     return response.data;
   },
+
+  // Obtener noticias de mercado generales
+  getMarketNews: async (): Promise<NewsArticle[]> => {
+    const response = await apiClient.get<NewsArticle[]>('/noticias/mercados');
+    return response.data;
+  },
+
+  // Obtener noticias de un activo específico
+  getAssetNews: async (ticker: string): Promise<NewsArticle[]> => {
+    const response = await apiClient.get<NewsArticle[]>(`/noticias/activo/${ticker}`);
+    return response.data;
+  },
 };
 
 export const operationService = {

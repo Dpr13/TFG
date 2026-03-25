@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Search, TrendingUp, Loader2, AlertTriangle,
   ShieldCheck, ShieldAlert, BarChart2, Activity,
@@ -420,6 +421,15 @@ export default function RiskAnalysisPage() {
   const [fundamentalAnalysis, setFundamentalAnalysis] = useState<FundamentalAnalysis | null>(null);
   const [fundsLoading, setFundsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'QUANTS' | 'FUNDS' | 'TECH'>('TECH');
+  const [searchParams, _setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+
+  useEffect(() => {
+    if (tabParam === 'tecnico') setActiveTab('TECH');
+    else if (tabParam === 'fundamental') setActiveTab('FUNDS');
+    else if (tabParam === 'cuantitativo') setActiveTab('QUANTS');
+  }, [tabParam]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRange, setSelectedRange] = useState<'6mo' | '1y' | '3y' | '5y' | '10y'>('1y');
@@ -461,6 +471,7 @@ export default function RiskAnalysisPage() {
     setSymbol(s);
     setLoading(true);
     setError(null);
+    window.dispatchEvent(new CustomEvent('activoAnalizado', { detail: { ticker: s } }));
 
     try {
       const [riskRes, finRes] = await Promise.allSettled([

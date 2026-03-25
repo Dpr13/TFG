@@ -21,7 +21,7 @@ interface AssetPerformance {
   returnPercent: number;
   priceChange: number;
   dataPoints: number;
-}
+} 
 
 /**
  * Demo script that makes interesting API requests
