@@ -3,6 +3,7 @@ import {
   Loader2, AlertTriangle, Download, Eye, EyeOff,
 } from 'lucide-react';
 import { assetService } from '@services/index';
+import { useTheme } from '@/context/ThemeContext';
 import type { TechnicalAnalysisResult, TechnicalSignalClass, SignalBreakdown } from '../types';
 
 // ── Lightweight Charts global ────────────────────────────────────────────
@@ -10,11 +11,11 @@ declare const LightweightCharts: any;
 
 // ── Constants ────────────────────────────────────────────────────────────
 const SIGNAL_COLORS: Record<TechnicalSignalClass, { text: string; bg: string; border: string }> = {
-  'COMPRA FUERTE': { text: 'text-green-400', bg: 'bg-gradient-to-r from-green-700 to-green-600', border: 'border-green-500' },
-  'COMPRA':        { text: 'text-green-400', bg: 'bg-gradient-to-r from-green-800 to-green-700', border: 'border-green-600' },
-  'NEUTRAL':       { text: 'text-yellow-400', bg: 'bg-gradient-to-r from-yellow-800 to-amber-700', border: 'border-yellow-600' },
-  'VENTA':         { text: 'text-red-400', bg: 'bg-gradient-to-r from-red-800 to-red-700', border: 'border-red-600' },
-  'VENTA FUERTE':  { text: 'text-red-400', bg: 'bg-gradient-to-r from-red-900 to-red-800', border: 'border-red-500' },
+  'COMPRA FUERTE': { text: 'text-green-600 dark:text-green-400', bg: 'bg-green-100/80 dark:bg-green-900/40', border: 'border-green-200 dark:border-green-800' },
+  'COMPRA':        { text: 'text-green-600 dark:text-green-400', bg: 'bg-green-50/80 dark:bg-green-900/30', border: 'border-green-100 dark:border-green-900/50' },
+  'NEUTRAL':       { text: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/30', border: 'border-yellow-200 dark:border-yellow-800/50' },
+  'VENTA':         { text: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/30', border: 'border-red-100 dark:border-red-900/50' },
+  'VENTA FUERTE':  { text: 'text-red-600 dark:text-red-400', bg: 'bg-red-100/80 dark:bg-red-900/40', border: 'border-red-200 dark:border-red-800' },
 };
 
 // ── Format helper: abbreviated numbers (OBV, Volume) ─────────────────────
@@ -29,6 +30,7 @@ function formatCompactValue(value: number): string {
 
 // ── Signal Score Gauge (SVG arc) ─────────────────────────────────────────
 function SignalGauge({ score, classification }: { score: number; classification: TechnicalSignalClass }) {
+  const { darkMode } = useTheme();
   const radius = 44;
   const circumference = Math.PI * radius;
   const progress = (score / 100) * circumference;
@@ -41,11 +43,11 @@ function SignalGauge({ score, classification }: { score: number; classification:
   return (
     <div className="flex flex-col items-center flex-shrink-0">
       <svg width="110" height="65" viewBox="0 0 110 65">
-        <path d="M11,58 A44,44 0 0,1 99,58" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="9" strokeLinecap="round" />
+        <path d="M11,58 A44,44 0 0,1 99,58" fill="none" stroke={darkMode ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)"} strokeWidth="9" strokeLinecap="round" />
         <path d="M11,58 A44,44 0 0,1 99,58" fill="none" stroke={color} strokeWidth="9" strokeLinecap="round"
           strokeDasharray={`${progress} ${circumference}`} />
-        <text x="55" y="52" textAnchor="middle" fontSize="22" fontWeight="bold" fill="white">{score}</text>
-        <text x="55" y="63" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.6)">/100</text>
+        <text x="55" y="52" textAnchor="middle" fontSize="22" fontWeight="bold" fill={darkMode ? "white" : "#1f2937"}>{score}</text>
+        <text x="55" y="63" textAnchor="middle" fontSize="8" fill={darkMode ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.4)"}>/100</text>
       </svg>
       <span className="text-xs font-bold mt-1" style={{ color }}>{classification}</span>
     </div>
@@ -58,14 +60,14 @@ function BreakdownBar({ item }: { item: SignalBreakdown }) {
   const color = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500';
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-xs">
-        <span className="text-gray-300 font-medium">{item.name}</span>
-        <span className="text-gray-400">{item.score}/{item.maxScore}</span>
+      <div className="flex justify-between text-xs transition-colors">
+        <span className="text-gray-200 dark:text-gray-300 font-medium">{item.name}</span>
+        <span className="text-gray-400 dark:text-gray-400">{item.score}/{item.maxScore}</span>
       </div>
-      <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-black/20 dark:bg-gray-700 rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <p className="text-[10px] text-gray-500 leading-tight">{item.detail}</p>
+      <p className="text-[10px] text-gray-200/70 dark:text-gray-500 leading-tight">{item.detail}</p>
     </div>
   );
 }
@@ -86,6 +88,7 @@ interface TechnicalAnalysisPanelProps {
 }
 
 export default function TechnicalAnalysisPanel({ symbol, selectedRange }: TechnicalAnalysisPanelProps) {
+  const { darkMode } = useTheme();
   const [data, setData] = useState<TechnicalAnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,12 +138,18 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     chartsRef.current.forEach(c => { try { c.remove(); } catch {} });
     chartsRef.current = [];
 
-    const darkTheme = {
+    const chartTheme = darkMode ? {
       layout: { background: { color: '#1f2937' }, textColor: '#9ca3af' },
       grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
       crosshair: { mode: 0 },
       rightPriceScale: { borderColor: '#4b5563' },
       timeScale: { borderColor: '#4b5563', timeVisible: false },
+    } : {
+      layout: { background: { color: '#ffffff' }, textColor: '#4b5563' },
+      grid: { vertLines: { color: '#f3f4f6' }, horzLines: { color: '#f3f4f6' } },
+      crosshair: { mode: 0 },
+      rightPriceScale: { borderColor: '#e5e7eb' },
+      timeScale: { borderColor: '#e5e7eb', timeVisible: false },
     };
 
     const candles = data.candles.map(c => ({
@@ -154,7 +163,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     if (mainChartRef.current) {
       mainChartRef.current.innerHTML = '';
       const chart = LightweightCharts.createChart(mainChartRef.current, {
-        ...darkTheme,
+        ...chartTheme,
         width: mainChartRef.current.clientWidth,
         height: 420,
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
@@ -243,7 +252,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
 
       // Legend on crosshair
       const legendEl = document.createElement('div');
-      legendEl.style.cssText = 'position:absolute;top:8px;left:12px;z-index:10;font-size:11px;color:#d1d5db;pointer-events:none;font-family:monospace;';
+      legendEl.style.cssText = `position:absolute;top:8px;left:12px;z-index:10;font-size:11px;color:${darkMode ? '#d1d5db' : '#4b5563'};pointer-events:none;font-family:monospace;`;
       mainChartRef.current.style.position = 'relative';
       mainChartRef.current.appendChild(legendEl);
 
@@ -266,10 +275,10 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     if (volumeChartRef.current && data.hasVolume) {
       volumeChartRef.current.innerHTML = '';
       const chart = LightweightCharts.createChart(volumeChartRef.current, {
-        ...darkTheme,
+        ...chartTheme,
         width: volumeChartRef.current.clientWidth,
         height: 120,
-        rightPriceScale: { borderColor: '#4b5563' },
+        rightPriceScale: { borderColor: darkMode ? '#4b5563' : '#e5e7eb' },
       });
       chartsRef.current.push(chart);
 
@@ -310,7 +319,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     if (rsiChartRef.current && showRSI && data.rsi.length > 0) {
       rsiChartRef.current.innerHTML = '';
       const chart = LightweightCharts.createChart(rsiChartRef.current, {
-        ...darkTheme,
+        ...chartTheme,
         width: rsiChartRef.current.clientWidth,
         height: 120,
       });
@@ -331,7 +340,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     if (macdChartRef.current && showMACD && data.macd.macdLine.length > 0) {
       macdChartRef.current.innerHTML = '';
       const chart = LightweightCharts.createChart(macdChartRef.current, {
-        ...darkTheme,
+        ...chartTheme,
         width: macdChartRef.current.clientWidth,
         height: 120,
       });
@@ -367,7 +376,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
         });
       });
     }
-  }, [data, showSMA20, showSMA50, showSMA200, showEMA20, showEMA50, showBollinger, showRSI, showMACD]);
+  }, [data, showSMA20, showSMA50, showSMA200, showEMA20, showEMA50, showBollinger, showRSI, showMACD, darkMode]);
 
   useEffect(() => {
     buildCharts();
@@ -401,7 +410,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     mergedCanvas.height = totalHeight * 2;
     const ctx = mergedCanvas.getContext('2d')!;
     ctx.scale(2, 2);
-    ctx.fillStyle = '#1f2937';
+    ctx.fillStyle = darkMode ? '#1f2937' : '#ffffff';
     ctx.fillRect(0, 0, width, totalHeight);
 
     let yOffset = 0;
@@ -456,7 +465,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
       <div className={`rounded-xl p-5 flex flex-col sm:flex-row items-center gap-5 ${signalStyle.bg} border ${signalStyle.border}`}>
         <SignalGauge score={data.signal.score} classification={data.signal.classification} />
         <div className="flex-1 min-w-0">
-          <p className="text-white text-sm leading-relaxed">{data.signal.explanation}</p>
+          <p className="text-gray-800 dark:text-white text-sm leading-relaxed">{data.signal.explanation}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
             {data.signal.breakdown.map((item, idx) => (
               <BreakdownBar key={idx} item={item} />
@@ -485,12 +494,12 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
               { label: 'EMA 50', checked: showEMA50, set: setShowEMA50, color: '#a78bfa', style: 'dashed' as const },
               { label: 'Bollinger', checked: showBollinger, set: setShowBollinger, color: 'rgba(100,160,255,0.9)', style: 'dashed' as const },
             ].map(({ label, checked, set, color, style }) => (
-              <label key={label} className="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer select-none">
+              <label key={label} className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-300 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={checked}
                   onChange={() => set(!checked)}
-                  className="rounded border-gray-500 text-primary-500 focus:ring-primary-500 focus:ring-offset-0 w-3.5 h-3.5"
+                  className="rounded border-gray-300 dark:border-gray-500 text-primary-500 focus:ring-primary-500 focus:ring-offset-0 w-3.5 h-3.5"
                 />
                 <span
                   className="w-4 h-0.5 rounded"
@@ -505,14 +514,14 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
             ))}
           </div>
 
-          <div className="h-6 w-px bg-gray-700" />
+          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
 
           {/* Panel toggles */}
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowRSI(!showRSI)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                showRSI ? 'bg-primary-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                showRSI ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {showRSI ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
@@ -521,7 +530,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
             <button
               onClick={() => setShowMACD(!showMACD)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                showMACD ? 'bg-primary-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                showMACD ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {showMACD ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
@@ -529,12 +538,12 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
             </button>
           </div>
 
-          <div className="h-6 w-px bg-gray-700" />
+          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
 
           {/* Export */}
           <button
             onClick={exportPNG}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
             Exportar PNG
@@ -545,22 +554,22 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
       {/* ── Charts area ── */}
       <div ref={chartsContainerRef} className="space-y-1">
         {/* Main candlestick chart */}
-        <div className="bg-gray-800 rounded-t-xl overflow-hidden border border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-t-xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
           <div ref={mainChartRef} />
         </div>
 
         {/* Volume chart */}
         {data.hasVolume && (
-          <div className="bg-gray-800 overflow-hidden border-x border-b border-gray-700">
+          <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
             <div ref={volumeChartRef} />
           </div>
         )}
 
         {/* RSI chart */}
         {showRSI && data.rsi.length > 0 && (
-          <div className="bg-gray-800 overflow-hidden border-x border-b border-gray-700">
+          <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
             <div className="px-3 pt-1.5 pb-0">
-              <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">RSI (14)</span>
+              <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">RSI (14)</span>
             </div>
             <div ref={rsiChartRef} />
           </div>
@@ -568,9 +577,9 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
 
         {/* MACD chart */}
         {showMACD && data.macd.macdLine.length > 0 && (
-          <div className="bg-gray-800 rounded-b-xl overflow-hidden border-x border-b border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-b-xl overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
             <div className="px-3 pt-1.5 pb-0">
-              <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">MACD (12, 26, 9)</span>
+              <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">MACD (12, 26, 9)</span>
             </div>
             <div ref={macdChartRef} />
           </div>
@@ -592,10 +601,10 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
               ) : (
                 <div className="space-y-1.5">
                   {data.supports.map((s, i) => (
-                    <div key={i} className="flex items-center justify-between bg-green-900/10 rounded-lg px-3 py-2">
-                      <span className="text-sm font-mono font-semibold text-green-400">${s.price.toFixed(2)}</span>
-                      <span className="text-xs text-gray-400">{s.date.split('T')[0]}</span>
-                      <span className="text-xs text-gray-500">Fuerza: {s.strength}</span>
+                    <div key={i} className="flex items-center justify-between bg-green-50 dark:bg-green-900/10 rounded-lg px-3 py-2 border border-green-100 dark:border-transparent">
+                      <span className="text-sm font-mono font-semibold text-green-600 dark:text-green-400">${s.price.toFixed(2)}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{s.date.split('T')[0]}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">Fuerza: {s.strength}</span>
                     </div>
                   ))}
                 </div>
@@ -609,10 +618,10 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
               ) : (
                 <div className="space-y-1.5">
                   {data.resistances.map((r, i) => (
-                    <div key={i} className="flex items-center justify-between bg-red-900/10 rounded-lg px-3 py-2">
-                      <span className="text-sm font-mono font-semibold text-red-400">${r.price.toFixed(2)}</span>
-                      <span className="text-xs text-gray-400">{r.date.split('T')[0]}</span>
-                      <span className="text-xs text-gray-500">Fuerza: {r.strength}</span>
+                    <div key={i} className="flex items-center justify-between bg-red-50 dark:bg-red-900/10 rounded-lg px-3 py-2 border border-red-100 dark:border-transparent">
+                      <span className="text-sm font-mono font-semibold text-red-600 dark:text-red-400">${r.price.toFixed(2)}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{r.date.split('T')[0]}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">Fuerza: {r.strength}</span>
                     </div>
                   ))}
                 </div>
