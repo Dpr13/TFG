@@ -77,7 +77,7 @@ export default function Sidebar() {
             <Newspaper className="w-5 h-5 text-primary-600" />
             <h2 className="text-sm font-bold text-gray-900 dark:text-white">Noticias</h2>
           </div>
-          <button 
+          <button
             onClick={() => setRefreshKey(k => k + 1)}
             disabled={loading}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors disabled:opacity-50"
@@ -91,21 +91,19 @@ export default function Sidebar() {
         <div className="flex p-1 bg-gray-100 dark:bg-gray-700/50 rounded-lg gap-1">
           <button
             onClick={() => setActiveTab('mercados')}
-            className={`flex-1 px-2 py-1.5 text-xs font-semibold rounded-md transition-all ${
-              activeTab === 'mercados'
-                ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
+            className={`flex-1 px-2 py-1.5 text-xs font-semibold rounded-md transition-all ${activeTab === 'mercados'
+              ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
           >
             Mercados
           </button>
           <button
             onClick={() => setActiveTab('activo')}
-            className={`flex-1 px-2 py-1.5 text-xs font-semibold rounded-md transition-all truncate ${
-              activeTab === 'activo'
-                ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
+            className={`flex-1 px-2 py-1.5 text-xs font-semibold rounded-md transition-all truncate ${activeTab === 'activo'
+              ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
           >
             {activeTicker ? `Activo · ${activeTicker}` : 'Activo'}
           </button>
@@ -131,7 +129,7 @@ export default function Sidebar() {
           <div className="p-8 text-center">
             <Info className="w-8 h-8 text-gray-300 mx-auto mb-2" />
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{error}</p>
-            <button 
+            <button
               onClick={() => setRefreshKey(k => k + 1)}
               className="text-xs font-bold text-primary-600 hover:text-primary-700"
             >
@@ -177,9 +175,9 @@ export default function Sidebar() {
                 </div>
                 {item.thumbnail && (
                   <div className="flex-shrink-0">
-                    <img 
-                      src={item.thumbnail} 
-                      alt="" 
+                    <img
+                      src={item.thumbnail}
+                      alt=""
                       className="w-10 h-10 object-cover rounded shadow-sm bg-gray-100 dark:bg-gray-700"
                       onError={(e) => (e.currentTarget.style.display = 'none')}
                     />

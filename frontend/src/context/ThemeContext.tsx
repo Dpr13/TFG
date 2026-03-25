@@ -24,8 +24,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const htmlElement = document.documentElement;
     if (darkMode) {
       htmlElement.classList.add('dark');
+      htmlElement.style.colorScheme = 'dark';
     } else {
       htmlElement.classList.remove('dark');
+      htmlElement.style.colorScheme = 'light';
     }
     // Guardar en localStorage
     localStorage.setItem('darkMode', darkMode.toString());
