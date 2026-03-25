@@ -68,5 +68,32 @@ export interface RecommendationResult {
     upper: Array<{ time: string; value: number }>;
     lower: Array<{ time: string; value: number }>;
   } | null;
+  signal: {
+    score: number;
+    maxScore: number;
+    classification: string;
+    breakdown: Array<{ name: string; score: number; maxScore: number; detail: string }>;
+    explanation: string;
+  };
   analyzedAt: string;
 }
+
+// ── IA Module Types ──────────────────────────────────────────────────────
+
+export interface IAAnalysisResult {
+  resumen: string | null;
+  justificacion: string | null;
+  resumenError?: string;
+  justificacionError?: string;
+}
+
+export interface IAChatResponse {
+  respuesta: string;
+  ok: boolean;
+}
+
+export interface IAChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+

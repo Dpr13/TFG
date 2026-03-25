@@ -3,6 +3,8 @@
  * Request/response types for TP/SL calculation and risk management
  */
 
+import type { TechnicalSignal } from './technicalAnalysis';
+
 export type Direction = 'LONG' | 'SHORT';
 export type SLMethod = 'FIXED_PCT' | 'SUPPORT_RESISTANCE';
 export type TPMethod = 'RISK_REWARD' | 'SUPPORT_RESISTANCE' | 'BOLLINGER';
@@ -85,6 +87,9 @@ export interface RecommendationResult {
     upper: Array<{ time: string; value: number }>;
     lower: Array<{ time: string; value: number }>;
   } | null;
+
+  // Technical signal for AI context
+  signal: TechnicalSignal;
 
   analyzedAt: string;
 }

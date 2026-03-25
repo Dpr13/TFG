@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Loader2, AlertTriangle, Download, Eye, EyeOff,
+  Loader2, AlertTriangle, Download, Eye, EyeOff, Sparkles,
 } from 'lucide-react';
-import { assetService } from '@services/index';
+import { assetService, iaService } from '@services/index';
 import type { TechnicalAnalysisResult, TechnicalSignalClass, SignalBreakdown } from '@/types/index';
 
 // ── Lightweight Charts global ────────────────────────────────────────────
@@ -106,6 +106,11 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
   // Side panel for SR levels
   const [hoveredSR, setHoveredSR] = useState<{ type: 'R' | 'S', price: number, date: string } | null>(null);
 
+  // AI Summary State
+  const [iaResumen, setIaResumen] = useState<string | null>(null);
+  const [iaLoading, setIaLoading] = useState(false);
+  const [iaError, setIaError] = useState<string | null>(null);
+
   // Limit banner state
   const [showLimitBanner, setShowLimitBanner] = useState(false);
 
@@ -146,7 +151,15 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
     setLoading(true);
     setError(null);
     assetService.getTechnicalAnalysis(symbol, selectedRange, interval)
-      .then((result) => { if (!cancelled) setData(result); })
+      .then((result) => { 
+        if (!cancelled) {
+          setData(result); 
+          // Reset AI state when asset/interval/range changes
+          setIaResumen(null);
+          setIaError(null);
+          setIaLoading(false);
+        }
+      })
       .catch((err: any) => {
         if (!cancelled) {
           setError(err?.response?.data?.error || err?.message || 'Error al analizar el activo');
@@ -527,6 +540,51 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
     link.click();
   };
 
+  // ── IA Summary ─────────────────────────────────────────────────────────
+  const generateIASummary = async () => {
+    if (!data) return;
+    setIaLoading(true);
+    setIaError(null);
+
+    const payload = {
+      ticker: data.symbol,
+      intervalo: data.interval,
+      horizonte: data.range,
+      datos_tecnicos: {
+        rsi: data.rsi.length > 0 ? data.rsi[data.rsi.length - 1].value : null,
+        macd_hist: data.macd.histogram.length > 0 ? data.macd.histogram[data.macd.histogram.length - 1].value : 0,
+        sobre_sma50: data.candles.length > 0 && data.sma50.length > 0 && data.candles[data.candles.length - 1].close > data.sma50[data.sma50.length - 1].value,
+        sobre_sma200: data.candles.length > 0 && data.sma200.length > 0 && data.candles[data.candles.length - 1].close > data.sma200[data.sma200.length - 1].value,
+        sma50_sobre_sma200: data.sma50.length > 0 && data.sma200.length > 0 && data.sma50[data.sma50.length - 1].value > data.sma200[data.sma200.length - 1].value,
+        bb_posicion: data.candles.length > 0 && data.bollinger.upper.length > 0 && data.bollinger.lower.length > 0
+          ? (data.candles[data.candles.length - 1].close > data.bollinger.upper[data.bollinger.upper.length - 1].value ? 'por encima' 
+             : data.candles[data.candles.length - 1].close < data.bollinger.lower[data.bollinger.lower.length - 1].value ? 'por debajo' 
+             : 'dentro')
+          : 'dentro',
+        obv_tendencia: data.obv.length > 5 
+          ? (data.obv[data.obv.length - 1].value > data.obv[data.obv.length - 5].value ? 'alcista' : 'bajista') 
+          : 'lateral',
+        señal: data.signal.classification,
+        puntuacion: data.signal.score,
+        soporte_cercano: data.supports.length > 0 ? data.supports.reduce((prev, curr) => Math.abs(curr.price - data.candles[data.candles.length - 1].close) < Math.abs(prev.price - data.candles[data.candles.length - 1].close) ? curr : prev).price : null,
+        resistencia_cercana: data.resistances.length > 0 ? data.resistances.reduce((prev, curr) => Math.abs(curr.price - data.candles[data.candles.length - 1].close) < Math.abs(prev.price - data.candles[data.candles.length - 1].close) ? curr : prev).price : null,
+      }
+    };
+
+    try {
+      const result = await iaService.getTechnicalSummary(payload);
+      if (result.ok && result.resumen) {
+        setIaResumen(result.resumen);
+      } else {
+        setIaError(result.error || 'No se pudo generar el resumen.');
+      }
+    } catch (e: any) {
+      setIaError('El servicio de IA no está disponible en este momento.');
+    } finally {
+      setIaLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
@@ -579,6 +637,66 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
           </button>
         </div>
       )}
+
+      {/* ── AI Summary Module ── */}
+      <div className="flex flex-col gap-4">
+        {/* Generar botón */}
+        <div>
+          <button
+            onClick={generateIASummary}
+            disabled={iaLoading}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-colors ${
+              iaLoading || (iaResumen && !iaError) 
+                ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700/50' 
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            {iaLoading ? <Loader2 className="w-4 h-4 animate-spin text-purple-500" /> : <Sparkles className="w-4 h-4 text-purple-500" />}
+            {iaLoading ? 'Generando...' : iaResumen ? 'Regenerar resumen IA' : 'Generar resumen IA'}
+            <span className="ml-2 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded text-[10px] font-bold">
+              Groq · Llama 3.3
+            </span>
+          </button>
+        </div>
+
+        {/* Tarjeta de Resumen */}
+        {(iaLoading || iaResumen || iaError) && (
+          <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-xl border border-purple-500/20 p-5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-purple-400" />
+                <h4 className="text-sm font-bold text-white">Resumen IA</h4>
+              </div>
+              <span className="px-2 py-0.5 bg-purple-900/40 text-purple-300 rounded text-[10px] font-bold border border-purple-700/40">
+                Groq · Llama 3.3
+              </span>
+            </div>
+
+            {iaLoading ? (
+              <div className="space-y-3">
+                <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-full"></div>
+                <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-11/12"></div>
+                <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-4/5"></div>
+              </div>
+            ) : iaError ? (
+              <p className="text-sm text-red-400">{iaError}</p>
+            ) : iaResumen ? (
+              <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+                {iaResumen.split('\n\n').map((paragraph, idx) => (
+                  <p key={idx}>{paragraph}</p>
+                ))}
+              </div>
+            ) : null}
+
+            {!iaLoading && !iaError && iaResumen && (
+              <p className="text-[10px] text-gray-500 mt-4 leading-relaxed">
+                Generado automáticamente por IA a partir de indicadores técnicos calculados. No constituye asesoramiento financiero.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* ── Controls bar ── */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
