@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Target, Search, Loader2, AlertTriangle, LayoutTemplate } from 'lucide-react';
-import { recommendationService } from '@services/index';
+import { Target, Search, Loader2, AlertTriangle, LayoutTemplate, ChevronDown, ChevronUp, Send, Trash2, Sparkles, Bot, User } from 'lucide-react';
+import { recommendationService, iaService } from '@services/index';
 import { formatCurrency } from '@utils/format';
-import type { RecommendationRequest, RecommendationResult, SLMethod, TPMethod } from '../types';
+import type { RecommendationRequest, RecommendationResult, SLMethod, TPMethod, IAChatMessage } from '../types';
 
 // Lightweight Charts global
 declare const LightweightCharts: any;
@@ -36,6 +36,22 @@ export default function RecommendationPage() {
   // Toggles
   const [showSMA50, setShowSMA50] = useState(true);
   const [showSMA200, setShowSMA200] = useState(true);
+
+  // IA Module State
+  const [iaResumen, setIaResumen] = useState<string | null>(null);
+  const [iaJustificacion, setIaJustificacion] = useState<string | null>(null);
+  const [iaLoading, setIaLoading] = useState(false);
+  const [iaResumenError, setIaResumenError] = useState<string | null>(null);
+  const [iaJustificacionError, setIaJustificacionError] = useState<string | null>(null);
+  const [showJustificacion, setShowJustificacion] = useState(false);
+
+  // Chat State
+  const [chatMessages, setChatMessages] = useState<IAChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSuggestionsVisible, setChatSuggestionsVisible] = useState(true);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const chatContextRef = useRef<any>(null);
   const [showBollinger, setShowBollinger] = useState(true);
 
   // Recalculate Risk if capital or riskPct change (without reloading all data)
@@ -135,6 +151,72 @@ export default function RecommendationPage() {
 
       const res = await recommendationService.calculate(req);
       setResult(res);
+
+      // Fire AI analysis in parallel
+      setIaLoading(true);
+      setIaResumen(null);
+      setIaJustificacion(null);
+      setIaResumenError(null);
+      setIaJustificacionError(null);
+
+      // Build context for IA
+      const signal = res.signal;
+      const lastRsi = signal?.breakdown?.find((b: any) => b.name === 'RSI');
+      const rsiVal = lastRsi ? parseFloat(lastRsi.detail.match(/RSI ([\d.]+)/)?.[1] || '50') : 50;
+      const macdBreakdown = signal?.breakdown?.find((b: any) => b.name === 'MACD');
+      const macdHist = macdBreakdown ? (macdBreakdown.detail.includes('positivo') ? 1 : -1) : 0;
+      const smaBreakdown = signal?.breakdown?.find((b: any) => b.name === 'Medias Móviles');
+      const sobre_sma50 = smaBreakdown ? smaBreakdown.detail.includes('Precio > SMA50') : false;
+      const sobre_sma200 = smaBreakdown ? smaBreakdown.detail.includes('Precio > SMA200') : false;
+      const bbBreakdown = signal?.breakdown?.find((b: any) => b.name === 'Bandas de Bollinger');
+      const bb_posicion = bbBreakdown ? (bbBreakdown.detail.includes('por encima') ? 'sobre' : bbBreakdown.detail.includes('por debajo') ? 'bajo' : 'dentro') : 'dentro';
+      const obvBreakdown = signal?.breakdown?.find((b: any) => b.name === 'Volumen / OBV');
+      const obv_tendencia = obvBreakdown ? (obvBreakdown.detail.includes('alcista') ? 'alcista' : obvBreakdown.detail.includes('bajista') ? 'bajista' : 'lateral') : 'lateral';
+
+      const soporteCercano = res.supports?.length > 0
+        ? res.supports.filter((s: any) => s.price < res.entryPrice).sort((a: any, b: any) => b.price - a.price)[0]?.price ?? null
+        : null;
+      const resistenciaCercana = res.resistances?.length > 0
+        ? res.resistances.filter((r: any) => r.price > res.entryPrice).sort((a: any, b: any) => a.price - b.price)[0]?.price ?? null
+        : null;
+
+      const iaPayload = {
+        ticker: s,
+        direccion: direction,
+        intervalo: interval,
+        precio_entrada: res.entryPrice,
+        sl: res.sl,
+        tps: res.tps.map((tp: any) => ({ precio: tp.price, metodo: tp.label })),
+        datos_tecnicos: {
+          rsi: rsiVal,
+          macd_hist: macdHist,
+          sobre_sma50,
+          sobre_sma200,
+          señal: signal?.classification || 'NEUTRAL',
+          puntuacion: signal?.score || 0,
+          bb_posicion,
+          obv_tendencia,
+          soporte_cercano: soporteCercano,
+          resistencia_cercana: resistenciaCercana,
+        },
+        datos_fundamentales: {},
+      };
+
+      chatContextRef.current = iaPayload;
+
+      iaService.analyze(iaPayload)
+        .then((iaRes) => {
+          setIaResumen(iaRes.resumen);
+          setIaJustificacion(iaRes.justificacion);
+          if (iaRes.resumenError) setIaResumenError(iaRes.resumenError);
+          if (iaRes.justificacionError) setIaJustificacionError(iaRes.justificacionError);
+        })
+        .catch(() => {
+          setIaResumenError('El servicio de IA no está disponible en este momento. Inténtalo de nuevo.');
+          setIaJustificacionError('El servicio de IA no está disponible en este momento. Inténtalo de nuevo.');
+        })
+        .finally(() => setIaLoading(false));
+
     } catch (err: any) {
       setError(err?.response?.data?.error || err?.message || 'Error al calcular la recomendación');
       if (err?.response?.data?.error?.includes('suficientes datos')) {
@@ -352,7 +434,61 @@ export default function RecommendationPage() {
     setSymbol(sym);
     setResult(null);
     setError(null);
+    setIaResumen(null);
+    setIaJustificacion(null);
+    setIaResumenError(null);
+    setIaJustificacionError(null);
+    setChatMessages([]);
+    setChatSuggestionsVisible(true);
+    chatContextRef.current = null;
   };
+
+  // ── Chat Functions ───────────────────────────────────────────────────
+
+  const sendChatMessage = async (msg: string) => {
+    const trimmed = msg.trim();
+    if (!trimmed || chatLoading || !chatContextRef.current) return;
+
+    setChatSuggestionsVisible(false);
+    const userMsg: IAChatMessage = { role: 'user', content: trimmed };
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatInput('');
+    setChatLoading(true);
+
+    try {
+      const historial = [...chatMessages, userMsg].slice(-10);
+      const res = await iaService.chat({
+        contexto: chatContextRef.current,
+        historial,
+        mensaje: trimmed,
+      });
+      const assistantMsg: IAChatMessage = { role: 'assistant', content: res.respuesta };
+      setChatMessages(prev => [...prev, assistantMsg]);
+    } catch {
+      const errorMsg: IAChatMessage = { role: 'assistant', content: 'El servicio de IA no está disponible en este momento. Inténtalo de nuevo.' };
+      setChatMessages(prev => [...prev, errorMsg]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const clearChat = () => {
+    setChatMessages([]);
+    setChatSuggestionsVisible(true);
+  };
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, chatLoading]);
+
+  const CHAT_SUGGESTIONS = [
+    '¿Por qué se propone este stop loss?',
+    '¿Qué indica el RSI ahora mismo?',
+    '¿Cuál es el nivel de resistencia más importante?',
+    '¿Los indicadores están en confluencia?',
+  ];
 
 
   return (
@@ -678,6 +814,187 @@ export default function RecommendationPage() {
                 No constituyen asesoramiento financiero ni recomendación de inversión. 
                 Opera siempre con responsabilidad y dentro de tus posibilidades.
               </p>
+
+              {/* ══════════════════════════════════════════════════════════════════
+                  MÓDULO IA 1: RESUMEN NARRATIVO
+                  ══════════════════════════════════════════════════════════════════ */}
+              <div className="bg-gradient-to-br from-gray-800 to-gray-800/80 rounded-xl border border-purple-500/20 p-5 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                    <h4 className="text-sm font-bold text-white">Resumen IA</h4>
+                  </div>
+                  <span className="px-2 py-0.5 bg-purple-900/40 text-purple-300 rounded text-[10px] font-bold border border-purple-700/40">
+                    Groq · Llama 3.3
+                  </span>
+                </div>
+
+                {iaLoading && !iaResumen && !iaResumenError && (
+                  <div className="space-y-2.5">
+                    <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-full"></div>
+                    <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-11/12"></div>
+                    <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-4/5"></div>
+                  </div>
+                )}
+
+                {iaResumenError && (
+                  <p className="text-sm text-red-400">{iaResumenError}</p>
+                )}
+
+                {iaResumen && (
+                  <p className="text-sm text-gray-300 leading-relaxed">{iaResumen}</p>
+                )}
+
+                <p className="text-[9px] text-gray-500 mt-3">
+                  Generado automáticamente por IA. No constituye asesoramiento financiero.
+                </p>
+              </div>
+
+              {/* ══════════════════════════════════════════════════════════════════
+                  MÓDULO IA 2: JUSTIFICACIÓN DE LA SEÑAL (EXPANDIBLE)
+                  ══════════════════════════════════════════════════════════════════ */}
+              <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                <button
+                  onClick={() => setShowJustificacion(!showJustificacion)}
+                  className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-gray-700/30 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-indigo-400" />
+                    <span className="text-sm font-semibold text-gray-300">Ver justificación detallada (IA)</span>
+                  </div>
+                  {showJustificacion ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                </button>
+
+                {showJustificacion && (
+                  <div className="px-5 pb-4">
+                    {iaLoading && !iaJustificacion && !iaJustificacionError && (
+                      <div className="space-y-2.5">
+                        <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-full"></div>
+                        <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-11/12"></div>
+                        <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-10/12"></div>
+                        <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-4/5"></div>
+                      </div>
+                    )}
+
+                    {iaJustificacionError && (
+                      <p className="text-sm text-red-400">{iaJustificacionError}</p>
+                    )}
+
+                    {iaJustificacion && (
+                      <p className="text-sm text-gray-300 leading-relaxed">{iaJustificacion}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ══════════════════════════════════════════════════════════════════
+                  MÓDULO IA 3: CHAT CONTEXTUAL
+                  ══════════════════════════════════════════════════════════════════ */}
+              <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                <div className="px-5 py-3 border-b border-gray-700 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-cyan-400" />
+                    <h4 className="text-sm font-bold text-white">Chat con IA</h4>
+                    <span className="px-1.5 py-0.5 bg-cyan-900/30 text-cyan-400 rounded text-[9px] font-bold border border-cyan-800/30">
+                      Contextual
+                    </span>
+                  </div>
+                  {chatMessages.length > 0 && (
+                    <button
+                      onClick={clearChat}
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Limpiar chat
+                    </button>
+                  )}
+                </div>
+
+                {/* Messages area */}
+                <div
+                  ref={chatScrollRef}
+                  className="px-4 py-3 space-y-3 overflow-y-auto"
+                  style={{ height: '280px' }}
+                >
+                  {chatMessages.length === 0 && !chatLoading && (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                      <Bot className="w-8 h-8 text-gray-600 mb-2" />
+                      <p className="text-xs text-gray-500 mb-3">Pregunta lo que quieras sobre {result.symbol}</p>
+                      {chatSuggestionsVisible && (
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {CHAT_SUGGESTIONS.map((sug, i) => (
+                            <button
+                              key={i}
+                              onClick={() => sendChatMessage(sug)}
+                              className="px-3 py-1.5 text-[11px] text-cyan-300 bg-cyan-900/20 border border-cyan-800/30 rounded-full hover:bg-cyan-900/40 transition-colors"
+                            >
+                              {sug}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {chatMessages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`max-w-[80%] px-3.5 py-2.5 rounded-xl text-sm leading-relaxed ${
+                        msg.role === 'user'
+                          ? 'bg-primary-600 text-white rounded-br-sm'
+                          : 'bg-gray-700 text-gray-200 rounded-bl-sm'
+                      }`}>
+                        {msg.role === 'assistant' && (
+                          <div className="flex items-center gap-1 mb-1">
+                            <Bot className="w-3 h-3 text-cyan-400" />
+                            <span className="text-[9px] text-cyan-400 font-bold">IA</span>
+                          </div>
+                        )}
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))}
+
+                  {chatLoading && (
+                    <div className="flex justify-start">
+                      <div className="bg-gray-700 text-gray-200 px-3.5 py-2.5 rounded-xl rounded-bl-sm">
+                        <div className="flex items-center gap-1 mb-1">
+                          <Bot className="w-3 h-3 text-cyan-400" />
+                          <span className="text-[9px] text-cyan-400 font-bold">IA</span>
+                        </div>
+                        <div className="flex gap-1">
+                          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Input area */}
+                <div className="px-4 py-3 border-t border-gray-700 flex gap-2">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && sendChatMessage(chatInput)}
+                    placeholder={chatContextRef.current ? 'Escribe tu pregunta...' : 'Calcula una recomendación primero para activar el chat.'}
+                    disabled={!chatContextRef.current || chatLoading}
+                    className="flex-1 px-3.5 py-2 border border-gray-600 rounded-lg bg-gray-700 text-sm text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-transparent outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    onClick={() => sendChatMessage(chatInput)}
+                    disabled={!chatInput.trim() || chatLoading || !chatContextRef.current}
+                    className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1.5"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
 
               {/* Gráfico */}
               <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">

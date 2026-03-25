@@ -95,6 +95,32 @@ export const recommendationService = {
   },
 };
 
+export const iaService = {
+  // Generate AI analysis (resumen + justificación) in parallel
+  analyze: async (data: any): Promise<import('../types/recommendation').IAAnalysisResult> => {
+    const response = await apiClient.post<import('../types/recommendation').IAAnalysisResult>('/ia/analyze', data, {
+      timeout: 30000,
+    });
+    return response.data;
+  },
+
+  // Contextual chat
+  chat: async (data: { contexto: any; historial: import('../types/recommendation').IAChatMessage[]; mensaje: string }): Promise<import('../types/recommendation').IAChatResponse> => {
+    const response = await apiClient.post<import('../types/recommendation').IAChatResponse>('/ia/chat', data, {
+      timeout: 30000,
+    });
+    return response.data;
+  },
+
+  // Resumen narrativo técnico
+  getTechnicalSummary: async (data: any): Promise<{ resumen: string; ok: boolean; error?: string }> => {
+    const response = await apiClient.post<{ resumen: string; ok: boolean; error?: string }>('/ia/resumen-tecnico', data, {
+      timeout: 20000,
+    });
+    return response.data;
+  },
+};
+
 export const priceService = {
   // Obtener histórico de precios
   getPriceHistory: async (

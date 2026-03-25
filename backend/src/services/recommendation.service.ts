@@ -277,6 +277,7 @@ export class RecommendationService {
         upper: analysis.bollinger.upper,
         lower: analysis.bollinger.lower,
       } : null,
+      signal: analysis.signal,
       analyzedAt: new Date().toISOString(),
     };
   }
