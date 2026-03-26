@@ -17,7 +17,7 @@ export interface MarketDataProvider {
     symbol: string,
     interval?: string,
     range?: string
-  ): Promise<Array<{ date: string; close: number }> | null>;
+  ): Promise<Array<{ date: string; open?: number; high?: number; low?: number; close: number; volume?: number }> | null>;
 
   /**
    * Get financial data for a given symbol

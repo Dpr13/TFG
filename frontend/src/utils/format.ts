@@ -1,10 +1,31 @@
-export const formatCurrency = (value: number, currency = 'USD'): string => {
+export const formatCurrency = (value: number, currency = 'USD', decimals?: number): string => {
   if (value === null || value === undefined || isNaN(value)) return 'N/A';
+  
+  // Heurística para decimales si no se proporcionan:
+  // - Si el valor es >= 100: 2 decimales
+  // - Si el valor es < 100 y >= 1: 2-4 decimales
+  // - Si el valor es < 1: hasta 6 decimales
+  let minDecimals = decimals ?? 2;
+  let maxDecimals = decimals ?? 2;
+  
+  if (decimals === undefined) {
+    if (value < 1) {
+      minDecimals = 2;
+      maxDecimals = 6;
+    } else if (value < 100) {
+      minDecimals = 2;
+      maxDecimals = 4;
+    } else {
+      minDecimals = 2;
+      maxDecimals = 2;
+    }
+  }
+
   return new Intl.NumberFormat('es-ES', {
     style: 'currency',
     currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: minDecimals,
+    maximumFractionDigits: maxDecimals,
   }).format(value);
 };
 
