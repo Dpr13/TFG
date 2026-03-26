@@ -18,6 +18,10 @@ export default function RecommendationPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RecommendationResult | null>(null);
 
+  // Precision calculation
+  const precision = result?.entryPrice && result.entryPrice < 1 ? 6 : (result?.entryPrice && result.entryPrice < 100 ? 4 : 2);
+  const minMove = 1 / Math.pow(10, precision);
+
   // Form State
   const [direction, setDirection] = useState<'LONG' | 'SHORT'>('LONG');
   const [interval, setInterval] = useState<string>('1d');
@@ -305,6 +309,11 @@ export default function RecommendationPage() {
         upColor: '#26a69a', downColor: '#ef5350',
         borderUpColor: '#26a69a', borderDownColor: '#ef5350',
         wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+        priceFormat: {
+          type: 'price',
+          precision: precision,
+          minMove: minMove,
+        },
       });
       candleSeries.setData(candles);
 
@@ -367,7 +376,7 @@ export default function RecommendationPage() {
           lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: true,
-          title: `Entrada $${result.entryPrice.toFixed(2)}`,
+          title: `Entrada $${result.entryPrice.toFixed(precision)}`,
         });
       }
 
@@ -378,7 +387,7 @@ export default function RecommendationPage() {
           lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Solid,
           axisLabelVisible: true,
-          title: `SL $${result.sl.toFixed(2)} (-${result.slDistancePct.toFixed(1)}%)`,
+          title: `SL $${result.sl.toFixed(precision)} (-${result.slDistancePct.toFixed(1)}%)`,
         });
       }
 
@@ -390,7 +399,7 @@ export default function RecommendationPage() {
             lineWidth: 2,
             lineStyle: LightweightCharts.LineStyle.Solid,
             axisLabelVisible: true,
-            title: `TP${i+1} $${tp.price.toFixed(2)} (+${tp.distancePct.toFixed(1)}%)`,
+            title: `TP${i+1} $${tp.price.toFixed(precision)} (+${tp.distancePct.toFixed(1)}%)`,
           });
         }
       });
@@ -411,7 +420,7 @@ export default function RecommendationPage() {
         }
         const d = param.seriesData.get(candleSeries);
         if (d) {
-          legendEl.textContent = `O: ${d.open?.toFixed(2)}  H: ${d.high?.toFixed(2)}  L: ${d.low?.toFixed(2)}  C: ${d.close?.toFixed(2)}`;
+          legendEl.textContent = `O: ${d.open?.toFixed(precision)}  H: ${d.high?.toFixed(precision)}  L: ${d.low?.toFixed(precision)}  C: ${d.close?.toFixed(precision)}`;
         }
       });
 
