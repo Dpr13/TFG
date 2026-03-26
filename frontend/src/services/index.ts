@@ -126,7 +126,7 @@ export const priceService = {
   getPriceHistory: async (
     symbol: string,
     interval?: string
-  ): Promise<{ symbol: string; interval?: string; prices: Array<{ date: string; close: number }> }> => {
+  ): Promise<{ symbol: string; interval?: string; prices: Array<{ date: string; open?: number; high?: number; low?: number; close: number; volume?: number }> }> => {
     const params = new URLSearchParams();
     if (interval) params.append('interval', interval);
     const query = params.toString();

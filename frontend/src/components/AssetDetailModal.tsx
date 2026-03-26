@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, TrendingUp, TrendingDown, DollarSign, BarChart3, Calendar, Loader2, Clock, Star } from 'lucide-react';
 import { priceService, assetService } from '@services/index';
 import type { Asset, FinancialData, StockFinancialData, CryptoFinancialData } from '../types';
 import { formatCurrency, formatPercentage } from '@utils/format';
+
+declare const LightweightCharts: any;
+
 
 interface AssetDetailModalProps {
   asset: Asset;
@@ -49,36 +52,144 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
   const [financialData, setFinancialData] = useState<FinancialData | null>(null);
   const [loadingFinancial, setLoadingFinancial] = useState(true);
 
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!chartContainerRef.current || !chartData?.prices || typeof LightweightCharts === 'undefined') return;
+    
+    const uniqueDates = new Set();
+    const isIntraday = ['5min', '15min', '30min', '1h', '4h', '12h'].includes(chartInterval);
+    
+    const candles = chartData.prices
+      .map((p: any) => ({
+        time: isIntraday ? Math.floor(new Date(p.date).getTime() / 1000) : p.date.split('T')[0],
+        open: p.open ?? p.close,
+        high: p.high ?? p.close,
+        low: p.low ?? p.close,
+        close: p.close,
+      }))
+      .filter((c: any) => {
+        if (uniqueDates.has(c.time)) return false;
+        uniqueDates.add(c.time);
+        return true;
+      })
+      .sort((a: any, b: any) => {
+        const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime() / 1000;
+        const timeB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime() / 1000;
+        return timeA - timeB;
+      });
+
+    if (candles.length === 0) return;
+
+    chartContainerRef.current.innerHTML = '';
+    const isDark = document.documentElement.classList.contains('dark');
+    
+    const chart = LightweightCharts.createChart(chartContainerRef.current, {
+      width: chartContainerRef.current.clientWidth,
+      height: 256,
+      layout: {
+        background: { type: 'solid', color: 'transparent' },
+        textColor: isDark ? '#9ca3af' : '#4b5563',
+      },
+      grid: {
+        vertLines: { color: isDark ? '#374151' : '#f3f4f6' },
+        horzLines: { color: isDark ? '#374151' : '#f3f4f6' },
+      },
+      timeScale: {
+        borderColor: isDark ? '#4b5563' : '#e5e7eb',
+        timeVisible: isIntraday,
+      },
+      rightPriceScale: {
+        borderColor: isDark ? '#4b5563' : '#e5e7eb',
+      },
+    });
+
+    const firstPrice = candles[0].close;
+    const precision = firstPrice < 1 ? 6 : firstPrice < 100 ? 4 : 2;
+    const minMove = 1 / Math.pow(10, precision);
+
+    const series = chart.addCandlestickSeries({
+      upColor: '#22c55e',
+      downColor: '#ef4444',
+      borderVisible: false,
+      wickUpColor: '#22c55e',
+      wickDownColor: '#ef4444',
+      priceFormat: {
+        type: 'price',
+        precision: precision,
+        minMove: minMove,
+      },
+    });
+
+    series.setData(candles);
+    chart.timeScale().fitContent();
+
+    // Add legend for exact OHLC values
+    const legendEl = document.createElement('div');
+    legendEl.style.cssText = 'position:absolute;top:8px;left:12px;z-index:10;font-size:11px;color:#d1d5db;pointer-events:none;font-family:monospace;';
+    chartContainerRef.current.appendChild(legendEl);
+
+    chart.subscribeCrosshairMove((param: any) => {
+      if (!param.time || !param.seriesData) {
+        legendEl.textContent = '';
+        return;
+      }
+      const d = param.seriesData.get(series);
+      if (d) {
+        legendEl.textContent = `O: ${d.open?.toFixed(precision)}  H: ${d.high?.toFixed(precision)}  L: ${d.low?.toFixed(precision)}  C: ${d.close?.toFixed(precision)}`;
+      }
+    });
+
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
+    };
+  }, [chartData, chartInterval]);
+
   // Helper: aggregate hourly prices into candles for 4h and 12h
-  const aggregateHourlyToCandlesticks = (prices: Array<{ date: string; close: number }>, hoursPerCandle: number) => {
+  const aggregateHourlyToCandlesticks = (prices: Array<any>, hoursPerCandle: number) => {
     if (hoursPerCandle <= 1 || prices.length === 0) return prices;
 
-    const candlesticks: Array<{ date: string; close: number }> = [];
+    const candlesticks: Array<any> = [];
     let currentGroupStart = new Date(prices[0].date);
-    let groupPrices: number[] = [prices[0].close];
+    let groupPrices = [prices[0]];
 
     for (let i = 1; i < prices.length; i++) {
       const priceDate = new Date(prices[i].date);
       const hoursSinceStart = (priceDate.getTime() - currentGroupStart.getTime()) / (60 * 60 * 1000);
 
       if (hoursSinceStart >= hoursPerCandle) {
-        // Emit the aggregated candle using close of last price in the group
         candlesticks.push({
           date: new Date(currentGroupStart.getTime() + (hoursPerCandle - 0.5) * 60 * 60 * 1000).toISOString(),
-          close: groupPrices[groupPrices.length - 1],
+          open: groupPrices[0].open ?? groupPrices[0].close,
+          high: Math.max(...groupPrices.map(p => p.high ?? p.close)),
+          low: Math.min(...groupPrices.map(p => p.low ?? p.close)),
+          close: groupPrices[groupPrices.length - 1].close,
+          volume: groupPrices.reduce((sum, p) => sum + (p.volume || 0), 0)
         });
         currentGroupStart = priceDate;
-        groupPrices = [prices[i].close];
+        groupPrices = [prices[i]];
       } else {
-        groupPrices.push(prices[i].close);
+        groupPrices.push(prices[i]);
       }
     }
 
-    // Don't forget the last group
     if (groupPrices.length > 0) {
       candlesticks.push({
-        date: new Date(currentGroupStart.getTime() + (hoursPerCandle - 0.5) * 60 * 60 * 1000).toISOString(),
-        close: groupPrices[groupPrices.length - 1],
+          date: new Date(currentGroupStart.getTime() + (hoursPerCandle - 0.5) * 60 * 60 * 1000).toISOString(),
+          open: groupPrices[0].open ?? groupPrices[0].close,
+          high: Math.max(...groupPrices.map(p => p.high ?? p.close)),
+          low: Math.min(...groupPrices.map(p => p.low ?? p.close)),
+          close: groupPrices[groupPrices.length - 1].close,
+          volume: groupPrices.reduce((sum, p) => sum + (p.volume || 0), 0)
       });
     }
 
@@ -86,32 +197,32 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
   };
 
   // Helper: process prices to show recent data with good granularity
-  const processPricesForChart = (prices: Array<{ date: string; close: number }>, interval: TimeInterval): Array<{ date: string; close: number }> => {
+  const processPricesForChart = (prices: Array<any>, interval: TimeInterval): Array<any> => {
     if (prices.length === 0) return prices;
 
-    // 'all' (Historical) is the only one where we truly want to see the whole history even if it means grouping
     const isHistorical = interval === 'all';
-
-    // For specific granularities (5m up to Weekly/Monthly), we want exact units
-    // Limit to 90 points to ensure bars have enough width to be readable
     const maxPoints = isHistorical ? 80 : 90;
 
     if (prices.length <= maxPoints) return prices;
 
-    // For granular intervals, just take the most recent points to maintain exact scale
-    // This satisfies "show the latest prices" and "each candle is exactly 1 unit (5m, 1d, etc.)"
     if (!isHistorical) {
       return prices.slice(-maxPoints);
     }
 
-    // Only for Historical: downsampling to show the full trend in limited space
-    const downsampled: Array<{ date: string; close: number }> = [];
+    const downsampled: Array<any> = [];
     const groupSize = Math.ceil(prices.length / maxPoints);
 
     for (let i = 0; i < prices.length; i += groupSize) {
       const group = prices.slice(i, Math.min(i + groupSize, prices.length));
       if (group.length > 0) {
-        downsampled.push(group[group.length - 1]);
+        downsampled.push({
+          date: group[group.length - 1].date,
+          open: group[0].open ?? group[0].close,
+          high: Math.max(...group.map(p => p.high ?? p.close)),
+          low: Math.min(...group.map(p => p.low ?? p.close)),
+          close: group[group.length - 1].close,
+          volume: group.reduce((sum, p) => sum + (p.volume || 0), 0)
+        });
       }
     }
 
@@ -307,10 +418,6 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
     return 'circulatingSupply' in data || 'totalSupply' in data;
   };
 
-  const chartSpansMultipleYears = chartData?.prices && chartData.prices.length > 1 &&
-    new Date(chartData.prices[0].date).getFullYear() !==
-    new Date(chartData.prices[chartData.prices.length - 1].date).getFullYear();
-
   const historySpansMultipleYears = priceData?.prices && priceData.prices.length > 1 &&
     new Date(priceData.prices[0].date).getFullYear() !==
     new Date(priceData.prices[priceData.prices.length - 1].date).getFullYear();
@@ -501,68 +608,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                 </div>
               ) : chartData?.prices && chartData.prices.length > 0 ? (
                 <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-6">
-                  <div className="relative h-64 flex items-end gap-0.5 bg-gray-100 dark:bg-gray-800 rounded p-2">
-                    {(() => {
-                      const displayData = chartData.prices;
-
-                      return displayData.map((price: any, index: number) => {
-                        const maxPrice = Math.max(...displayData.map((p: any) => p.close));
-                        const minPrice = Math.min(...displayData.map((p: any) => p.close));
-                        const range = maxPrice - minPrice || 1; // Evitar división por cero
-
-                        // Calcular altura en píxeles (máximo 240px - 10px de padding)
-                        const maxHeight = 230;
-                        const heightPx = range > 0
-                          ? Math.max(10, ((price.close - minPrice) / range) * maxHeight)
-                          : maxHeight / 2;
-
-                        const isUp = index > 0 && price.close >= displayData[index - 1].close;
-
-                        return (
-                          <div
-                            key={`${asset.symbol}-${index}-${price.date}`}
-                            className="flex-1 group relative flex items-end justify-center"
-                          >
-                            <div
-                              className={`w-full rounded-t transition-all cursor-pointer ${isUp
-                                ? 'bg-green-500 hover:bg-green-600 dark:bg-green-400 dark:hover:bg-green-500'
-                                : 'bg-red-500 hover:bg-red-600 dark:bg-red-400 dark:hover:bg-red-500'
-                                }`}
-                              style={{ height: `${heightPx}px`, minHeight: '10px' }}
-                            />
-                            <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-lg">
-                              <div className="font-semibold">{formatCurrency(price.close)}</div>
-                              <div className="text-[10px]">
-                                {new Date(price.date).toLocaleDateString('es-ES', {
-                                  ...(chartSpansMultipleYears ? { year: 'numeric' } : {}),
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                  <div className="flex justify-between mt-3 text-xs text-gray-500 dark:text-gray-400">
-                    {(() => {
-                      const displayData = chartData.prices;
-
-                      return (
-                        <>
-                          <span>
-                            {new Date(displayData[0].date).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <span>
-                            {new Date(displayData[displayData.length - 1].date).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </>
-                      );
-                    })()}
-                  </div>
+                  <div ref={chartContainerRef} className="w-full h-64" />
                 </div>
               ) : (
                 <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-6">
