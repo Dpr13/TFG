@@ -4,18 +4,19 @@ import {
 } from 'lucide-react';
 import { assetService } from '@services/index';
 import { useTheme } from '@/context/ThemeContext';
+import AnalysisSummaryCard, { AnalysisVariant } from '@components/AnalysisSummaryCard';
 import type { TechnicalAnalysisResult, TechnicalSignalClass, SignalBreakdown } from '../types';
 
 // ── Lightweight Charts global ────────────────────────────────────────────
 declare const LightweightCharts: any;
 
 // ── Constants ────────────────────────────────────────────────────────────
-const SIGNAL_COLORS: Record<TechnicalSignalClass, { text: string; bg: string; border: string }> = {
-  'COMPRA FUERTE': { text: 'text-green-600 dark:text-green-400', bg: 'bg-green-100/80 dark:bg-green-900/40', border: 'border-green-200 dark:border-green-800' },
-  'COMPRA':        { text: 'text-green-600 dark:text-green-400', bg: 'bg-green-50/80 dark:bg-green-900/30', border: 'border-green-100 dark:border-green-900/50' },
-  'NEUTRAL':       { text: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/30', border: 'border-yellow-200 dark:border-yellow-800/50' },
-  'VENTA':         { text: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/30', border: 'border-red-100 dark:border-red-900/50' },
-  'VENTA FUERTE':  { text: 'text-red-600 dark:text-red-400', bg: 'bg-red-100/80 dark:bg-red-900/40', border: 'border-red-200 dark:border-red-800' },
+const SIGNAL_VARIANTS: Record<TechnicalSignalClass, AnalysisVariant> = {
+  'COMPRA FUERTE': 'success',
+  'COMPRA':        'success',
+  'NEUTRAL':       'warning',
+  'VENTA':         'danger',
+  'VENTA FUERTE':  'danger',
 };
 
 // ── Format helper: abbreviated numbers (OBV, Volume) ─────────────────────
@@ -29,30 +30,7 @@ function formatCompactValue(value: number): string {
 }
 
 // ── Signal Score Gauge (SVG arc) ─────────────────────────────────────────
-function SignalGauge({ score, classification }: { score: number; classification: TechnicalSignalClass }) {
-  const { darkMode } = useTheme();
-  const radius = 44;
-  const circumference = Math.PI * radius;
-  const progress = (score / 100) * circumference;
-  const color =
-    score >= 80 ? '#22c55e' :
-    score >= 60 ? '#4ade80' :
-    score >= 40 ? '#eab308' :
-    score >= 20 ? '#ef4444' : '#dc2626';
-
-  return (
-    <div className="flex flex-col items-center flex-shrink-0">
-      <svg width="110" height="65" viewBox="0 0 110 65">
-        <path d="M11,58 A44,44 0 0,1 99,58" fill="none" stroke={darkMode ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)"} strokeWidth="9" strokeLinecap="round" />
-        <path d="M11,58 A44,44 0 0,1 99,58" fill="none" stroke={color} strokeWidth="9" strokeLinecap="round"
-          strokeDasharray={`${progress} ${circumference}`} />
-        <text x="55" y="52" textAnchor="middle" fontSize="22" fontWeight="bold" fill={darkMode ? "white" : "#1f2937"}>{score}</text>
-        <text x="55" y="63" textAnchor="middle" fontSize="8" fill={darkMode ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.4)"}>/100</text>
-      </svg>
-      <span className="text-xs font-bold mt-1" style={{ color }}>{classification}</span>
-    </div>
-  );
-}
+// SignalGauge removed in favor of AnalysisSummaryCard
 
 // ── Breakdown Bar ────────────────────────────────────────────────────────
 function BreakdownBar({ item }: { item: SignalBreakdown }) {
@@ -456,23 +434,22 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     );
   }
 
-  const signalStyle = SIGNAL_COLORS[data.signal.classification];
-
   return (
     <div className="space-y-5">
 
       {/* ── Signal card ── */}
-      <div className={`rounded-xl p-5 flex flex-col sm:flex-row items-center gap-5 ${signalStyle.bg} border ${signalStyle.border}`}>
-        <SignalGauge score={data.signal.score} classification={data.signal.classification} />
-        <div className="flex-1 min-w-0">
-          <p className="text-gray-800 dark:text-white text-sm leading-relaxed">{data.signal.explanation}</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
-            {data.signal.breakdown.map((item, idx) => (
-              <BreakdownBar key={idx} item={item} />
-            ))}
-          </div>
+      <AnalysisSummaryCard
+        score={data.signal.score}
+        classification={data.signal.classification}
+        explanation={data.signal.explanation}
+        variant={SIGNAL_VARIANTS[data.signal.classification]}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+          {data.signal.breakdown.map((item, idx) => (
+            <BreakdownBar key={idx} item={item} />
+          ))}
         </div>
-      </div>
+      </AnalysisSummaryCard>
 
       {/* Legal disclaimer */}
       <p className="text-xs text-gray-500 dark:text-gray-500 leading-relaxed px-1">
