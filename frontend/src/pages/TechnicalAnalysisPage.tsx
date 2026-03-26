@@ -89,6 +89,11 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
   const chartsContainerRef = useRef<HTMLDivElement>(null);
   const chartsRef = useRef<any[]>([]);
 
+  // Calculate precision based on first price
+  const firstPrice = data?.candles?.[0]?.close || 0;
+  const precision = firstPrice < 1 ? 6 : firstPrice < 100 ? 4 : 2;
+  const minMove = 1 / Math.pow(10, precision);
+
   // ── Fetch data when symbol or range changes ───────────────────────────
   useEffect(() => {
     if (!symbol) return;
@@ -152,6 +157,11 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
         upColor: '#26a69a', downColor: '#ef5350',
         borderUpColor: '#26a69a', borderDownColor: '#ef5350',
         wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+        priceFormat: {
+          type: 'price',
+          precision: precision,
+          minMove: minMove,
+        },
       });
       candleSeries.setData(candles);
 
@@ -214,7 +224,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
           lineWidth: 1,
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: false,
-          title: `S ${level.price.toFixed(2)}`,
+          title: `S ${level.price.toFixed(precision)}`,
         });
       });
       sortByProximity(data.resistances).forEach(level => {
@@ -224,7 +234,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
           lineWidth: 1,
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: false,
-          title: `R ${level.price.toFixed(2)}`,
+          title: `R ${level.price.toFixed(precision)}`,
         });
       });
 
@@ -242,7 +252,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
         const d = param.seriesData.get(candleSeries);
         if (d) {
           const vol = data.candles.find(c => toChartTime(c.date) === param.time as string)?.volume;
-          legendEl.textContent = `O: ${d.open?.toFixed(2)}  H: ${d.high?.toFixed(2)}  L: ${d.low?.toFixed(2)}  C: ${d.close?.toFixed(2)}  V: ${vol != null ? formatCompactValue(vol) : '-'}`;
+          legendEl.textContent = `O: ${d.open?.toFixed(precision)}  H: ${d.high?.toFixed(precision)}  L: ${d.low?.toFixed(precision)}  C: ${d.close?.toFixed(precision)}  V: ${vol != null ? formatCompactValue(vol) : '-'}`;
         }
       });
 

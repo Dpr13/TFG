@@ -117,6 +117,11 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
   // Limit banner state
   const [showLimitBanner, setShowLimitBanner] = useState(false);
 
+  // Calculate precision based on first price
+  const firstPrice = data?.candles?.[0]?.close || 0;
+  const precision = firstPrice < 1 ? 6 : firstPrice < 100 ? 4 : 2;
+  const minMove = 1 / Math.pow(10, precision);
+
   useEffect(() => {
     if (!interval) return;
     const limits = { '1m': 7, '5m': 60, '15m': 60 };
@@ -226,6 +231,11 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
         upColor: '#26a69a', downColor: '#ef5350',
         borderUpColor: '#26a69a', borderDownColor: '#ef5350',
         wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+        priceFormat: {
+          type: 'price',
+          precision: precision,
+          minMove: minMove,
+        },
       });
       candleSeries.setData(candles);
 
@@ -295,7 +305,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
         const sUp = addOverlay(data.bollinger.upper, 'rgba(100, 160, 255, 0.9)', 2, 1.5, 'BBU', {
           priceFormat: {
             type: 'custom',
-            formatter: () => `BB ↑${bbuPrice.toFixed(2)} / ↓${bblPrice.toFixed(2)}`,
+            formatter: () => `BB ↑${bbuPrice.toFixed(precision)} / ↓${bblPrice.toFixed(precision)}`,
           },
           lastValueVisible: true,
           priceLineVisible: false,
@@ -406,7 +416,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
         const d = param.seriesData.get(candleSeries);
         if (d) {
           const vol = data.candles.find(c => toChartTime(c.date, isIntraday) === param.time)?.volume;
-          legendEl.textContent = `${symbol} · ${data.interval} | O: ${d.open?.toFixed(2)}  H: ${d.high?.toFixed(2)}  L: ${d.low?.toFixed(2)}  C: ${d.close?.toFixed(2)}  V: ${vol != null ? formatOBV(vol) : '-'}`;
+          legendEl.textContent = `${symbol} · ${data.interval} | O: ${d.open?.toFixed(precision)}  H: ${d.high?.toFixed(precision)}  L: ${d.low?.toFixed(precision)}  C: ${d.close?.toFixed(precision)}  V: ${vol != null ? formatOBV(vol) : '-'}`;
         }
       });
 
@@ -772,7 +782,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
                   {hoveredSR.type === 'R' ? 'Resistencia' : 'Soporte'}
                 </p>
                 <div className="text-gray-800 dark:text-gray-200 space-y-0.5 font-mono">
-                  <p>$$ {hoveredSR.price.toFixed(2)}</p>
+                  <p>$$ {hoveredSR.price.toFixed(precision)}</p>
                   <p className="text-gray-500 dark:text-gray-400 text-[10px]">{hoveredSR.date.split('T')[0]}</p>
                 </div>
               </div>
