@@ -58,7 +58,7 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
     symbol: string,
     interval: string = '1d',
     range: string = '1y'
-  ): Promise<Array<{ date: string; close: number }> | null> {
+  ): Promise<Array<{ date: string; open?: number; high?: number; low?: number; close: number; volume?: number }> | null> {
     try {
       const yahooSymbol = this.getYahooSymbol(symbol);
 
@@ -128,7 +128,11 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
         .filter((q: any) => q.close !== null && !isNaN(q.close as number))
         .map((q: any) => ({
           date: q.date instanceof Date ? q.date.toISOString() : new Date(q.date).toISOString(),
+          open: q.open as number,
+          high: q.high as number,
+          low: q.low as number,
           close: q.close as number,
+          volume: q.volume as number,
         }));
         
       return prices.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -150,7 +154,11 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
             .filter((q: any) => q.close !== null && !isNaN(q.close as number))
             .map((q: any) => ({
               date: q.date instanceof Date ? q.date.toISOString() : new Date(q.date).toISOString(),
+              open: q.open as number,
+              high: q.high as number,
+              low: q.low as number,
               close: q.close as number,
+              volume: q.volume as number,
             }));
 
           return prices.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());

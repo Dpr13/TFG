@@ -16,7 +16,7 @@ export class MockMarketDataProvider implements MarketDataProvider {
     symbol: string,
     interval?: string,
     range?: string
-  ): Promise<Array<{ date: string; close: number }> | null> {
+  ): Promise<Array<{ date: string; open?: number; high?: number; low?: number; close: number; volume?: number }> | null> {
     const asset = await MarketDataRepository.getAssetBySymbol(symbol);
 
     if (!asset) {
@@ -35,7 +35,11 @@ export class MockMarketDataProvider implements MarketDataProvider {
     // Transform to standard format
     const prices = priceHistory.map((p: Price) => ({
       date: p.date,
+      open: p.price,
+      high: p.price,
+      low: p.price,
       close: p.price,
+      volume: 0,
     }));
 
     return prices;

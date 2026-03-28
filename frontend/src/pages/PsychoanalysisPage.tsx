@@ -10,7 +10,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, TrendingDown, Target, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, Zap, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
+import AnalysisSummaryCard, { AnalysisVariant } from '@components/AnalysisSummaryCard';
 
 // ============================================================================
 // PSYCHOANALYSIS PAGE
@@ -162,6 +163,73 @@ export default function PsychoanalysisPage() {
               </button>
             )}
           </div>
+
+        {/* ── Psychological Summary Card ── */}
+        <div className="mb-8">
+          {(() => {
+            const highAlerts = alerts.filter(a => a.severity === 'high').length;
+            const mediumAlerts = alerts.filter(a => a.severity === 'medium').length;
+            const lowAlerts = alerts.filter(a => a.severity === 'low').length;
+            
+            let score = 100;
+            score -= (highAlerts * 40 + mediumAlerts * 25 + lowAlerts * 10);
+            score = Math.max(0, score);
+
+            let classification = 'Psicología Excelente';
+            let variant: AnalysisVariant = 'success';
+            let Icon = CheckCircle;
+
+            if (score < 50) {
+              classification = 'Riesgo Psicológico Alto';
+              variant = 'danger';
+              Icon = AlertTriangle;
+            } else if (score < 85) {
+              classification = 'Riesgo Psicológico Moderado';
+              variant = 'warning';
+              Icon = AlertTriangle;
+            }
+
+            return (
+              <AnalysisSummaryCard
+                score={score}
+                classification={classification}
+                variant={variant}
+                explanation={
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Icon className="w-5 h-5" />
+                      <span className="text-xl font-bold">Resumen de Comportamiento</span>
+                    </div>
+                    <p className="text-sm leading-relaxed">
+                      {alerts.length === 0 
+                        ? 'No se han detectado patrones de riesgo emocional. Tu disciplina operativa es ejemplar en este periodo.'
+                        : `Se han detectado ${alerts.length} alertas de comportamiento. ${
+                            highAlerts > 0 ? 'Existen patrones de alto riesgo (revenge trading o espirales) que requieren atención inmediata.' :
+                            mediumAlerts > 0 ? 'Hay señales de falta de disciplina que podrían afectar tu rentabilidad a largo plazo.' :
+                            'Existen algunas inconsistencias menores en tu operativa.'
+                          }`
+                      }
+                    </p>
+                  </div>
+                }
+                footer={
+                  <div className="flex flex-wrap gap-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Analizando {generalStats.totalOperations} ops
+                    </div>
+                    {generalStats.winRate > 50 && (
+                      <div className="flex items-center gap-1 text-green-500">
+                        <TrendingUp className="w-3 h-3" />
+                        Rentabilidad positiva
+                      </div>
+                    )}
+                  </div>
+                }
+              />
+            );
+          })()}
+        </div>
         </div>
 
         {/* KPI Cards */}

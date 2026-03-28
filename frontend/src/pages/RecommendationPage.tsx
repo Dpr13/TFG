@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Target, Search, Loader2, AlertTriangle, LayoutTemplate } from 'lucide-react';
-import { recommendationService } from '@services/index';
+import { Target, Search, Loader2, AlertTriangle, LayoutTemplate, ChevronDown, ChevronUp, Send, Trash2, Sparkles, Bot } from 'lucide-react';
+import { recommendationService, iaService } from '@services/index';
+import { useTheme } from '@/context/ThemeContext';
 import { formatCurrency } from '@utils/format';
-import type { RecommendationRequest, RecommendationResult, SLMethod, TPMethod } from '../types';
+import type { RecommendationRequest, RecommendationResult, SLMethod, TPMethod, IAChatMessage } from '../types';
 
 // Lightweight Charts global
 declare const LightweightCharts: any;
@@ -11,10 +12,15 @@ const QUICK_SYMBOLS = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA', 'BTC-USD', 'ETH-
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d', '1wk', '1mo'] as const;
 
 export default function RecommendationPage() {
+  const { darkMode } = useTheme();
   const [symbol, setSymbol] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RecommendationResult | null>(null);
+
+  // Precision calculation
+  const precision = result?.entryPrice && result.entryPrice < 1 ? 6 : (result?.entryPrice && result.entryPrice < 100 ? 4 : 2);
+  const minMove = 1 / Math.pow(10, precision);
 
   // Form State
   const [direction, setDirection] = useState<'LONG' | 'SHORT'>('LONG');
@@ -31,63 +37,86 @@ export default function RecommendationPage() {
   const mainChartRef = useRef<HTMLDivElement>(null);
   const volumeChartRef = useRef<HTMLDivElement>(null);
   const chartsRef = useRef<any[]>([]);
+  const isCalculatingRef = useRef(false);
 
   // Toggles
   const [showSMA50, setShowSMA50] = useState(true);
   const [showSMA200, setShowSMA200] = useState(true);
+
+  // IA Module State
+  const [iaResumen, setIaResumen] = useState<string | null>(null);
+  const [iaJustificacion, setIaJustificacion] = useState<string | null>(null);
+  const [iaLoading, setIaLoading] = useState(false);
+  const [iaResumenError, setIaResumenError] = useState<string | null>(null);
+  const [iaJustificacionError, setIaJustificacionError] = useState<string | null>(null);
+  const [showJustificacion, setShowJustificacion] = useState(false);
+
+  // Chat State
+  const [chatMessages, setChatMessages] = useState<IAChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSuggestionsVisible, setChatSuggestionsVisible] = useState(true);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const chatContextRef = useRef<any>(null);
   const [showBollinger, setShowBollinger] = useState(true);
 
   // Recalculate Risk if capital or riskPct change (without reloading all data)
   useEffect(() => {
-    if (result && !loading) {
-      const capNum = parseFloat(capital);
-      const riskNum = parseFloat(riskPct);
-      if (!isNaN(capNum) && !isNaN(riskNum) && capNum > 0 && riskNum > 0 && riskNum <= 100) {
-        setResult((prev: RecommendationResult | null) => {
-          if (!prev) return prev;
-          const r = { ...prev };
-          r.riskManagement = { ...r.riskManagement };
-          
-          const moneyAtRisk = capNum * (riskNum / 100);
-          r.riskManagement.moneyAtRisk = moneyAtRisk;
-          
-          let posSize = 0;
-          if (r.slDistanceAbs > 0) {
-            posSize = moneyAtRisk / r.slDistanceAbs;
-          }
-          r.riskManagement.positionSize = posSize;
-          r.riskManagement.positionValue = posSize * r.entryPrice;
-          r.riskManagement.riskPctUsed = riskNum;
-          r.currency = currency;
+    if (loading) return;
 
-          // updating Warnings logic for capital
-          const warnings = r.warnings.filter((w: string) => !w.includes('capital disponible'));
-          if (r.riskManagement.positionValue > capNum) {
-            warnings.push('El tamaño de posición supera el capital disponible. Considera reducir el riesgo o aumentar el stop loss.');
-          }
-          r.warnings = warnings;
+    const capNum = parseFloat(capital);
+    const riskNum = parseFloat(riskPct);
+    
+    if (!isNaN(capNum) && !isNaN(riskNum) && capNum > 0 && riskNum > 0 && riskNum <= 100) {
+      setResult((prev: RecommendationResult | null) => {
+        if (!prev) return prev;
+        
+        const moneyAtRisk = capNum * (riskNum / 100);
+        let posSize = 0;
+        if (prev.slDistanceAbs > 0) {
+          posSize = moneyAtRisk / prev.slDistanceAbs;
+        }
+        const positionValue = posSize * prev.entryPrice;
+        
+        const warnings = prev.warnings.filter((w: string) => !w.includes('capital disponible'));
+        if (positionValue > capNum) {
+          warnings.push('El tamaño de posición supera el capital disponible. Considera reducir el riesgo o aumentar el stop loss.');
+        }
 
-          // update TPs profit
-          r.tps = r.tps.map((tp: any) => ({
-            ...tp,
-            potentialProfit: posSize * tp.distanceAbs
-          }));
-          return r;
-        });
-      }
+        const sameRisk = prev.riskManagement.moneyAtRisk === moneyAtRisk &&
+                         prev.riskManagement.positionSize === posSize &&
+                         prev.riskManagement.positionValue === positionValue &&
+                         prev.riskManagement.riskPctUsed === riskNum;
+        const sameCurrency = prev.currency === currency;
+        const sameWarnings = warnings.length === prev.warnings.length && 
+                             warnings.every((w, i) => w === prev.warnings[i]);
+
+        if (sameRisk && sameCurrency && sameWarnings) {
+          return prev;
+        }
+
+        const r = { ...prev };
+        r.riskManagement = { ...r.riskManagement, moneyAtRisk, positionSize: posSize, positionValue, riskPctUsed: riskNum };
+        r.currency = currency;
+        r.warnings = warnings;
+
+        r.tps = r.tps.map((tp: any) => ({
+          ...tp,
+          potentialProfit: posSize * tp.distanceAbs
+        }));
+        
+        return r;
+      });
     }
-  }, [capital, riskPct, currency, loading, result]);
+  }, [capital, riskPct, currency, loading]);
 
   // If SL or TP method changes, we MUST fetch from backend again to get the proper levels
-  // We'll require user to hit "Calcular" or auto-trigger it. 
-  // Requirement: "Al cambiar el método de SL o TP, recalcular y actualizar resultados y gráfico sin recargar la página."
-  // We can auto-fetch if we already have a result.
-
+  // We'll auto-fetch if we already have a result and nothing is currently being calculated.
   useEffect(() => {
-    if (result && !loading && symbol === result.symbol) {
+    if (result && !loading && !isCalculatingRef.current && symbol === result.symbol) {
       calculate();
     }
-  }, [direction, slMethod, slPct, tpMethods, rrRatio]);
+  }, [direction, slMethod, slPct, tpMethods, rrRatio, interval]);
 
   const toggleTpMethod = (method: TPMethod) => {
     setTpMethods(prev => {
@@ -100,9 +129,11 @@ export default function RecommendationPage() {
 
   const calculate = async (symToUse: string = symbol) => {
     const s = symToUse.trim().toUpperCase();
-    if (!s) return;
+    if (!s || isCalculatingRef.current) return;
+    
     setSymbol(s);
     setLoading(true);
+    isCalculatingRef.current = true;
     setError(null);
 
     try {
@@ -126,6 +157,73 @@ export default function RecommendationPage() {
 
       const res = await recommendationService.calculate(req);
       setResult(res);
+
+      // Fire AI analysis in parallel
+      window.dispatchEvent(new CustomEvent('activoAnalizado', { detail: { ticker: s } }));
+      setIaLoading(true);
+      setIaResumen(null);
+      setIaJustificacion(null);
+      setIaResumenError(null);
+      setIaJustificacionError(null);
+
+      // Build context for IA
+      const signal = res.signal;
+      const lastRsi = signal?.breakdown?.find((b: any) => b.name === 'RSI');
+      const rsiVal = lastRsi ? parseFloat(lastRsi.detail.match(/RSI ([\d.]+)/)?.[1] || '50') : 50;
+      const macdBreakdown = signal?.breakdown?.find((b: any) => b.name === 'MACD');
+      const macdHist = macdBreakdown ? (macdBreakdown.detail.includes('positivo') ? 1 : -1) : 0;
+      const smaBreakdown = signal?.breakdown?.find((b: any) => b.name === 'Medias Móviles');
+      const sobre_sma50 = smaBreakdown ? smaBreakdown.detail.includes('Precio > SMA50') : false;
+      const sobre_sma200 = smaBreakdown ? smaBreakdown.detail.includes('Precio > SMA200') : false;
+      const bbBreakdown = signal?.breakdown?.find((b: any) => b.name === 'Bandas de Bollinger');
+      const bb_posicion = bbBreakdown ? (bbBreakdown.detail.includes('por encima') ? 'sobre' : bbBreakdown.detail.includes('por debajo') ? 'bajo' : 'dentro') : 'dentro';
+      const obvBreakdown = signal?.breakdown?.find((b: any) => b.name === 'Volumen / OBV');
+      const obv_tendencia = obvBreakdown ? (obvBreakdown.detail.includes('alcista') ? 'alcista' : obvBreakdown.detail.includes('bajista') ? 'bajista' : 'lateral') : 'lateral';
+
+      const soporteCercano = res.supports?.length > 0
+        ? res.supports.filter((s: any) => s.price < res.entryPrice).sort((a: any, b: any) => b.price - a.price)[0]?.price ?? null
+        : null;
+      const resistenciaCercana = res.resistances?.length > 0
+        ? res.resistances.filter((r: any) => r.price > res.entryPrice).sort((a: any, b: any) => a.price - b.price)[0]?.price ?? null
+        : null;
+
+      const iaPayload = {
+        ticker: s,
+        direccion: direction,
+        intervalo: interval,
+        precio_entrada: res.entryPrice,
+        sl: res.sl,
+        tps: res.tps.map((tp: any) => ({ precio: tp.price, metodo: tp.label })),
+        datos_tecnicos: {
+          rsi: rsiVal,
+          macd_hist: macdHist,
+          sobre_sma50,
+          sobre_sma200,
+          señal: signal?.classification || 'NEUTRAL',
+          puntuacion: signal?.score || 0,
+          bb_posicion,
+          obv_tendencia,
+          soporte_cercano: soporteCercano,
+          resistencia_cercana: resistenciaCercana,
+        },
+        datos_fundamentales: {},
+      };
+
+      chatContextRef.current = iaPayload;
+
+      iaService.analyze(iaPayload)
+        .then((iaRes) => {
+          setIaResumen(iaRes.resumen);
+          setIaJustificacion(iaRes.justificacion);
+          if (iaRes.resumenError) setIaResumenError(iaRes.resumenError);
+          if (iaRes.justificacionError) setIaJustificacionError(iaRes.justificacionError);
+        })
+        .catch(() => {
+          setIaResumenError('El servicio de IA no está disponible en este momento. Inténtalo de nuevo.');
+          setIaJustificacionError('El servicio de IA no está disponible en este momento. Inténtalo de nuevo.');
+        })
+        .finally(() => setIaLoading(false));
+
     } catch (err: any) {
       setError(err?.response?.data?.error || err?.message || 'Error al calcular la recomendación');
       if (err?.response?.data?.error?.includes('suficientes datos')) {
@@ -133,6 +231,7 @@ export default function RecommendationPage() {
       }
     } finally {
       setLoading(false);
+      isCalculatingRef.current = false;
     }
   };
 
@@ -140,7 +239,14 @@ export default function RecommendationPage() {
   // CHARTS
   // --------------------------------------------------------------------------------
   
-  const toChartTime = (dateStr: string) => dateStr.split('T')[0];
+  const isIntraday = ['1m', '5m', '15m', '1h', '4h'].includes(interval || '1d');
+
+  const toChartTime = (dateStr: string, intraday: boolean = false): string | number => {
+    if (intraday) {
+      return Math.floor(Date.parse(dateStr) / 1000);
+    }
+    return dateStr.split('T')[0];
+  };
 
   const buildCharts = useCallback(() => {
     if (!result || typeof LightweightCharts === 'undefined') return;
@@ -148,19 +254,25 @@ export default function RecommendationPage() {
     chartsRef.current.forEach(c => { try { c.remove(); } catch {} });
     chartsRef.current = [];
 
-    const darkTheme = {
+    const chartTheme = darkMode ? {
       layout: { background: { color: '#1f2937' }, textColor: '#9ca3af' },
       grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
       crosshair: { mode: 0 },
       rightPriceScale: { borderColor: '#4b5563' },
-      timeScale: { borderColor: '#4b5563', timeVisible: false },
+      timeScale: { borderColor: '#4b5563', timeVisible: isIntraday },
+    } : {
+      layout: { background: { color: '#ffffff' }, textColor: '#4b5563' },
+      grid: { vertLines: { color: '#f3f4f6' }, horzLines: { color: '#f3f4f6' } },
+      crosshair: { mode: 0 },
+      rightPriceScale: { borderColor: '#e5e7eb' },
+      timeScale: { borderColor: '#e5e7eb', timeVisible: isIntraday },
     };
 
     const uniqueDates = new Set();
     const candles = (result.candles || [])
       .filter((c: any) => c.date != null && c.open != null && c.high != null && c.low != null && c.close != null)
       .map((c: any) => ({
-        time: toChartTime(c.date),
+        time: toChartTime(c.date, isIntraday),
         open: Number(c.open), high: Number(c.high), low: Number(c.low), close: Number(c.close),
       }))
       .filter((c: any) => !isNaN(c.open) && !isNaN(c.high) && !isNaN(c.low) && !isNaN(c.close))
@@ -169,15 +281,25 @@ export default function RecommendationPage() {
         uniqueDates.add(c.time);
         return true;
       })
-      .sort((a: any, b: any) => new Date(a.time).getTime() - new Date(b.time).getTime());
+      .sort((a: any, b: any) => {
+        const timeA = typeof a.time === 'number' ? a.time * 1000 : new Date(a.time).getTime();
+        const timeB = typeof b.time === 'number' ? b.time * 1000 : new Date(b.time).getTime();
+        return timeA - timeB;
+      });
 
     if (mainChartRef.current) {
       if (candles.length === 0) return;
 
       mainChartRef.current.innerHTML = '';
-      const chart = LightweightCharts.createChart(mainChartRef.current, {
-        ...darkTheme,
-        width: mainChartRef.current.clientWidth,
+      const chartWrapper = document.createElement('div');
+      chartWrapper.style.position = 'relative';
+      chartWrapper.style.width = '100%';
+      chartWrapper.style.height = '500px';
+      mainChartRef.current.appendChild(chartWrapper);
+
+      const chart = LightweightCharts.createChart(chartWrapper, {
+        ...chartTheme,
+        width: chartWrapper.clientWidth || mainChartRef.current.clientWidth || 800,
         height: 500,
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
       });
@@ -187,6 +309,11 @@ export default function RecommendationPage() {
         upColor: '#26a69a', downColor: '#ef5350',
         borderUpColor: '#26a69a', borderDownColor: '#ef5350',
         wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+        priceFormat: {
+          type: 'price',
+          precision: precision,
+          minMove: minMove,
+        },
       });
       candleSeries.setData(candles);
 
@@ -194,13 +321,17 @@ export default function RecommendationPage() {
         const tSet = new Set();
         return (data || [])
           .filter(p => p.time != null && p.value != null && !isNaN(p.value))
-          .map(p => ({ time: toChartTime(p.time), value: Number(p.value) }))
+          .map(p => ({ time: toChartTime(p.time, isIntraday), value: Number(p.value) }))
           .filter(p => {
              if (tSet.has(p.time)) return false;
              tSet.add(p.time);
              return true;
           })
-          .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+          .sort((a, b) => {
+            const timeA = typeof a.time === 'number' ? (a.time as number) * 1000 : new Date(a.time).getTime();
+            const timeB = typeof b.time === 'number' ? (b.time as number) * 1000 : new Date(b.time).getTime();
+            return timeA - timeB;
+          });
       };
 
       // Overlays
@@ -241,11 +372,11 @@ export default function RecommendationPage() {
       if (result.entryPrice != null && !isNaN(result.entryPrice)) {
         candleSeries.createPriceLine({
           price: result.entryPrice,
-          color: '#ffffff',
+          color: darkMode ? '#ffffff' : '#1f2937',
           lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Dashed,
           axisLabelVisible: true,
-          title: `Entrada $${result.entryPrice.toFixed(2)}`,
+          title: `Entrada $${result.entryPrice.toFixed(precision)}`,
         });
       }
 
@@ -256,7 +387,7 @@ export default function RecommendationPage() {
           lineWidth: 2,
           lineStyle: LightweightCharts.LineStyle.Solid,
           axisLabelVisible: true,
-          title: `SL $${result.sl.toFixed(2)} (-${result.slDistancePct.toFixed(1)}%)`,
+          title: `SL $${result.sl.toFixed(precision)} (-${result.slDistancePct.toFixed(1)}%)`,
         });
       }
 
@@ -268,7 +399,7 @@ export default function RecommendationPage() {
             lineWidth: 2,
             lineStyle: LightweightCharts.LineStyle.Solid,
             axisLabelVisible: true,
-            title: `TP${i+1} $${tp.price.toFixed(2)} (+${tp.distancePct.toFixed(1)}%)`,
+            title: `TP${i+1} $${tp.price.toFixed(precision)} (+${tp.distancePct.toFixed(1)}%)`,
           });
         }
       });
@@ -280,8 +411,7 @@ export default function RecommendationPage() {
 
       const legendEl = document.createElement('div');
       legendEl.style.cssText = 'position:absolute;top:8px;left:12px;z-index:10;font-size:11px;color:#d1d5db;pointer-events:none;font-family:monospace;';
-      mainChartRef.current.style.position = 'relative';
-      mainChartRef.current.appendChild(legendEl);
+      chartWrapper.appendChild(legendEl);
 
       chart.subscribeCrosshairMove((param: any) => {
         if (!param.time || !param.seriesData) {
@@ -290,13 +420,13 @@ export default function RecommendationPage() {
         }
         const d = param.seriesData.get(candleSeries);
         if (d) {
-          legendEl.textContent = `O: ${d.open?.toFixed(2)}  H: ${d.high?.toFixed(2)}  L: ${d.low?.toFixed(2)}  C: ${d.close?.toFixed(2)}`;
+          legendEl.textContent = `O: ${d.open?.toFixed(precision)}  H: ${d.high?.toFixed(precision)}  L: ${d.low?.toFixed(precision)}  C: ${d.close?.toFixed(precision)}`;
         }
       });
 
       chart.timeScale().fitContent();
     }
-  }, [result, showSMA50, showSMA200, showBollinger]);
+  }, [result, showSMA50, showSMA200, showBollinger, darkMode, isIntraday]);
 
   useEffect(() => {
     buildCharts();
@@ -322,7 +452,61 @@ export default function RecommendationPage() {
     setSymbol(sym);
     setResult(null);
     setError(null);
+    setIaResumen(null);
+    setIaJustificacion(null);
+    setIaResumenError(null);
+    setIaJustificacionError(null);
+    setChatMessages([]);
+    setChatSuggestionsVisible(true);
+    chatContextRef.current = null;
   };
+
+  // ── Chat Functions ───────────────────────────────────────────────────
+
+  const sendChatMessage = async (msg: string) => {
+    const trimmed = msg.trim();
+    if (!trimmed || chatLoading || !chatContextRef.current) return;
+
+    setChatSuggestionsVisible(false);
+    const userMsg: IAChatMessage = { role: 'user', content: trimmed };
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatInput('');
+    setChatLoading(true);
+
+    try {
+      const historial = [...chatMessages, userMsg].slice(-10);
+      const res = await iaService.chat({
+        contexto: chatContextRef.current,
+        historial,
+        mensaje: trimmed,
+      });
+      const assistantMsg: IAChatMessage = { role: 'assistant', content: res.respuesta };
+      setChatMessages(prev => [...prev, assistantMsg]);
+    } catch {
+      const errorMsg: IAChatMessage = { role: 'assistant', content: 'El servicio de IA no está disponible en este momento. Inténtalo de nuevo.' };
+      setChatMessages(prev => [...prev, errorMsg]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const clearChat = () => {
+    setChatMessages([]);
+    setChatSuggestionsVisible(true);
+  };
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, chatLoading]);
+
+  const CHAT_SUGGESTIONS = [
+    '¿Por qué se propone este stop loss?',
+    '¿Qué indica el RSI ahora mismo?',
+    '¿Cuál es el nivel de resistencia más importante?',
+    '¿Los indicadores están en confluencia?',
+  ];
 
 
   return (
@@ -558,16 +742,16 @@ export default function RecommendationPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 
                 {/* Info Card */}
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-5 relative overflow-hidden">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm relative overflow-hidden">
                   <div className={`absolute top-0 left-0 w-1.5 h-full ${result.direction==='LONG'?'bg-green-500':'bg-red-500'}`}></div>
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="text-2xl font-bold text-white">{result.symbol} {/* -- */} <span className={result.direction==='LONG'?'text-green-500':'text-red-500'}>{result.direction}</span></h3>
-                      <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">Precio de Entrada</p>
-                      <p className="text-3xl font-mono text-white mt-1">${result.entryPrice.toFixed(2)}</p>
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{result.symbol} {/* -- */} <span className={result.direction==='LONG'?'text-green-500':'text-red-500'}>{result.direction}</span></h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-widest mt-1">Precio de Entrada</p>
+                      <p className="text-3xl font-mono text-gray-900 dark:text-white mt-1">${result.entryPrice.toFixed(2)}</p>
                     </div>
                     <div className="text-right">
-                      <span className="inline-block px-2.5 py-1 bg-gray-700 text-gray-300 rounded text-xs font-bold font-mono">
+                      <span className="inline-block px-2.5 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs font-bold font-mono border border-gray-200 dark:border-gray-600">
                         Int: {result.interval}
                       </span>
                     </div>
@@ -575,18 +759,18 @@ export default function RecommendationPage() {
                 </div>
 
                 {/* Stop Loss Card */}
-                <div className="bg-red-900/20 rounded-xl border border-red-900/40 p-5">
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-900/40 p-5">
                   <div className="flex justify-between items-center mb-2">
-                    <p className="text-xs font-bold text-red-400 uppercase tracking-widest">Stop Loss</p>
-                    <span className="px-2 py-0.5 bg-red-900/50 text-red-300 rounded text-[10px] uppercase font-bold border border-red-800/50">
+                    <p className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-widest">Stop Loss</p>
+                    <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded text-[10px] uppercase font-bold border border-red-200 dark:border-red-800/50">
                       {result.slMethodLabel}
                     </span>
                   </div>
-                  <p className="text-3xl font-mono text-red-400 font-bold">${result.sl.toFixed(2)}</p>
-                  <p className="text-sm text-red-300/70 mt-1">
-                    -{result.slDistancePct.toFixed(2)}% <span className="text-gray-500 mx-1">|</span> -${result.slDistanceAbs.toFixed(2)}
+                  <p className="text-3xl font-mono text-red-600 dark:text-red-400 font-bold">${result.sl.toFixed(2)}</p>
+                  <p className="text-sm text-red-600/70 dark:text-red-300/70 mt-1">
+                    -{result.slDistancePct.toFixed(2)}% <span className="text-gray-300 dark:text-gray-500 mx-1">|</span> -${result.slDistanceAbs.toFixed(2)}
                   </p>
-                  {result.detectedSLLevel && <p className="text-xs text-red-400/80 mt-2 italic">{result.detectedSLLevel}</p>}
+                  {result.detectedSLLevel && <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-2 italic">{result.detectedSLLevel}</p>}
                 </div>
               </div>
 
@@ -597,46 +781,46 @@ export default function RecommendationPage() {
                 {/* Take Profits */}
                 <div className="md:col-span-2 space-y-3">
                   {result.tps.map((tp: any, i: number) => (
-                    <div key={i} className="bg-green-900/10 rounded-xl border border-green-900/30 p-4 flex justify-between items-center">
+                    <div key={i} className="bg-green-50 dark:bg-green-900/10 rounded-xl border border-green-200 dark:border-green-900/30 p-4 flex justify-between items-center transition-colors">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="text-xs font-bold text-green-500 uppercase tracking-widest">Take Profit {i+1}</p>
-                          <span className="px-2 py-0.5 bg-green-900/40 text-green-300 rounded text-[10px] uppercase font-bold border border-green-800/40">
+                          <p className="text-xs font-bold text-green-600 dark:text-green-500 uppercase tracking-widest">Take Profit {i+1}</p>
+                          <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded text-[10px] uppercase font-bold border border-green-200 dark:border-green-800/40">
                             {tp.label}
                           </span>
                         </div>
-                        <p className="text-xl font-mono text-green-400 font-bold">${tp.price.toFixed(2)}</p>
-                        <p className="text-xs text-green-400/70 mt-1">
-                          +{tp.distancePct.toFixed(2)}% <span className="text-gray-500 mx-1">|</span> +${tp.distanceAbs.toFixed(2)} <span className="text-gray-500 mx-1">|</span> R/B: {tp.realRatio.toFixed(2)}
+                        <p className="text-xl font-mono text-green-600 dark:text-green-400 font-bold">${tp.price.toFixed(2)}</p>
+                        <p className="text-xs text-green-600/70 dark:text-green-400/70 mt-1">
+                          +{tp.distancePct.toFixed(2)}% <span className="text-gray-300 dark:text-gray-500 mx-1">|</span> +${tp.distanceAbs.toFixed(2)} <span className="text-gray-300 dark:text-gray-500 mx-1">|</span> R/B: {tp.realRatio.toFixed(2)}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-gray-500 mb-1">Potencial</p>
-                        <p className="text-lg font-mono text-green-400 font-bold">+{formatCurrency(tp.potentialProfit, result.currency)}</p>
+                        <p className="text-lg font-mono text-green-600 dark:text-green-400 font-bold">+{formatCurrency(tp.potentialProfit, result.currency)}</p>
                       </div>
                     </div>
                   ))}
                   {result.tps.length === 0 && (
-                    <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 text-center">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
                       <p className="text-sm text-gray-500">Ningún Take Profit válido calculado.</p>
                     </div>
                   )}
                 </div>
 
                 {/* Risk Management */}
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 space-y-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Riesgo / {result.currency}</p>
-                    <p className="text-xl font-mono text-white">{formatCurrency(result.riskManagement.moneyAtRisk, result.currency)}</p>
+                    <p className="text-xl font-mono text-gray-900 dark:text-white">{formatCurrency(result.riskManagement.moneyAtRisk, result.currency)}</p>
                     <p className="text-[10px] text-gray-400 mt-0.5">{result.riskManagement.riskPctUsed}% del capital</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Tamaño Posición</p>
-                    <p className="text-xl font-mono text-white">{result.riskManagement.positionSize.toFixed(4)} <span className="text-sm text-gray-400">unds</span></p>
+                    <p className="text-xl font-mono text-gray-900 dark:text-white">{result.riskManagement.positionSize.toFixed(4)} <span className="text-sm text-gray-500 dark:text-gray-400">unds</span></p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Valor Total</p>
-                    <p className="text-xl font-mono text-white">{formatCurrency(result.riskManagement.positionValue, result.currency)}</p>
+                    <p className="text-xl font-mono text-gray-900 dark:text-white">{formatCurrency(result.riskManagement.positionValue, result.currency)}</p>
                   </div>
                 </div>
 
@@ -649,20 +833,201 @@ export default function RecommendationPage() {
                 Opera siempre con responsabilidad y dentro de tus posibilidades.
               </p>
 
+              {/* ══════════════════════════════════════════════════════════════════
+                  MÓDULO IA 1: RESUMEN NARRATIVO
+                  ══════════════════════════════════════════════════════════════════ */}
+              <div className="bg-white dark:bg-gray-800/50 rounded-xl border border-purple-200 dark:border-purple-500/20 p-5 relative overflow-hidden shadow-sm">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Resumen IA</h4>
+                  </div>
+                  <span className="px-2 py-0.5 bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded text-[10px] font-bold border border-purple-200 dark:border-purple-700/40">
+                    Groq · Llama 3.3
+                  </span>
+                </div>
+
+                {iaLoading && !iaResumen && !iaResumenError && (
+                  <div className="space-y-2.5">
+                    <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-full"></div>
+                    <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-11/12"></div>
+                    <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-4/5"></div>
+                  </div>
+                )}
+
+                {iaResumenError && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{iaResumenError}</p>
+                )}
+
+                {iaResumen && (
+                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{iaResumen}</p>
+                )}
+
+                <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-3">
+                  Generado automáticamente por IA. No constituye asesoramiento financiero.
+                </p>
+              </div>
+
+              {/* ══════════════════════════════════════════════════════════════════
+                  MÓDULO IA 2: JUSTIFICACIÓN DE LA SEÑAL (EXPANDIBLE)
+                  ══════════════════════════════════════════════════════════════════ */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm transition-colors">
+                <button
+                  onClick={() => setShowJustificacion(!showJustificacion)}
+                  className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Ver justificación detallada (IA)</span>
+                  </div>
+                  {showJustificacion ? <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
+                </button>
+
+                {showJustificacion && (
+                  <div className="px-5 pb-4">
+                    {iaLoading && !iaJustificacion && !iaJustificacionError && (
+                      <div className="space-y-2.5">
+                        <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-full"></div>
+                        <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-11/12"></div>
+                        <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-10/12"></div>
+                        <div className="h-3.5 bg-gray-700/60 rounded animate-pulse w-4/5"></div>
+                      </div>
+                    )}
+
+                    {iaJustificacionError && (
+                      <p className="text-sm text-red-600 dark:text-red-400">{iaJustificacionError}</p>
+                    )}
+
+                    {iaJustificacion && (
+                      <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{iaJustificacion}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ══════════════════════════════════════════════════════════════════
+                  MÓDULO IA 3: CHAT CONTEXTUAL
+                  ══════════════════════════════════════════════════════════════════ */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50">
+                  <div className="flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Chat con IA</h4>
+                    <span className="px-1.5 py-0.5 bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 rounded text-[9px] font-bold border border-cyan-200 dark:border-cyan-800/30">
+                      Contextual
+                    </span>
+                  </div>
+                  {chatMessages.length > 0 && (
+                    <button
+                      onClick={clearChat}
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Limpiar chat
+                    </button>
+                  )}
+                </div>
+
+                {/* Messages area */}
+                <div
+                  ref={chatScrollRef}
+                  className="px-4 py-3 space-y-3 overflow-y-auto"
+                  style={{ height: '280px' }}
+                >
+                  {chatMessages.length === 0 && !chatLoading && (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                      <Bot className="w-8 h-8 text-gray-600 mb-2" />
+                      <p className="text-xs text-gray-500 mb-3">Pregunta lo que quieras sobre {result.symbol}</p>
+                      {chatSuggestionsVisible && (
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {CHAT_SUGGESTIONS.map((sug, i) => (
+                            <button
+                              key={i}
+                              onClick={() => sendChatMessage(sug)}
+                              className="px-3 py-1.5 text-[11px] text-cyan-300 bg-cyan-900/20 border border-cyan-800/30 rounded-full hover:bg-cyan-900/40 transition-colors"
+                            >
+                              {sug}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {chatMessages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`max-w-[80%] px-3.5 py-2.5 rounded-xl text-sm leading-relaxed ${
+                        msg.role === 'user'
+                          ? 'bg-primary-600 text-white rounded-br-sm'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-sm border border-gray-200 dark:border-gray-600'
+                      }`}>
+                        {msg.role === 'assistant' && (
+                          <div className="flex items-center gap-1 mb-1">
+                            <Bot className="w-3 h-3 text-cyan-400" />
+                            <span className="text-[9px] text-cyan-400 font-bold">IA</span>
+                          </div>
+                        )}
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))}
+
+                  {chatLoading && (
+                    <div className="flex justify-start">
+                      <div className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-3.5 py-2.5 rounded-xl rounded-bl-sm border border-gray-200 dark:border-gray-600">
+                        <div className="flex items-center gap-1 mb-1">
+                          <Bot className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+                          <span className="text-[9px] text-cyan-600 dark:text-cyan-400 font-bold">IA</span>
+                        </div>
+                        <div className="flex gap-1">
+                          <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                          <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                          <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Input area */}
+                <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 flex gap-2">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && sendChatMessage(chatInput)}
+                    placeholder={chatContextRef.current ? 'Escribe tu pregunta...' : 'Calcula una recomendación primero para activar el chat.'}
+                    disabled={!chatContextRef.current || chatLoading}
+                    className="flex-1 px-3.5 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-transparent outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    onClick={() => sendChatMessage(chatInput)}
+                    disabled={!chatInput.trim() || chatLoading || !chatContextRef.current}
+                    className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
               {/* Gráfico */}
-              <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                <div className="px-4 py-3 bg-gray-800 border-b border-gray-700 flex justify-between items-center">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/80 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                   <div className="flex gap-4">
-                    <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
-                      <input type="checkbox" checked={showSMA50} onChange={() => setShowSMA50(!showSMA50)} className="rounded border-gray-500 text-primary-500 w-3.5 h-3.5" />
+                    <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                      <input type="checkbox" checked={showSMA50} onChange={() => setShowSMA50(!showSMA50)} className="rounded border-gray-300 dark:border-gray-600 text-primary-500 w-3.5 h-3.5" />
                       <span className="w-4 h-0.5 rounded bg-orange-400"></span> SMA 50
                     </label>
-                    <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
-                      <input type="checkbox" checked={showSMA200} onChange={() => setShowSMA200(!showSMA200)} className="rounded border-gray-500 text-primary-500 w-3.5 h-3.5" />
+                    <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                      <input type="checkbox" checked={showSMA200} onChange={() => setShowSMA200(!showSMA200)} className="rounded border-gray-300 dark:border-gray-600 text-primary-500 w-3.5 h-3.5" />
                       <span className="w-4 h-[2px] rounded bg-red-500"></span> SMA 200
                     </label>
-                    <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
-                      <input type="checkbox" checked={showBollinger} onChange={() => setShowBollinger(!showBollinger)} className="rounded border-gray-500 text-primary-500 w-3.5 h-3.5" />
+                    <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                      <input type="checkbox" checked={showBollinger} onChange={() => setShowBollinger(!showBollinger)} className="rounded border-gray-300 dark:border-gray-600 text-primary-500 w-3.5 h-3.5" />
                       <span className="w-4 h-0 border-b-2 border-dashed border-blue-400 rounded"></span> Bollinger
                     </label>
                   </div>

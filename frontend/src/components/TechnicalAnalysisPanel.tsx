@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Loader2, AlertTriangle, Download, Eye, EyeOff,
+  Loader2, AlertTriangle, Download, Eye, EyeOff, Sparkles,
 } from 'lucide-react';
-import { assetService } from '@services/index';
+import { assetService, iaService } from '@services/index';
+import { useTheme } from '@/context/ThemeContext';
 import type { TechnicalAnalysisResult, TechnicalSignalClass, SignalBreakdown } from '@/types/index';
 
 // ── Lightweight Charts global ────────────────────────────────────────────
@@ -10,11 +11,11 @@ declare const LightweightCharts: any;
 
 // ── Constants ────────────────────────────────────────────────────────────
 const SIGNAL_COLORS: Record<TechnicalSignalClass, { text: string; bg: string; border: string }> = {
-  'COMPRA FUERTE': { text: 'text-green-400', bg: 'bg-gradient-to-r from-green-700 to-green-600', border: 'border-green-500' },
-  'COMPRA':        { text: 'text-green-400', bg: 'bg-gradient-to-r from-green-800 to-green-700', border: 'border-green-600' },
-  'NEUTRAL':       { text: 'text-yellow-400', bg: 'bg-gradient-to-r from-yellow-800 to-amber-700', border: 'border-yellow-600' },
-  'VENTA':         { text: 'text-red-400', bg: 'bg-gradient-to-r from-red-800 to-red-700', border: 'border-red-600' },
-  'VENTA FUERTE':  { text: 'text-red-400', bg: 'bg-gradient-to-r from-red-900 to-red-800', border: 'border-red-500' },
+  'COMPRA FUERTE': { text: 'text-green-600 dark:text-green-400', bg: 'bg-green-100/80 dark:bg-green-900/40', border: 'border-green-200 dark:border-green-800' },
+  'COMPRA':        { text: 'text-green-600 dark:text-green-400', bg: 'bg-green-50/80 dark:bg-green-900/30', border: 'border-green-100 dark:border-green-900/50' },
+  'NEUTRAL':       { text: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-50 dark:bg-yellow-900/30', border: 'border-yellow-200 dark:border-yellow-800/50' },
+  'VENTA':         { text: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/30', border: 'border-red-100 dark:border-red-900/50' },
+  'VENTA FUERTE':  { text: 'text-red-600 dark:text-red-400', bg: 'bg-red-100/80 dark:bg-red-900/40', border: 'border-red-200 dark:border-red-800' },
 };
 
 // ── Format helper: abbreviated numbers (OBV, Volume) ─────────────────────
@@ -29,6 +30,7 @@ function formatOBV(value: number): string {
 
 // ── Signal Score Gauge (SVG arc) ─────────────────────────────────────────
 function SignalGauge({ score, classification }: { score: number; classification: TechnicalSignalClass }) {
+  const { darkMode } = useTheme();
   const radius = 44;
   const circumference = Math.PI * radius;
   const progress = (score / 100) * circumference;
@@ -41,11 +43,11 @@ function SignalGauge({ score, classification }: { score: number; classification:
   return (
     <div className="flex flex-col items-center flex-shrink-0">
       <svg width="110" height="65" viewBox="0 0 110 65">
-        <path d="M11,58 A44,44 0 0,1 99,58" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="9" strokeLinecap="round" />
+        <path d="M11,58 A44,44 0 0,1 99,58" fill="none" stroke={darkMode ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)"} strokeWidth="9" strokeLinecap="round" />
         <path d="M11,58 A44,44 0 0,1 99,58" fill="none" stroke={color} strokeWidth="9" strokeLinecap="round"
           strokeDasharray={`${progress} ${circumference}`} />
-        <text x="55" y="52" textAnchor="middle" fontSize="22" fontWeight="bold" fill="white">{score}</text>
-        <text x="55" y="63" textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.6)">/100</text>
+        <text x="55" y="52" textAnchor="middle" fontSize="22" fontWeight="bold" fill={darkMode ? "white" : "#1f2937"}>{score}</text>
+        <text x="55" y="63" textAnchor="middle" fontSize="8" fill={darkMode ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.4)"}>/100</text>
       </svg>
       <span className="text-xs font-bold mt-1" style={{ color }}>{classification}</span>
     </div>
@@ -58,14 +60,14 @@ function BreakdownBar({ item }: { item: SignalBreakdown }) {
   const color = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500';
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-xs">
-        <span className="text-gray-300 font-medium">{item.name}</span>
-        <span className="text-gray-400">{item.score}/{item.maxScore}</span>
+      <div className="flex justify-between text-xs transition-colors">
+        <span className="text-gray-200 dark:text-gray-300 font-medium">{item.name}</span>
+        <span className="text-gray-400 dark:text-gray-400">{item.score}/{item.maxScore}</span>
       </div>
-      <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-black/20 dark:bg-gray-700 rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <p className="text-[10.5px] text-gray-200 leading-tight font-medium">{item.detail}</p>
+      <p className="text-[10.5px] text-gray-200/70 dark:text-gray-400 leading-tight font-medium">{item.detail}</p>
     </div>
   );
 }
@@ -89,6 +91,7 @@ interface TechnicalAnalysisPanelProps {
 }
 
 export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval }: TechnicalAnalysisPanelProps) {
+  const { darkMode } = useTheme();
   const [data, setData] = useState<TechnicalAnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,8 +109,18 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
   // Side panel for SR levels
   const [hoveredSR, setHoveredSR] = useState<{ type: 'R' | 'S', price: number, date: string } | null>(null);
 
+  // AI Summary State
+  const [iaResumen, setIaResumen] = useState<string | null>(null);
+  const [iaLoading, setIaLoading] = useState(false);
+  const [iaError, setIaError] = useState<string | null>(null);
+
   // Limit banner state
   const [showLimitBanner, setShowLimitBanner] = useState(false);
+
+  // Calculate precision based on first price
+  const firstPrice = data?.candles?.[0]?.close || 0;
+  const precision = firstPrice < 1 ? 6 : firstPrice < 100 ? 4 : 2;
+  const minMove = 1 / Math.pow(10, precision);
 
   useEffect(() => {
     if (!interval) return;
@@ -146,7 +159,15 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
     setLoading(true);
     setError(null);
     assetService.getTechnicalAnalysis(symbol, selectedRange, interval)
-      .then((result) => { if (!cancelled) setData(result); })
+      .then((result) => { 
+        if (!cancelled) {
+          setData(result); 
+          // Reset AI state when asset/interval/range changes
+          setIaResumen(null);
+          setIaError(null);
+          setIaLoading(false);
+        }
+      })
       .catch((err: any) => {
         if (!cancelled) {
           setError(err?.response?.data?.error || err?.message || 'Error al analizar el activo');
@@ -168,12 +189,18 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
 
     const isIntraday = ['1m', '5m', '15m', '1h', '4h'].includes(data.interval || interval || '1d');
 
-    const darkTheme = {
+    const chartTheme = darkMode ? {
       layout: { background: { color: '#1f2937' }, textColor: '#9ca3af' },
       grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
       crosshair: { mode: 0 },
       rightPriceScale: { borderColor: '#4b5563' },
       timeScale: { borderColor: '#4b5563', timeVisible: isIntraday },
+    } : {
+      layout: { background: { color: '#ffffff' }, textColor: '#4b5563' },
+      grid: { vertLines: { color: '#f3f4f6' }, horzLines: { color: '#f3f4f6' } },
+      crosshair: { mode: 0 },
+      rightPriceScale: { borderColor: '#e5e7eb' },
+      timeScale: { borderColor: '#e5e7eb', timeVisible: isIntraday },
     };
 
     const candles = data.candles.map(c => ({
@@ -193,7 +220,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
       mainChartRef.current.appendChild(chartWrapper);
 
       const chart = LightweightCharts.createChart(chartWrapper, {
-        ...darkTheme,
+        ...chartTheme,
         width: chartWrapper.clientWidth,
         height: 420,
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
@@ -204,6 +231,11 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
         upColor: '#26a69a', downColor: '#ef5350',
         borderUpColor: '#26a69a', borderDownColor: '#ef5350',
         wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+        priceFormat: {
+          type: 'price',
+          precision: precision,
+          minMove: minMove,
+        },
       });
       candleSeries.setData(candles);
 
@@ -273,7 +305,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
         const sUp = addOverlay(data.bollinger.upper, 'rgba(100, 160, 255, 0.9)', 2, 1.5, 'BBU', {
           priceFormat: {
             type: 'custom',
-            formatter: () => `BB ↑${bbuPrice.toFixed(2)} / ↓${bblPrice.toFixed(2)}`,
+            formatter: () => `BB ↑${bbuPrice.toFixed(precision)} / ↓${bblPrice.toFixed(precision)}`,
           },
           lastValueVisible: true,
           priceLineVisible: false,
@@ -373,7 +405,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
 
       // Legend on crosshair
       const legendEl = document.createElement('div');
-      legendEl.style.cssText = 'position:absolute;top:8px;left:12px;z-index:10;font-size:11px;color:#d1d5db;pointer-events:none;font-family:monospace;';
+      legendEl.style.cssText = `position:absolute;top:8px;left:12px;z-index:10;font-size:11px;color:${darkMode ? '#d1d5db' : '#4b5563'};pointer-events:none;font-family:monospace;`;
       chartWrapper.appendChild(legendEl);
 
       chart.subscribeCrosshairMove((param: any) => {
@@ -384,7 +416,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
         const d = param.seriesData.get(candleSeries);
         if (d) {
           const vol = data.candles.find(c => toChartTime(c.date, isIntraday) === param.time)?.volume;
-          legendEl.textContent = `${symbol} · ${data.interval} | O: ${d.open?.toFixed(2)}  H: ${d.high?.toFixed(2)}  L: ${d.low?.toFixed(2)}  C: ${d.close?.toFixed(2)}  V: ${vol != null ? formatOBV(vol) : '-'}`;
+          legendEl.textContent = `${symbol} · ${data.interval} | O: ${d.open?.toFixed(precision)}  H: ${d.high?.toFixed(precision)}  L: ${d.low?.toFixed(precision)}  C: ${d.close?.toFixed(precision)}  V: ${vol != null ? formatOBV(vol) : '-'}`;
         }
       });
 
@@ -395,10 +427,10 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
     if (volumeChartRef.current && data.hasVolume) {
       volumeChartRef.current.innerHTML = '';
       const chart = LightweightCharts.createChart(volumeChartRef.current, {
-        ...darkTheme,
+        ...chartTheme,
         width: volumeChartRef.current.clientWidth,
         height: 120,
-        rightPriceScale: { borderColor: '#4b5563' },
+        rightPriceScale: { borderColor: darkMode ? '#4b5563' : '#e5e7eb' },
       });
       chartsRef.current.push(chart);
 
@@ -435,7 +467,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
     // ── RSI Chart ──
     if (rsiChartRef.current && showRSI && data.rsi.length > 0) {
       rsiChartRef.current.innerHTML = '';
-      const chart = LightweightCharts.createChart(rsiChartRef.current, { ...darkTheme, width: rsiChartRef.current.clientWidth, height: 120 });
+      const chart = LightweightCharts.createChart(rsiChartRef.current, { ...chartTheme, width: rsiChartRef.current.clientWidth, height: 120 });
       chartsRef.current.push(chart);
 
       const rsiSeries = chart.addLineSeries({ color: '#a78bfa', lineWidth: 1.5, title: 'RSI(14)' });
@@ -452,7 +484,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
     // ── MACD Chart ──
     if (macdChartRef.current && showMACD && data.macd.macdLine.length > 0) {
       macdChartRef.current.innerHTML = '';
-      const chart = LightweightCharts.createChart(macdChartRef.current, { ...darkTheme, width: macdChartRef.current.clientWidth, height: 120 });
+      const chart = LightweightCharts.createChart(macdChartRef.current, { ...chartTheme, width: macdChartRef.current.clientWidth, height: 120 });
       chartsRef.current.push(chart);
 
       const histSeries = chart.addHistogramSeries({ priceScaleId: 'macd', title: 'Hist' });
@@ -480,7 +512,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
         ch.timeScale().subscribeVisibleLogicalRangeChange((range: any) => { if (range) primary.timeScale().setVisibleLogicalRange(range); });
       });
     }
-  }, [data, showSMA20, showSMA50, showSMA200, showEMA20, showEMA50, showBollinger, showRSI, showMACD, symbol, interval]);
+  }, [data, showSMA20, showSMA50, showSMA200, showEMA20, showEMA50, showBollinger, showRSI, showMACD, symbol, interval, darkMode]);
 
   useEffect(() => {
     buildCharts();
@@ -510,7 +542,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
     const canvas = document.createElement('canvas');
     canvas.width = width * 2; canvas.height = totalHeight * 2;
     const ctx = canvas.getContext('2d')!;
-    ctx.scale(2, 2); ctx.fillStyle = '#1f2937'; ctx.fillRect(0, 0, width, totalHeight);
+    ctx.scale(2, 2); ctx.fillStyle = darkMode ? '#1f2937' : '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
 
     let yOffset = 0;
     chartsRef.current.forEach(c => {
@@ -525,6 +557,51 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
     link.download = `${data?.symbol || 'chart'}_technical_${selectedRange}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
+  };
+
+  // ── IA Summary ─────────────────────────────────────────────────────────
+  const generateIASummary = async () => {
+    if (!data) return;
+    setIaLoading(true);
+    setIaError(null);
+
+    const payload = {
+      ticker: data.symbol,
+      intervalo: data.interval,
+      horizonte: data.range,
+      datos_tecnicos: {
+        rsi: data.rsi.length > 0 ? data.rsi[data.rsi.length - 1].value : null,
+        macd_hist: data.macd.histogram.length > 0 ? data.macd.histogram[data.macd.histogram.length - 1].value : 0,
+        sobre_sma50: data.candles.length > 0 && data.sma50.length > 0 && data.candles[data.candles.length - 1].close > data.sma50[data.sma50.length - 1].value,
+        sobre_sma200: data.candles.length > 0 && data.sma200.length > 0 && data.candles[data.candles.length - 1].close > data.sma200[data.sma200.length - 1].value,
+        sma50_sobre_sma200: data.sma50.length > 0 && data.sma200.length > 0 && data.sma50[data.sma50.length - 1].value > data.sma200[data.sma200.length - 1].value,
+        bb_posicion: data.candles.length > 0 && data.bollinger.upper.length > 0 && data.bollinger.lower.length > 0
+          ? (data.candles[data.candles.length - 1].close > data.bollinger.upper[data.bollinger.upper.length - 1].value ? 'por encima' 
+             : data.candles[data.candles.length - 1].close < data.bollinger.lower[data.bollinger.lower.length - 1].value ? 'por debajo' 
+             : 'dentro')
+          : 'dentro',
+        obv_tendencia: data.obv.length > 5 
+          ? (data.obv[data.obv.length - 1].value > data.obv[data.obv.length - 5].value ? 'alcista' : 'bajista') 
+          : 'lateral',
+        señal: data.signal.classification,
+        puntuacion: data.signal.score,
+        soporte_cercano: data.supports.length > 0 ? data.supports.reduce((prev, curr) => Math.abs(curr.price - data.candles[data.candles.length - 1].close) < Math.abs(prev.price - data.candles[data.candles.length - 1].close) ? curr : prev).price : null,
+        resistencia_cercana: data.resistances.length > 0 ? data.resistances.reduce((prev, curr) => Math.abs(curr.price - data.candles[data.candles.length - 1].close) < Math.abs(prev.price - data.candles[data.candles.length - 1].close) ? curr : prev).price : null,
+      }
+    };
+
+    try {
+      const result = await iaService.getTechnicalSummary(payload);
+      if (result.ok && result.resumen) {
+        setIaResumen(result.resumen);
+      } else {
+        setIaError(result.error || 'No se pudo generar el resumen.');
+      }
+    } catch (e: any) {
+      setIaError('El servicio de IA no está disponible en este momento.');
+    } finally {
+      setIaLoading(false);
+    }
   };
 
   if (loading) {
@@ -552,10 +629,10 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
   return (
     <div className="space-y-6">
       {/* ── Signal card ── */}
-      <div className={`rounded-xl p-5 flex flex-col sm:flex-row items-center gap-5 ${signalStyle.bg} border ${signalStyle.border} shadow-sm`}>
+      <div className={`rounded-xl p-5 flex flex-col sm:flex-row items-center gap-5 ${signalStyle.bg} border ${signalStyle.border} shadow-sm transition-colors duration-300`}>
         <SignalGauge score={data.signal.score} classification={data.signal.classification} />
         <div className="flex-1 min-w-0">
-          <p className="text-white text-sm leading-relaxed">{data.signal.explanation}</p>
+          <p className="text-gray-800 dark:text-white text-sm leading-relaxed">{data.signal.explanation}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
             {data.signal.breakdown.map((item, idx) => <BreakdownBar key={idx} item={item} />)}
           </div>
@@ -580,6 +657,66 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
         </div>
       )}
 
+      {/* ── AI Summary Module ── */}
+      <div className="flex flex-col gap-4">
+        {/* Generar botón */}
+        <div>
+          <button
+            onClick={generateIASummary}
+            disabled={iaLoading}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-colors ${
+              iaLoading || (iaResumen && !iaError) 
+                ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700/50' 
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            {iaLoading ? <Loader2 className="w-4 h-4 animate-spin text-purple-500" /> : <Sparkles className="w-4 h-4 text-purple-500" />}
+            {iaLoading ? 'Generando...' : iaResumen ? 'Regenerar resumen IA' : 'Generar resumen IA'}
+            <span className="ml-2 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded text-[10px] font-bold">
+              Groq · Llama 3.3
+            </span>
+          </button>
+        </div>
+
+        {/* Tarjeta de Resumen */}
+        {(iaLoading || iaResumen || iaError) && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-purple-200 dark:border-purple-500/20 p-5 relative overflow-hidden shadow-sm transition-colors">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <h4 className="text-sm font-bold text-gray-900 dark:text-white">Resumen IA</h4>
+              </div>
+              <span className="px-2 py-0.5 bg-purple-50 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 rounded text-[10px] font-bold border border-purple-200 dark:border-purple-700/40">
+                Groq · Llama 3.3
+              </span>
+            </div>
+
+            {iaLoading ? (
+              <div className="space-y-3">
+                <div className="h-3.5 bg-gray-100 dark:bg-gray-700/60 rounded animate-pulse w-full"></div>
+                <div className="h-3.5 bg-gray-100 dark:bg-gray-700/60 rounded animate-pulse w-11/12"></div>
+                <div className="h-3.5 bg-gray-100 dark:bg-gray-700/60 rounded animate-pulse w-4/5"></div>
+              </div>
+            ) : iaError ? (
+              <p className="text-sm text-red-500 dark:text-red-400">{iaError}</p>
+            ) : iaResumen ? (
+              <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                {iaResumen.split('\n\n').map((paragraph, idx) => (
+                  <p key={idx}>{paragraph}</p>
+                ))}
+              </div>
+            ) : null}
+
+            {!iaLoading && !iaError && iaResumen && (
+              <p className="text-[10px] text-gray-500 mt-4 leading-relaxed">
+                Generado automáticamente por IA a partir de indicadores técnicos calculados. No constituye asesoramiento financiero.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* ── Controls bar ── */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
         <div className="flex flex-wrap items-center gap-4">
@@ -593,12 +730,12 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
               { label: 'EMA 50', checked: showEMA50, set: setShowEMA50, color: '#a78bfa', style: 'dashed' as const },
               { label: 'Bollinger', checked: showBollinger, set: setShowBollinger, color: 'rgba(100,160,255,1)', style: 'dashed' as const },
             ].map(({ label, checked, set, color, style }) => (
-              <label key={label} className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+              <label key={label} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={checked}
                   onChange={() => set(!checked)}
-                  className="rounded border-gray-500 text-primary-500 focus:ring-primary-500 w-3.5 h-3.5 bg-gray-100 dark:bg-gray-700"
+                  className="rounded border-gray-300 dark:border-gray-500 text-primary-500 focus:ring-primary-500 w-3.5 h-3.5 bg-gray-50 dark:bg-gray-700"
                 />
                 <span
                   className="w-4 h-0.5 rounded opacity-90"
@@ -634,36 +771,36 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
 
       {/* ── Panel split (Charts + Hover Info) ── */}
       <div className="flex gap-4">
-        <div ref={chartsContainerRef} className="space-y-1 flex-1 min-w-0 shadow-sm">
+        <div ref={chartsContainerRef} className="space-y-1 flex-1 min-w-0">
           {/* Main candlestick */}
-          <div className="bg-gray-800 rounded-t-xl overflow-hidden border border-gray-700 relative">
+          <div className="bg-white dark:bg-gray-800 rounded-t-xl overflow-hidden border border-gray-100 dark:border-gray-700 relative shadow-sm transition-colors">
             <div ref={mainChartRef} />
             {/* Side tooltip for SR */}
             {hoveredSR && (
-              <div className="absolute right-14 top-4 bg-gray-900/90 border border-gray-700 text-xs px-3 py-2 rounded-lg shadow-xl z-20 pointer-events-none fade-in">
-                <p className={`font-bold uppercase tracking-wider mb-1 ${hoveredSR.type === 'R' ? 'text-red-400' : 'text-green-400'}`}>
+              <div className="absolute right-14 top-4 bg-white/95 dark:bg-gray-900/90 border border-gray-200 dark:border-gray-700 text-xs px-3 py-2 rounded-lg shadow-xl z-20 pointer-events-none fade-in">
+                <p className={`font-bold uppercase tracking-wider mb-1 ${hoveredSR.type === 'R' ? 'text-red-500 dark:text-red-400' : 'text-green-500 dark:text-green-400'}`}>
                   {hoveredSR.type === 'R' ? 'Resistencia' : 'Soporte'}
                 </p>
-                <div className="text-gray-200 space-y-0.5 font-mono">
-                  <p>$$ {hoveredSR.price.toFixed(2)}</p>
-                  <p className="text-gray-400 text-[10px]">{hoveredSR.date.split('T')[0]}</p>
+                <div className="text-gray-800 dark:text-gray-200 space-y-0.5 font-mono">
+                  <p>$$ {hoveredSR.price.toFixed(precision)}</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-[10px]">{hoveredSR.date.split('T')[0]}</p>
                 </div>
               </div>
             )}
           </div>
           {/* Volume */}
-          {data.hasVolume && <div className="bg-gray-800 overflow-hidden border-x border-b border-gray-700"><div ref={volumeChartRef} /></div>}
+          {data.hasVolume && <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors"><div ref={volumeChartRef} /></div>}
           {/* RSI */}
           {showRSI && data.rsi.length > 0 && (
-            <div className="bg-gray-800 overflow-hidden border-x border-b border-gray-700">
-              <div className="px-3 pt-1.5 pb-0"><span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">RSI (14)</span></div>
+            <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
+              <div className="px-3 pt-1.5 pb-0"><span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">RSI (14)</span></div>
               <div ref={rsiChartRef} />
             </div>
           )}
           {/* MACD */}
           {showMACD && data.macd.macdLine.length > 0 && (
-            <div className="bg-gray-800 rounded-b-xl overflow-hidden border-x border-b border-gray-700">
-              <div className="px-3 pt-1.5 pb-0"><span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">MACD (12, 26, 9)</span></div>
+            <div className="bg-white dark:bg-gray-800 rounded-b-xl overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
+              <div className="px-3 pt-1.5 pb-0"><span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">MACD (12, 26, 9)</span></div>
               <div ref={macdChartRef} />
             </div>
           )}
