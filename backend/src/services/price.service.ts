@@ -22,7 +22,7 @@ export class PriceService {
     symbol: string;
     interval?: string;
     range?: string;
-    prices: Array<{ date: string; close: number }>;
+    prices: Array<{ date: string; open?: number; high?: number; low?: number; close: number; volume?: number }>;
   } | null> {
     const prices = await this.provider.getHistoricalPrices(symbol, interval, range);
     if (!prices) {

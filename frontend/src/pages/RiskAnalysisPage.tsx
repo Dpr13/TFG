@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Search, TrendingUp, Loader2, AlertTriangle,
   ShieldCheck, ShieldAlert, BarChart2, Activity,
@@ -7,6 +8,7 @@ import {
 import { riskService, assetService } from '@services/index';
 import { useWatchlist } from '@hooks/useWatchlist';
 import { formatPercentage, formatCompactNumber, formatCurrency, formatDateSimple } from '@utils/format';
+import AnalysisSummaryCard, { AnalysisVariant } from '@components/AnalysisSummaryCard';
 import type { RiskMetrics, FinancialData, FundamentalAnalysis } from '../types';
 import TechnicalAnalysisPanel from '../components/TechnicalAnalysisPanel';
 
@@ -45,6 +47,12 @@ const RISK_CONFIG = {
     gaugeColor: '#f97316',
     score: 85,
   },
+};
+
+const RISK_VARIANTS: Record<string, AnalysisVariant> = {
+  LOW: 'success',
+  MEDIUM: 'warning',
+  HIGH: 'danger',
 };
 
 const METRIC_DEFINITIONS = {
@@ -210,58 +218,7 @@ const DEFAULT_INTERVAL: Record<string, IntervalMode> = {
 // ── Risk Gauge ────────────────────────────────────────────────────────────────
 // Semicircle gauge: LEFT = LOW risk, RIGHT = HIGH risk
 
-function RiskGauge({ level }: { level: 'LOW' | 'MEDIUM' | 'HIGH' }) {
-  const config = RISK_CONFIG[level];
-  const r = 54;
-  const cx = 80, cy = 76;
-
-  // fillAngle: 0° = far-left (low risk), 180° = far-right (high risk)
-  const fillAngle = (config.score / 100) * 180;
-
-  // Convert gauge angle to standard math angle (0=right, CCW+), flip SVG y-axis
-  const mathRad = ((180 - fillAngle) * Math.PI) / 180;
-  const endX = cx + r * Math.cos(mathRad);
-  const endY = cy - r * Math.sin(mathRad);
-
-  const leftX = cx - r, leftY = cy;
-  const rightX = cx + r, rightY = cy;
-  const largeArc = fillAngle > 180 ? 1 : 0;
-
-  return (
-    <svg viewBox="0 0 160 95" className="w-44 h-auto select-none">
-      {/* Background track */}
-      <path
-        d={`M ${leftX} ${leftY} A ${r} ${r} 0 0 1 ${rightX} ${rightY}`}
-        fill="none"
-        stroke="#e5e7eb"
-        strokeWidth="10"
-        strokeLinecap="round"
-      />
-      {/* Colored fill track */}
-      <path
-        d={`M ${leftX} ${leftY} A ${r} ${r} 0 ${largeArc} 1 ${endX.toFixed(2)} ${endY.toFixed(2)}`}
-        fill="none"
-        stroke={config.gaugeColor}
-        strokeWidth="10"
-        strokeLinecap="round"
-      />
-      {/* Needle */}
-      <line
-        x1={cx} y1={cy}
-        x2={endX.toFixed(2)} y2={endY.toFixed(2)}
-        stroke={config.gaugeColor}
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      {/* Center dot */}
-      <circle cx={cx} cy={cy} r="5" fill={config.gaugeColor} />
-      {/* Labels */}
-      <text x={leftX} y={leftY + 14} fontSize="8" fill="#9ca3af" textAnchor="middle">BAJO</text>
-      <text x={cx} y="16" fontSize="8" fill="#9ca3af" textAnchor="middle">MEDIO</text>
-      <text x={rightX} y={rightY + 14} fontSize="8" fill="#9ca3af" textAnchor="middle">ALTO</text>
-    </svg>
-  );
-}
+// RiskGauge removed in favor of AnalysisSummaryCard
 
 // Helper to render **bold** text in analysis content
 function RichText({ text }: { text: string }) {
@@ -278,34 +235,7 @@ function RichText({ text }: { text: string }) {
 }
 
 // Score gauge component (SVG arc) for Fundamental Analysis
-function FundamentalScoreGauge({ score, outlook }: { score: number; outlook: string }) {
-  const radius = 40;
-  const circumference = Math.PI * radius; // half circle
-  const progress = (score / 100) * circumference;
-  const colorClass =
-    outlook === 'STRONG' ? '#22c55e' :
-    outlook === 'MODERATE' ? '#f59e0b' : '#ef4444';
-  const trackColor = 'rgba(255,255,255,0.15)';
-  return (
-    <div className="flex flex-col items-center">
-      <svg width="100" height="60" viewBox="0 0 100 60">
-        <path
-          d="M10,55 A40,40 0 0,1 90,55"
-          fill="none" stroke={trackColor} strokeWidth="10" strokeLinecap="round"
-        />
-        <path
-          d="M10,55 A40,40 0 0,1 90,55"
-          fill="none" stroke={colorClass} strokeWidth="10" strokeLinecap="round"
-          strokeDasharray={`${progress} ${circumference}`}
-        />
-        <text x="50" y="52" textAnchor="middle" fontSize="18" fontWeight="bold" fill="white">{score}</text>
-      </svg>
-      <span className="text-xs mt-1" style={{ color: colorClass }}>
-        {outlook === 'STRONG' ? 'Fuerte' : outlook === 'MODERATE' ? 'Moderada' : 'Débil'}
-      </span>
-    </div>
-  );
-}
+// FundamentalScoreGauge removed in favor of AnalysisSummaryCard
 
 // ── Metric Card ───────────────────────────────────────────────────────────────
 
@@ -420,6 +350,15 @@ export default function RiskAnalysisPage() {
   const [fundamentalAnalysis, setFundamentalAnalysis] = useState<FundamentalAnalysis | null>(null);
   const [fundsLoading, setFundsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'QUANTS' | 'FUNDS' | 'TECH'>('TECH');
+  const [searchParams, _setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+
+  useEffect(() => {
+    if (tabParam === 'tecnico') setActiveTab('TECH');
+    else if (tabParam === 'fundamental') setActiveTab('FUNDS');
+    else if (tabParam === 'cuantitativo') setActiveTab('QUANTS');
+  }, [tabParam]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRange, setSelectedRange] = useState<'6mo' | '1y' | '3y' | '5y' | '10y'>('1y');
@@ -461,6 +400,7 @@ export default function RiskAnalysisPage() {
     setSymbol(s);
     setLoading(true);
     setError(null);
+    window.dispatchEvent(new CustomEvent('activoAnalizado', { detail: { ticker: s } }));
 
     try {
       const [riskRes, finRes] = await Promise.allSettled([
@@ -689,49 +629,43 @@ export default function RiskAnalysisPage() {
             </button>
           </div>
 
-          {/* Risk hero banner */}
           {activeTab === 'QUANTS' && (
-            <div className={`${risk.bg} ${risk.border} border rounded-xl p-6 flex flex-col sm:flex-row items-center gap-6`}>
-              <div className="flex-shrink-0">
-                <RiskGauge level={riskData.riskLevel} />
-              </div>
-
-              <div className="flex-1 text-center sm:text-left">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1">
-                  Activo analizado
-                </p>
-                <h3 className="text-3xl font-bold text-gray-900 dark:text-white">{riskData.symbol}</h3>
-                {riskData.period && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    {formatDateSimple(riskData.period.start)} - {formatDateSimple(riskData.period.end)} &middot; {riskData.dataPoints} observaciones
+            <AnalysisSummaryCard
+              score={RISK_CONFIG[riskData.riskLevel].score}
+              classification={`Riesgo ${risk.label}`}
+              variant={RISK_VARIANTS[riskData.riskLevel]}
+              explanation={
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <RiskIcon className="w-5 h-5" />
+                    <span className="text-xl font-bold">{riskData.symbol}</span>
+                    {riskData.period && (
+                      <span className="text-xs text-gray-500 font-normal">
+                        ({formatDateSimple(riskData.period.start)} - {formatDateSimple(riskData.period.end)})
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm leading-relaxed">
+                    Clasificación basada en su {' '}
+                    <strong>{riskData.volatility > 0.30 ? 'alta volatilidad' : riskData.volatility > 0.15 ? 'volatilidad moderada' : 'baja volatilidad'}</strong> ({formatPercentage(riskData.volatility)}) y{' '}
+                    <strong>{riskData.maxDrawdown > 0.25 ? 'fuertes caídas históricas' : riskData.maxDrawdown > 0.10 ? 'caídas históricas moderadas' : 'caídas limitadas'}</strong> ({formatPercentage(riskData.maxDrawdown)} Max Drawdown).
                   </p>
-                )}
-                <div className={`inline-flex items-center gap-2 mt-3 mb-2 px-4 py-2 rounded-full border ${risk.bg} ${risk.border}`}>
-                  <RiskIcon className={`w-5 h-5 ${risk.color}`} />
-                  <span className={`text-base font-bold ${risk.color}`}>Riesgo {risk.label}</span>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm mt-1 mx-auto sm:mx-0 leading-relaxed">
-                  Clasificación basada en su {' '}
-                  <strong>{riskData.volatility > 0.30 ? 'alta volatilidad' : riskData.volatility > 0.15 ? 'volatilidad moderada' : 'baja volatilidad'}</strong> ({formatPercentage(riskData.volatility)}) y{' '}
-                  <strong>{riskData.maxDrawdown > 0.25 ? 'fuertes caídas históricas' : riskData.maxDrawdown > 0.10 ? 'caídas históricas moderadas' : 'caídas limitadas'}</strong> ({formatPercentage(riskData.maxDrawdown)} Max Drawdown).
-                </p>
-              </div>
-
-              {/* Bar meter */}
-              <div className="w-full sm:w-44 space-y-1.5 flex-shrink-0">
-                <div className="flex justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
-                  <span>Bajo</span>
-                  <span>Alto</span>
+              }
+            >
+              <div className="w-full sm:w-64 space-y-1.5">
+                <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                  <span>Mínimo Riesgo</span>
+                  <span>Máximo Riesgo</span>
                 </div>
-                <div className="h-3 bg-white/60 dark:bg-gray-700/60 rounded-full overflow-hidden border border-gray-200 dark:border-gray-600">
+                <div className="h-2 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden border border-black/5 dark:border-white/5">
                   <div
                     className={`h-full rounded-full transition-all duration-700 ${risk.bar}`}
                     style={{ width: `${RISK_CONFIG[riskData.riskLevel].score}%` }}
                   />
                 </div>
-                <p className={`text-center text-xs font-semibold ${risk.color}`}>{risk.label}</p>
               </div>
-            </div>
+            </AnalysisSummaryCard>
           )}
 
           {activeTab === 'QUANTS' && (
@@ -1017,24 +951,18 @@ export default function RiskAnalysisPage() {
               {/* Structured Fundamental Analysis */}
               {!fundsLoading && fundamentalAnalysis && (
                 <div className="space-y-4">
-                  {/* Outlook badge */}
-                  <div className={`rounded-xl p-5 flex items-center gap-5 ${
-                    fundamentalAnalysis.outlook === 'STRONG'
-                      ? 'bg-gradient-to-r from-green-700 to-green-600'
-                      : fundamentalAnalysis.outlook === 'MODERATE'
-                      ? 'bg-gradient-to-r from-amber-600 to-amber-500'
-                      : 'bg-gradient-to-r from-red-700 to-red-600'
-                  }`}>
-                    <FundamentalScoreGauge score={fundamentalAnalysis.outlookScore} outlook={fundamentalAnalysis.outlook} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm leading-relaxed">
-                        <RichText text={fundamentalAnalysis.sections.summary?.content || ''} />
-                      </p>
-                      <p className="text-white/60 text-xs mt-2">
-                        Analizado: {new Date(fundamentalAnalysis.analyzedAt).toLocaleString('es-ES')}
-                      </p>
-                    </div>
-                  </div>
+                  <AnalysisSummaryCard
+                    score={fundamentalAnalysis.outlookScore}
+                    classification={`Perspectiva ${fundamentalAnalysis.outlook === 'STRONG' ? 'Fuerte' : fundamentalAnalysis.outlook === 'MODERATE' ? 'Moderada' : 'Débil'}`}
+                    variant={fundamentalAnalysis.outlook === 'STRONG' ? 'success' : fundamentalAnalysis.outlook === 'MODERATE' ? 'warning' : 'danger'}
+                    explanation={<RichText text={fundamentalAnalysis.sections.summary?.content || ''} />}
+                    footer={
+                      <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium">
+                        <Clock className="w-3 h-3" />
+                        Analizado el {new Date(fundamentalAnalysis.analyzedAt).toLocaleString('es-ES')}
+                      </div>
+                    }
+                  />
 
                   {/* Horizon Logic summary */}
                   {fundamentalAnalysis.sections.horizon && (
@@ -1057,17 +985,25 @@ export default function RiskAnalysisPage() {
                   <div className="flex flex-col gap-4">
                     {Object.entries(fundamentalAnalysis.sections)
                       .filter(([key]) => !['summary', 'horizon'].includes(key))
-                      .map(([key, section]) => {
-                        const styleMap: Record<string, { icon: React.ReactNode; color: string; bg: string; border: string }> = {
-                          overview:      { icon: <Activity className="w-4 h-4" />,  color: 'text-blue-500',   bg: 'bg-blue-50 dark:bg-blue-900/20',     border: 'border-blue-200 dark:border-blue-800' },
-                          valuation:     { icon: <PieChart className="w-4 h-4" />,  color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-900/20', border: 'border-violet-200 dark:border-violet-800' },
-                          profitability: { icon: <DollarSign className="w-4 h-4" />,color: 'text-green-500',  bg: 'bg-green-50 dark:bg-green-900/20',   border: 'border-green-200 dark:border-green-800' },
-                          growth:        { icon: <GrowthIcon className="w-4 h-4" />, color: 'text-teal-500',   bg: 'bg-teal-50 dark:bg-teal-900/20',     border: 'border-teal-200 dark:border-teal-800' },
-                          stability:     { icon: <Shield className="w-4 h-4" />,    color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20',  border: 'border-indigo-200 dark:border-indigo-800' },
-                          risks:         { icon: <AlertTriangle className="w-4 h-4" />, color: 'text-red-500',    bg: 'bg-red-50 dark:bg-red-900/20',       border: 'border-red-200 dark:border-red-800' },
+                      .map(([key, section], idx) => {
+                        const icons: Record<string, React.ReactNode> = {
+                          overview:      <Activity className="w-4 h-4" />,
+                          valuation:     <PieChart className="w-4 h-4" />,
+                          profitability: <DollarSign className="w-4 h-4" />,
+                          growth:        <GrowthIcon className="w-4 h-4" />,
+                          stability:     <Shield className="w-4 h-4" />,
+                          risks:         <AlertTriangle className="w-4 h-4" />,
                         };
-                        
-                        const style = styleMap[key] || styleMap.overview;
+
+                        const BLUE_PATTERN = [
+                          { color: 'text-blue-400 dark:text-blue-300', bg: 'bg-blue-50/50 dark:bg-blue-800/10', border: 'border-blue-100 dark:border-blue-800/20' },
+                          { color: 'text-blue-500 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-800/20',     border: 'border-blue-200 dark:border-blue-700/30' },
+                          { color: 'text-blue-600 dark:text-blue-300', bg: 'bg-blue-100/60 dark:bg-blue-700/20', border: 'border-blue-200 dark:border-blue-600/30' },
+                          { color: 'text-blue-500 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-800/20',     border: 'border-blue-200 dark:border-blue-700/30' },
+                        ];
+
+                        const style = BLUE_PATTERN[idx % BLUE_PATTERN.length];
+                        const icon = icons[key] || <Activity className="w-4 h-4" />;
                         const isExpanded = expandedSections[key] ?? false;
 
                         return (
@@ -1077,7 +1013,7 @@ export default function RiskAnalysisPage() {
                               className={`w-full flex items-center justify-between px-4 py-3 ${style.bg} text-left transition-colors hover:brightness-95`}
                             >
                               <div className={`flex items-center gap-2 font-semibold text-sm ${style.color}`}>
-                                {style.icon}
+                                {icon}
                                 <span className="text-gray-900 dark:text-white">{section.title}</span>
                               </div>
                               {isExpanded

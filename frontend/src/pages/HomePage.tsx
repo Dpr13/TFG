@@ -255,7 +255,7 @@ export default function HomePage() {
                 Ver activos
               </Link>
               <Link
-                to="/risk"
+                to="/analisis"
                 className="flex items-center justify-center gap-2 px-4 py-3 bg-white text-blue-700 
                          hover:bg-blue-50 rounded-lg font-medium transition-all shadow-lg"
               >

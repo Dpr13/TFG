@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { Operation, CreateOperationDTO, DailyStats, Strategy, Asset } from '../types';
 import { operationService, strategyService, assetService } from '../services';
 import { ChevronUp, Trash2, Plus } from 'lucide-react';
+import { formatCurrency } from '../utils/format';
 
 // ============================================================================
 // DAILY OPERATIONS MODAL COMPONENT
@@ -98,9 +99,9 @@ export default function DailyOperationsModal({
 
   const handleSymbolChange = (value: string) => {
     setFormData({ ...formData, symbol: value });
-    
+
     if (value.trim().length > 0) {
-      const filtered = availableAssets.filter(asset => 
+      const filtered = availableAssets.filter(asset =>
         asset.symbol.toLowerCase().includes(value.toLowerCase()) ||
         asset.name.toLowerCase().includes(value.toLowerCase())
       );
@@ -123,12 +124,12 @@ export default function DailyOperationsModal({
       const exists = availableAssets.some(
         asset => asset.symbol.toUpperCase() === symbol.toUpperCase()
       );
-      
+
       if (!exists) {
         // Try to search in the API
         await assetService.searchAssetBySymbol(symbol);
       }
-      
+
       return true;
     } catch (err) {
       return false;
@@ -194,7 +195,7 @@ export default function DailyOperationsModal({
   const bgClass = stats && stats.isProfit ? 'bg-green-50' : 'bg-red-50';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
         {/* Header */}
         <div className={`${bgClass} border-b border-gray-200 dark:border-gray-700 p-6`}>
@@ -211,7 +212,7 @@ export default function DailyOperationsModal({
               {stats && (
                 <div className="mt-2">
                   <div className={`text-lg font-semibold ${pnlClass}`}>
-                    PnL: €{stats.totalPnL.toFixed(2)} ({stats.totalPnLPercentage.toFixed(2)}%)
+                    PnL: {formatCurrency(stats.totalPnL, 'EUR')} ({stats.totalPnLPercentage.toFixed(2)}%)
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">
                     {stats.operationCount} operación(es)
@@ -248,11 +249,10 @@ export default function DailyOperationsModal({
                 {operations.map((op) => (
                   <div
                     key={op.id}
-                    className={`p-4 rounded-lg border ${
-                      op.pnl >= 0
-                        ? 'border-green-200 bg-green-50 dark:bg-green-900/20'
-                        : 'border-red-200 bg-red-50 dark:bg-red-900/20'
-                    }`}
+                    className={`p-4 rounded-lg border ${op.pnl >= 0
+                      ? 'border-green-200 bg-green-50 dark:bg-green-900/20'
+                      : 'border-red-200 bg-red-50 dark:bg-red-900/20'
+                      }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -265,8 +265,8 @@ export default function DailyOperationsModal({
                           </span>
                         </div>
                         <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                          <div>Entrada: €{op.buyPrice.toFixed(2)}</div>
-                          <div>Salida: €{op.sellPrice.toFixed(2)}</div>
+                          <div>Entrada: {formatCurrency(op.buyPrice, 'EUR')}</div>
+                          <div>Salida: {formatCurrency(op.sellPrice, 'EUR')}</div>
                           {op.strategyId && (
                             <div className="mt-1">
                               <span className="inline-block px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
@@ -279,16 +279,14 @@ export default function DailyOperationsModal({
                       </div>
                       <div className="text-right">
                         <div
-                          className={`text-lg font-semibold ${
-                            op.pnl >= 0 ? 'text-green-600' : 'text-red-600'
-                          }`}
+                          className={`text-lg font-semibold ${op.pnl >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}
                         >
-                          €{op.pnl.toFixed(2)}
+                          {formatCurrency(op.pnl, 'EUR')}
                         </div>
                         <div
-                          className={`text-sm font-semibold ${
-                            op.pnl >= 0 ? 'text-green-600' : 'text-red-600'
-                          }`}
+                          className={`text-sm font-semibold ${op.pnl >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}
                         >
                           {op.pnlPercentage.toFixed(2)}%
                         </div>
@@ -326,7 +324,7 @@ export default function DailyOperationsModal({
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
                       required
                     />
-                    
+
                     {/* Autocomplete Dropdown */}
                     {showSuggestions && filteredAssets.length > 0 && (
                       <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -369,7 +367,7 @@ export default function DailyOperationsModal({
                     value={formData.buyPrice}
                     onChange={(e) => setFormData({ ...formData, buyPrice: e.target.value })}
                     className="px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
-                    step="0.01"
+                    step="any"
                     required
                   />
                   <input
@@ -378,7 +376,7 @@ export default function DailyOperationsModal({
                     value={formData.sellPrice}
                     onChange={(e) => setFormData({ ...formData, sellPrice: e.target.value })}
                     className="px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
-                    step="0.01"
+                    step="any"
                     required
                   />
                 </div>

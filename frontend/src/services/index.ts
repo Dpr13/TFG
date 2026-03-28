@@ -95,12 +95,38 @@ export const recommendationService = {
   },
 };
 
+export const iaService = {
+  // Generate AI analysis (resumen + justificación) in parallel
+  analyze: async (data: any): Promise<import('../types/recommendation').IAAnalysisResult> => {
+    const response = await apiClient.post<import('../types/recommendation').IAAnalysisResult>('/ia/analyze', data, {
+      timeout: 30000,
+    });
+    return response.data;
+  },
+
+  // Contextual chat
+  chat: async (data: { contexto: any; historial: import('../types/recommendation').IAChatMessage[]; mensaje: string }): Promise<import('../types/recommendation').IAChatResponse> => {
+    const response = await apiClient.post<import('../types/recommendation').IAChatResponse>('/ia/chat', data, {
+      timeout: 30000,
+    });
+    return response.data;
+  },
+
+  // Resumen narrativo técnico
+  getTechnicalSummary: async (data: any): Promise<{ resumen: string; ok: boolean; error?: string }> => {
+    const response = await apiClient.post<{ resumen: string; ok: boolean; error?: string }>('/ia/resumen-tecnico', data, {
+      timeout: 20000,
+    });
+    return response.data;
+  },
+};
+
 export const priceService = {
   // Obtener histórico de precios
   getPriceHistory: async (
     symbol: string,
     interval?: string
-  ): Promise<{ symbol: string; interval?: string; prices: Array<{ date: string; close: number }> }> => {
+  ): Promise<{ symbol: string; interval?: string; prices: Array<{ date: string; open?: number; high?: number; low?: number; close: number; volume?: number }> }> => {
     const params = new URLSearchParams();
     if (interval) params.append('interval', interval);
     const query = params.toString();
@@ -151,6 +177,18 @@ export const newsService = {
     if (count) params.append('count', count.toString());
     const qs = params.toString();
     const response = await apiClient.get(`/news${qs ? `?${qs}` : ''}`);
+    return response.data;
+  },
+
+  // Obtener noticias de mercado generales
+  getMarketNews: async (): Promise<NewsArticle[]> => {
+    const response = await apiClient.get<NewsArticle[]>('/noticias/mercados');
+    return response.data;
+  },
+
+  // Obtener noticias de un activo específico
+  getAssetNews: async (ticker: string): Promise<NewsArticle[]> => {
+    const response = await apiClient.get<NewsArticle[]>(`/noticias/activo/${ticker}`);
     return response.data;
   },
 };

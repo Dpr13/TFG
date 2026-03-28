@@ -42,7 +42,7 @@ export const calculateRecommendation = async (req: Request, res: Response): Prom
       symbol: payload.symbol,
       direction: payload.direction as 'LONG' | 'SHORT',
       interval: payload.interval || '1d',
-      range: payload.range || '1y',
+      range: payload.range || '',
       slMethod: payload.slMethod as 'FIXED_PCT' | 'SUPPORT_RESISTANCE',
       slPct: payload.slPct,
       tpMethods: payload.tpMethods as any[],

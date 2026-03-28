@@ -241,11 +241,12 @@ export interface NewsArticle {
   id: string;
   title: string;
   url: string;
-  source: string;
+  source?: string;
   publisher?: string;
   publishedAt: string;
   summary?: string;
   relatedTickers?: string[];
+  thumbnail?: string | null;
 }
 
 export type FundamentalOutlook = 'STRONG' | 'MODERATE' | 'WEAK';
