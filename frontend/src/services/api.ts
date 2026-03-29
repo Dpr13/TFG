@@ -10,7 +10,7 @@ const apiClient = axios.create({
 
 // Añadir JWT token a todas las peticiones excepto login y register
 apiClient.interceptors.request.use((config) => {
-  const isAuthEndpoint = config.url?.includes('/users/login') || config.url?.includes('/users/register');
+  const isAuthEndpoint = config.url?.includes('/users/login') || config.url?.includes('/users/register') || config.url?.includes('/users/verificar-email') || config.url?.includes('/users/reenviar-codigo');
   if (!isAuthEndpoint) {
     const token =
       localStorage.getItem('tfg_auth_token') ||
@@ -26,7 +26,7 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    const isAuthEndpoint = error.config?.url?.includes('/users/login') || error.config?.url?.includes('/users/register');
+    const isAuthEndpoint = error.config?.url?.includes('/users/login') || error.config?.url?.includes('/users/register') || error.config?.url?.includes('/users/verificar-email') || error.config?.url?.includes('/users/reenviar-codigo');
     const isChangePassword = error.config?.url?.includes('/users/change-password');
     
     // Solo limpiar sesión y redirigir si:

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { userService } from '../services/user.service';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { generarCodigoVerificacion, enviarEmailVerificacion, enmascararEmail } from '../services/email.service';
 import jwt from 'jsonwebtoken';
 
 function generateToken(userId: string): string {
@@ -29,10 +30,31 @@ export const userController = {
         });
       }
 
-      const user = await userService.registerUser({ name, email, password });
-      const token = generateToken(user.id);
-      const { passwordHash, ...userResponse } = user;
-      res.status(201).json({ user: userResponse, token });
+      // Generar código de verificación
+      const codigo = generarCodigoVerificacion();
+      const expiracion = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+      const user = await userService.registerUser({
+        name, email, password,
+        verificationCode: codigo,
+        codeExpiration: expiracion,
+      });
+
+      // Enviar email de verificación
+      const enviado = await enviarEmailVerificacion(email, name, codigo);
+
+      if (!enviado) {
+        // Si falla el envío, eliminar el usuario creado
+        await userService.deleteUser(user.id);
+        return res.status(500).json({ error: 'No se pudo enviar el email de verificación. Comprueba que la dirección es correcta.' });
+      }
+
+      res.status(201).json({
+        ok: true,
+        mensaje: 'Código enviado. Revisa tu bandeja de entrada.',
+        email_enmascarado: enmascararEmail(email),
+        email: email,
+      });
     } catch (error) {
       console.error('Error en registro:', error);
       res.status(500).json({ error: 'Error al registrar usuario', details: error });
@@ -46,8 +68,20 @@ export const userController = {
         return res.status(400).json({ error: 'Email y contraseña son obligatorios.' });
       }
       const user = await userService.loginUser({ email, password });
+
+      // Comprobar si el email está verificado
+      if (!user.emailVerified) {
+        return res.status(200).json({
+          ok: false,
+          requiere_verificacion: true,
+          mensaje: 'Debes verificar tu email antes de acceder.',
+          email_enmascarado: enmascararEmail(email),
+          email: email,
+        });
+      }
+
       const token = generateToken(user.id);
-      const { passwordHash, ...userResponse } = user;
+      const { passwordHash, verificationCode, codeExpiration, ...userResponse } = user;
       res.status(200).json({ user: userResponse, token });
     } catch (error) {
       console.error('Error en login:', error);
@@ -61,6 +95,65 @@ export const userController = {
       }
       
       res.status(500).json({ error: 'Error al iniciar sesión', details: error });
+    }
+  },
+
+  async verificarEmail(req: Request, res: Response) {
+    try {
+      const { email, codigo } = req.body;
+      if (!email || !codigo) {
+        return res.status(400).json({ error: 'Email y código son obligatorios.' });
+      }
+
+      const code = String(codigo).trim();
+      const user = await userService.verifyEmail(email, code);
+
+      res.status(200).json({ ok: true, mensaje: 'Email verificado correctamente.' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+
+      if (message === 'user_not_found') {
+        return res.status(404).json({ error: 'Usuario no encontrado.' });
+      }
+      if (message === 'already_verified') {
+        return res.status(400).json({ error: 'El email ya ha sido verificado.' });
+      }
+      if (message === 'code_expired') {
+        return res.status(400).json({ error: 'El código ha expirado. Solicita uno nuevo.' });
+      }
+      if (message === 'invalid_code') {
+        return res.status(400).json({ error: 'Código incorrecto. Inténtalo de nuevo.' });
+      }
+
+      console.error('Error verificando email:', error);
+      res.status(500).json({ error: 'Error al verificar el email.' });
+    }
+  },
+
+  async reenviarCodigo(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: 'Email es obligatorio.' });
+      }
+
+      const result = await userService.resendCode(email);
+      res.status(200).json({ ok: true, mensaje: 'Código reenviado.', email_enmascarado: result.emailEnmascarado });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+
+      if (message === 'user_not_found') {
+        return res.status(404).json({ error: 'Usuario no encontrado.' });
+      }
+      if (message === 'already_verified') {
+        return res.status(400).json({ error: 'No hay verificación pendiente para este email.' });
+      }
+      if (message === 'email_send_failed') {
+        return res.status(500).json({ error: 'No se pudo reenviar el email.' });
+      }
+
+      console.error('Error reenviando código:', error);
+      res.status(500).json({ error: 'Error al reenviar el código.' });
     }
   },
 
