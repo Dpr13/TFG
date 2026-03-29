@@ -1,13 +1,13 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import { authService, type AuthUser, type LoginCredentials, type RegisterCredentials } from '../services/auth.service';
+import { authService, type AuthUser, type LoginCredentials, type RegisterCredentials, type RegisterResponse } from '../services/auth.service';
 import { useTheme } from './ThemeContext';
 
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
-  register: (credentials: RegisterCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<{ requiere_verificacion?: boolean; email_enmascarado?: string; email?: string }>;
+  register: (credentials: RegisterCredentials) => Promise<RegisterResponse>;
   logout: () => Promise<void>;
   updateUser: (user: AuthUser) => void;
   refreshUser: () => Promise<void>;
@@ -31,8 +31,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const data = await authService.login(credentials);
-      authService.saveSession(data, credentials.remember ?? false);
-      setUser(data.user);
+
+      // Si el usuario no ha verificado su email
+      if (data.requiere_verificacion) {
+        return {
+          requiere_verificacion: true,
+          email_enmascarado: data.email_enmascarado,
+          email: data.email,
+        };
+      }
+
+      // Login normal – guardar sesión
+      if (data.user && data.token) {
+        authService.saveSession({ user: data.user, token: data.token }, credentials.remember ?? false);
+        setUser(data.user);
+      }
+
+      return {};
     } finally {
       setIsLoading(false);
     }
@@ -47,8 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const data = await authService.register(credentials);
-      authService.saveSession(data, false);
-      setUser(data.user);
+      // No se auto-loguea, se devuelve la respuesta para redirigir a verificación
+      return data;
     } finally {
       setIsLoading(false);
     }

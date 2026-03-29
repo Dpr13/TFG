@@ -105,8 +105,14 @@ export default function RegisterPage() {
     }
 
     try {
-      await register({ name: name.trim(), email, password });
-      navigate('/', { replace: true });
+      const result = await register({ name: name.trim(), email, password });
+      navigate('/verificar-email', {
+        replace: true,
+        state: {
+          email_enmascarado: result.email_enmascarado,
+          email: result.email,
+        },
+      });
     } catch (err: any) {
       console.error('Registration error:', err);
       const backendError = err.response?.data?.error;

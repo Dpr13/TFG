@@ -1,9 +1,10 @@
 import { userRepository } from '../repositories/user.repository';
 import { CreateUserDTO, User, LoginDTO, UpdateUserDTO, ChangePasswordDTO, UserResponse } from '../models/user';
+import { generarCodigoVerificacion, enviarEmailVerificacion, enmascararEmail } from './email.service';
 import bcrypt from 'bcrypt';
 
 function toUserResponse(user: User): UserResponse {
-  const { passwordHash, ...userResponse } = user;
+  const { passwordHash, verificationCode, codeExpiration, ...userResponse } = user;
   return userResponse;
 }
 
@@ -31,6 +32,63 @@ export const userService = {
       throw new Error('invalid_password');
     }
     return user;
+  },
+
+  async verifyEmail(email: string, code: string): Promise<UserResponse> {
+    const user = await userRepository.findByEmail(email);
+    if (!user) {
+      throw new Error('user_not_found');
+    }
+
+    if (user.emailVerified) {
+      throw new Error('already_verified');
+    }
+
+    if (!user.codeExpiration || new Date() > new Date(user.codeExpiration)) {
+      throw new Error('code_expired');
+    }
+
+    if (user.verificationCode !== code) {
+      throw new Error('invalid_code');
+    }
+
+    const updated = await userRepository.updateVerification(user.id, {
+      emailVerified: true,
+      verificationCode: null,
+      codeExpiration: null,
+    });
+
+    return toUserResponse(updated!);
+  },
+
+  async resendCode(email: string): Promise<{ ok: boolean; emailEnmascarado: string }> {
+    const user = await userRepository.findByEmail(email);
+    if (!user) {
+      throw new Error('user_not_found');
+    }
+
+    if (user.emailVerified) {
+      throw new Error('already_verified');
+    }
+
+    const codigo = generarCodigoVerificacion();
+    const expiracion = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+    await userRepository.updateVerification(user.id, {
+      verificationCode: codigo,
+      codeExpiration: expiracion,
+    });
+
+    const enviado = await enviarEmailVerificacion(email, user.name, codigo);
+    if (!enviado) {
+      throw new Error('email_send_failed');
+    }
+
+    return { ok: true, emailEnmascarado: enmascararEmail(email) };
+  },
+
+  async deleteUser(id: string): Promise<boolean> {
+    return userRepository.deleteById(id);
   },
 
   async updateUser(id: string, dto: UpdateUserDTO): Promise<UserResponse | undefined> {

@@ -56,7 +56,17 @@ export default function LoginPage() {
       return;
     }
     try {
-      await login({ email, password, remember });
+      const result = await login({ email, password, remember });
+      if (result.requiere_verificacion) {
+        navigate('/verificar-email', {
+          replace: true,
+          state: {
+            email_enmascarado: result.email_enmascarado,
+            email: result.email,
+          },
+        });
+        return;
+      }
       navigate(from, { replace: true });
     } catch (err: any) {
       console.error('Login error:', err);
