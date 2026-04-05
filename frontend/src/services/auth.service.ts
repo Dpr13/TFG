@@ -18,6 +18,7 @@ export interface AuthUser {
   email: string;
   notificationsEnabled: boolean;
   darkMode: boolean;
+  emailVerified: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,6 +26,36 @@ export interface AuthUser {
 export interface AuthResponse {
   user: AuthUser;
   token: string;
+}
+
+export interface RegisterResponse {
+  ok: boolean;
+  mensaje: string;
+  email_enmascarado: string;
+  email: string;
+}
+
+export interface LoginResponse {
+  // Successful login
+  user?: AuthUser;
+  token?: string;
+  // Unverified user
+  ok?: boolean;
+  requiere_verificacion?: boolean;
+  mensaje?: string;
+  email_enmascarado?: string;
+  email?: string;
+}
+
+export interface VerifyEmailResponse {
+  ok: boolean;
+  mensaje: string;
+}
+
+export interface ResendCodeResponse {
+  ok: boolean;
+  mensaje: string;
+  email_enmascarado: string;
 }
 
 export interface UpdateProfileDTO {
@@ -43,8 +74,8 @@ const STORAGE_KEY = 'tfg_auth_token';
 const USER_KEY = 'tfg_auth_user';
 
 export const authService = {
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await apiClient.post<AuthResponse>('/users/login', {
+  login: async (credentials: LoginCredentials): Promise<LoginResponse> => {
+    const response = await apiClient.post<LoginResponse>('/users/login', {
       email: credentials.email,
       password: credentials.password,
     });
@@ -55,11 +86,26 @@ export const authService = {
     authService.clearSession();
   },
 
-  register: async (credentials: RegisterCredentials): Promise<AuthResponse> => {
-    const response = await apiClient.post<AuthResponse>('/users/register', {
+  register: async (credentials: RegisterCredentials): Promise<RegisterResponse> => {
+    const response = await apiClient.post<RegisterResponse>('/users/register', {
       name: credentials.name,
       email: credentials.email,
       password: credentials.password,
+    });
+    return response.data;
+  },
+
+  verificarEmail: async (email: string, codigo: string): Promise<VerifyEmailResponse> => {
+    const response = await apiClient.post<VerifyEmailResponse>('/users/verificar-email', {
+      email,
+      codigo,
+    });
+    return response.data;
+  },
+
+  reenviarCodigo: async (email: string): Promise<ResendCodeResponse> => {
+    const response = await apiClient.post<ResendCodeResponse>('/users/reenviar-codigo', {
+      email,
     });
     return response.data;
   },
@@ -76,6 +122,21 @@ export const authService = {
 
   changePassword: async (data: ChangePasswordDTO): Promise<{ message: string }> => {
     const response = await apiClient.post<{ message: string }>('/users/change-password', data);
+    return response.data;
+  },
+
+  forgotPassword: async (email: string): Promise<{ ok: boolean; mensaje: string }> => {
+    const response = await apiClient.post<{ ok: boolean; mensaje: string }>('/users/forgot-password', {
+      email,
+    });
+    return response.data;
+  },
+
+  resetPassword: async (token: string, password: string): Promise<{ ok: boolean; mensaje: string }> => {
+    const response = await apiClient.post<{ ok: boolean; mensaje: string }>('/users/reset-password', {
+      token,
+      password,
+    });
     return response.data;
   },
 

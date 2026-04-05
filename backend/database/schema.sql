@@ -7,6 +7,9 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     notifications_enabled BOOLEAN DEFAULT true,
     dark_mode BOOLEAN DEFAULT false,
+    email_verificado BOOLEAN NOT NULL DEFAULT FALSE,
+    codigo_verificacion VARCHAR(6),
+    codigo_expiracion TIMESTAMPTZ,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
