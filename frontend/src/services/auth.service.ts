@@ -125,6 +125,21 @@ export const authService = {
     return response.data;
   },
 
+  forgotPassword: async (email: string): Promise<{ ok: boolean; mensaje: string }> => {
+    const response = await apiClient.post<{ ok: boolean; mensaje: string }>('/users/forgot-password', {
+      email,
+    });
+    return response.data;
+  },
+
+  resetPassword: async (token: string, password: string): Promise<{ ok: boolean; mensaje: string }> => {
+    const response = await apiClient.post<{ ok: boolean; mensaje: string }>('/users/reset-password', {
+      token,
+      password,
+    });
+    return response.data;
+  },
+
   saveSession: (data: AuthResponse, remember: boolean): void => {
     const storage = remember ? localStorage : sessionStorage;
     storage.setItem(STORAGE_KEY, data.token);

@@ -14,6 +14,9 @@ import CalendarPage from '@pages/CalendarPage';
 import StrategiesPage from '@pages/StrategiesPage';
 import PsychoanalysisPage from '@pages/PsychoanalysisPage';
 import NewsPage from '@pages/NewsPage';
+import ComparePage from '@pages/ComparePage';
+import ForgotPasswordPage from '@pages/ForgotPasswordPage';
+import ResetPasswordPage from '@pages/ResetPasswordPage';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { isAuthenticated } = useAuth();
@@ -30,6 +33,8 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verificar-email" element={<VerifyEmailPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
         path="/*"
         element={
@@ -45,6 +50,7 @@ function AppRoutes() {
                 <Route path="/strategies" element={<StrategiesPage />} />
                 <Route path="/psychoanalysis" element={<PsychoanalysisPage />} />
                 <Route path="/news" element={<NewsPage />} />
+                <Route path="/comparar" element={<ComparePage />} />
               </Routes>
             </Layout>
           </RequireAuth>

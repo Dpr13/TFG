@@ -14,6 +14,8 @@ function mapUserFromDb(row: any): User {
     emailVerified: row.email_verificado,
     verificationCode: row.codigo_verificacion,
     codeExpiration: row.codigo_expiracion,
+    resetToken: row.reset_token,
+    resetExpires: row.reset_expires,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -44,6 +46,11 @@ export const userRepository = {
 
   async findById(id: string): Promise<User | undefined> {
     const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    return result.rows[0] ? mapUserFromDb(result.rows[0]) : undefined;
+  },
+
+  async findByResetToken(token: string): Promise<User | undefined> {
+    const result = await pool.query('SELECT * FROM users WHERE reset_token = $1', [token]);
     return result.rows[0] ? mapUserFromDb(result.rows[0]) : undefined;
   },
 
@@ -100,6 +107,14 @@ export const userRepository = {
     if (dto.codeExpiration !== undefined) {
       fields.push(`codigo_expiracion = $${paramCount++}`);
       values.push(dto.codeExpiration);
+    }
+    if (dto.resetToken !== undefined) {
+      fields.push(`reset_token = $${paramCount++}`);
+      values.push(dto.resetToken);
+    }
+    if (dto.resetExpires !== undefined) {
+      fields.push(`reset_expires = $${paramCount++}`);
+      values.push(dto.resetExpires);
     }
 
     if (fields.length === 0) {
