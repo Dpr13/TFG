@@ -119,5 +119,48 @@ export const userService = {
     // Hashear la nueva contraseña
     const newPasswordHash = await bcrypt.hash(dto.newPassword, 10);
     return userRepository.updatePassword(id, newPasswordHash);
+  },
+
+  async requestPasswordReset(email: string, frontendUrl?: string): Promise<boolean> {
+    const user = await userRepository.findByEmail(email);
+    if (!user) {
+      throw new Error('user_not_found');
+    }
+
+    const token = require('crypto').randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 3600000).toISOString(); // 1 hora
+
+    await userRepository.updateVerification(user.id, {
+      resetToken: token,
+      resetExpires: expires,
+    });
+
+    const { enviarEmailRecuperacion } = require('./email.service');
+    return enviarEmailRecuperacion(email, user.name, token, frontendUrl);
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<boolean> {
+    const user = await userRepository.findByResetToken(token);
+    if (!user) {
+      throw new Error('invalid_token');
+    }
+
+    if (!user.resetExpires || new Date() > new Date(user.resetExpires)) {
+      throw new Error('token_expired');
+    }
+
+    // Hashear la nueva contraseña
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+    
+    // Actualizar contraseña y limpiar token
+    const success = await userRepository.updatePassword(user.id, newPasswordHash);
+    if (success) {
+      await userRepository.updateVerification(user.id, {
+        resetToken: null,
+        resetExpires: null,
+      });
+    }
+
+    return success;
   }
 };

@@ -302,6 +302,9 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
           lastUpdated: new Date().toISOString(),
           quoteType: price.quoteType || summaryDetail.quoteType,
 
+          // Debt to Equity
+          debtToEquity: financialData.debtToEquity !== undefined ? financialData.debtToEquity / 100 : null,
+
           // ETF specific fields
           totalAssets: summaryDetail.totalAssets,
           navPrice: summaryDetail.navPrice,
@@ -379,6 +382,7 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
             quoteType: price.quoteType || summaryDetail.quoteType,
             financialCurrency: price.currency || summaryDetail.currency,
             exchange: price.exchangeName || price.exchange,
+            debtToEquity: financialData.debtToEquity !== undefined ? financialData.debtToEquity / 100 : null,
           } as StockFinancialData;
         } catch (inner) {
           console.error('Failed to recover from yahoo-finance2 validation error:', inner);

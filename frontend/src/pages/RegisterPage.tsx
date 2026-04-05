@@ -1,7 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  BarChart3,
   Eye,
   EyeOff,
   UserPlus,
@@ -131,8 +130,8 @@ export default function RegisterPage() {
 
         {/* Brand */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="bg-white/20 backdrop-blur-sm p-2.5 rounded-xl">
-            <BarChart3 className="w-7 h-7 text-white" />
+          <div className="bg-white/20 backdrop-blur-sm p-1.5 rounded-xl">
+            <img src="/Logo.png" alt="Logo" className="w-9 h-9 object-contain" />
           </div>
           <div>
             <p className="text-white font-bold text-lg leading-tight">Análisis de Riesgo</p>
@@ -179,8 +178,8 @@ export default function RegisterPage() {
       <div className="w-full lg:w-1/2 flex flex-col bg-gray-50 dark:bg-gray-900">
         {/* Mobile brand */}
         <div className="flex lg:hidden items-center gap-3 p-6 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <div className="bg-primary-600 p-2 rounded-lg">
-            <BarChart3 className="w-5 h-5 text-white" />
+          <div className="bg-primary-600 p-1 rounded-lg">
+            <img src="/Logo.png" alt="Logo" className="w-7 h-7 object-contain" />
           </div>
           <p className="font-bold text-gray-900 dark:text-white">Análisis de Riesgo Financiero</p>
         </div>

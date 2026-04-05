@@ -243,5 +243,64 @@ export const userController = {
       
       res.status(500).json({ error: message });
     }
+  },
+
+  async forgotPassword(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: 'Email es obligatorio.' });
+      }
+
+      // Intentar obtener la URL base del frontend dinámicamente
+      const origin = req.get('origin');
+      const referer = req.get('referer');
+      let frontendUrl = origin;
+      
+      if (!frontendUrl && referer) {
+        const url = new URL(referer);
+        frontendUrl = `${url.protocol}//${url.host}`;
+      }
+
+      await userService.requestPasswordReset(email, frontendUrl);
+      res.status(200).json({ ok: true, mensaje: 'Si el correo está registrado, recibirás un enlace de recuperación.' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message === 'user_not_found') {
+        // Por seguridad, no revelamos si el usuario existe
+        return res.status(200).json({ ok: true, mensaje: 'Si el correo está registrado, recibirás un enlace de recuperación.' });
+      }
+      console.error('Error en forgotPassword:', error);
+      res.status(500).json({ error: 'Error al procesar la solicitud de recuperación.' });
+    }
+  },
+
+  async resetPassword(req: Request, res: Response) {
+    try {
+      const { token, password } = req.body;
+      if (!token || !password) {
+        return res.status(400).json({ error: 'Token y nueva contraseña son obligatorios.' });
+      }
+
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+      if (!passwordRegex.test(password)) {
+        return res.status(400).json({ 
+          error: 'La contraseña no cumple con los requisitos de seguridad: mínimo 8 caracteres, una mayúscula, un número y un símbolo.' 
+        });
+      }
+
+      await userService.resetPassword(token, password);
+      res.status(200).json({ ok: true, mensaje: 'Contraseña restablecida correctamente.' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message === 'invalid_token') {
+        return res.status(400).json({ error: 'El enlace de recuperación es inválido.' });
+      }
+      if (message === 'token_expired') {
+        return res.status(400).json({ error: 'El enlace de recuperación ha expirado.' });
+      }
+      console.error('Error en resetPassword:', error);
+      res.status(500).json({ error: 'Error al restablecer la contraseña.' });
+    }
   }
 };

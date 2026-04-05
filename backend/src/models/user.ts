@@ -8,6 +8,8 @@ export interface User {
   emailVerified: boolean;
   verificationCode: string | null;
   codeExpiration: string | null;
+  resetToken: string | null;
+  resetExpires: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -41,6 +43,8 @@ export interface UpdateVerificationDTO {
   emailVerified?: boolean;
   verificationCode?: string | null;
   codeExpiration?: string | null;
+  resetToken?: string | null;
+  resetExpires?: string | null;
 }
 
 export interface UserResponse {
