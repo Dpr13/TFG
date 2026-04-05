@@ -38,6 +38,7 @@ export default function Header() {
         { label: 'Análisis Técnico', path: '/analisis?tab=tecnico', tab: 'tecnico' },
         { label: 'Análisis Fundamental', path: '/analisis?tab=fundamental', tab: 'fundamental' },
         { label: 'Análisis Cuantitativo', path: '/analisis?tab=cuantitativo', tab: 'cuantitativo' },
+        { label: 'Comparar Activos', path: '/comparar' },
       ]
     },
     { label: 'Recomendación', path: '/recommendation', isDropdown: false },

@@ -371,3 +371,71 @@ Sé directo, específico con los datos y usa lenguaje comprensible para inversor
   }
 }
 
+// ── Módulo 5: Veredicto comparativa de activos ────────────────────────────
+
+export async function generarVeredictoComparativa(
+  resultados: Array<{
+    ticker: string;
+    nombre: string;
+    tipo: string;
+    fundamental: any;
+    tecnico: any;
+    riesgo: any;
+    error: string | null;
+  }>,
+  horizonte: string
+): Promise<{ veredicto: string | null; ok: boolean; error?: string }> {
+  const activos = resultados.filter(r => !r.error);
+  if (activos.length < 2) {
+    return { veredicto: null, ok: false, error: 'Se necesitan al menos 2 activos válidos.' };
+  }
+
+  const tickersStr = activos.map(r => r.ticker).join(' vs ');
+
+  let resumenActivos = '';
+  for (const r of activos) {
+    const f = r.fundamental || {};
+    const t = r.tecnico || {};
+    const rk = r.riesgo || {};
+    resumenActivos += `
+${r.ticker} (${r.nombre}, ${r.tipo}):
+- Fundamental: P/E=${f.pe_ratio ?? 'N/D'}, ROE=${f.roe != null ? f.roe.toFixed(1) + '%' : 'N/D'}, Margen=${f.margen_neto != null ? f.margen_neto.toFixed(1) + '%' : 'N/D'}, Dividendo=${f.dividendo != null ? f.dividendo.toFixed(2) + '%' : 'N/D'}
+- Técnico: Puntuación=${t.puntuacion_tecnica ?? 'N/D'}/100, RSI=${t.rsi != null ? t.rsi.toFixed(1) : 'N/D'}, Tendencia=${t.tendencia ?? 'N/D'}, Cambio período=${t.cambio_periodo_pct != null ? t.cambio_periodo_pct.toFixed(1) + '%' : 'N/D'}
+- Riesgo: Volatilidad=${rk.volatilidad_anual != null ? rk.volatilidad_anual.toFixed(1) + '%' : 'N/D'}, Sharpe=${rk.sharpe_ratio != null ? rk.sharpe_ratio.toFixed(2) : 'N/D'}, MaxDrawdown=${rk.max_drawdown != null ? rk.max_drawdown.toFixed(1) + '%' : 'N/D'}, VaR95=${rk.var_95 != null ? rk.var_95.toFixed(2) + '%' : 'N/D'}
+`;
+  }
+
+  const prompt = `Eres un analista financiero experto. Compara los siguientes activos financieros y emite un veredicto claro:
+
+COMPARATIVA: ${tickersStr} | Horizonte: ${horizonte}
+
+DATOS:
+${resumenActivos}
+
+Genera un veredicto estructurado en español con exactamente estas tres partes, sin usar bullet points ni encabezados con #:
+
+Parte 1 (2-3 frases): Cuál activo muestra mejor perfil FUNDAMENTAL y por qué, citando métricas concretas.
+Parte 2 (2-3 frases): Cuál activo muestra mejor perfil TÉCNICO Y DE RIESGO en el horizonte analizado, con datos específicos.
+Parte 3 (2-3 frases): Veredicto global — cuál activo parece más atractivo considerando el conjunto y para qué tipo de inversor (conservador, moderado, agresivo). Si los activos son de tipos distintos (stock vs crypto), menciona que la comparación directa tiene limitaciones.
+
+Sé directo y específico. No repitas los valores numéricos crudos — interprétalos.`;
+
+  try {
+    const response = await client.chat.completions.create({
+      model: MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 500,
+      temperature: 0.4,
+    });
+
+    const veredicto = response.choices[0]?.message?.content || null;
+    if (!veredicto) {
+      return { veredicto: null, ok: false, error: 'No se pudo generar el veredicto.' };
+    }
+    return { veredicto, ok: true };
+  } catch (e) {
+    console.error(`[ERROR veredicto IA]:`, e);
+    return { veredicto: null, ok: false, error: 'Servicio de IA no disponible.' };
+  }
+}
+

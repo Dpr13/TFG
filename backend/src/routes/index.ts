@@ -10,6 +10,7 @@ import newsRouter from './news.routes';
 import watchlistRouter from './watchlist.routes';
 import recommendationRouter from './recommendation.routes'; // Added
 import iaRouter from './ia.routes';
+import comparisonRouter from './comparison.routes';
 
 const router = Router();
 
@@ -27,5 +28,7 @@ router.use('/', newsRouter);
 router.use('/', watchlistRouter);
 router.use('/', recommendationRouter); // Added
 router.use('/', iaRouter);
+router.use('/', comparisonRouter);
 
 export default router;
+

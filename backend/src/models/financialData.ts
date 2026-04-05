@@ -22,6 +22,7 @@ export interface StockFinancialData {
   roa?: number | null; // Return on Assets
   profitMargin?: number | null;
   operatingMargin?: number | null;
+  debtToEquity?: number | null;
   
   // Trading Info
   fiftyTwoWeekHigh?: number | null;
