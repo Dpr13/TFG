@@ -8,7 +8,8 @@ import { construirContexto, generarAnalisisIA, chatIA, generarResumenTecnico } f
 export const analyzeIA = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
-      ticker, direccion, intervalo, precio_entrada, sl, tps,
+      ticker, direccion, intervalo, horizonte, precio_entrada, sl, metodo_sl,
+      tps, tps_detalle, risk_management,
       datos_tecnicos, datos_fundamentales,
     } = req.body;
 
@@ -21,9 +22,13 @@ export const analyzeIA = async (req: Request, res: Response): Promise<void> => {
       ticker,
       direccion: direccion || 'LONG',
       intervalo: intervalo || '1d',
+      horizonte: horizonte || intervalo || '1d',
       precio_entrada,
       sl: sl || precio_entrada,
+      metodo_sl: metodo_sl || '% Fijo',
       tps: tps || [],
+      tps_detalle: tps_detalle || undefined,
+      risk_management: risk_management || undefined,
       datos_tecnicos: datos_tecnicos || {},
       datos_fundamentales: datos_fundamentales || {},
     });
