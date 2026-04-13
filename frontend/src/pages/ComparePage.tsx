@@ -514,7 +514,7 @@ export default function ComparePage() {
           Comparativa de Activos
         </h2>
         <p className="text-gray-600 dark:text-gray-400">
-          Compara hasta 3 activos financieros en dimensión fundamental, técnica y de riesgo
+          Compara hasta 3 activos financieros en dimensión fundamental, técnica y cuantitativa
         </p>
       </div>
 
@@ -780,7 +780,7 @@ export default function ComparePage() {
           />
 
           <ComparisonTable
-            title="Análisis de Riesgo"
+            title="Análisis Cuantitativo"
             description="Volatilidad, drawdown y métricas de riesgo/retorno"
             icon={Shield}
             rows={riskRows}
