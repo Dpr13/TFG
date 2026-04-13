@@ -191,9 +191,24 @@ export default function RecommendationPage() {
         ticker: s,
         direccion: direction,
         intervalo: interval,
+        horizonte: interval,
         precio_entrada: res.entryPrice,
         sl: res.sl,
+        metodo_sl: res.slMethodLabel,
         tps: res.tps.map((tp: any) => ({ precio: tp.price, metodo: tp.label })),
+        tps_detalle: res.tps.map((tp: any) => ({
+          precio: tp.price,
+          metodo: tp.label,
+          pct: tp.distancePct,
+          ratio: tp.realRatio,
+        })),
+        risk_management: {
+          capital_total: parseFloat(capital) || 10000,
+          riesgo_pct: parseFloat(riskPct) || 1,
+          capital_riesgo: res.riskManagement.moneyAtRisk,
+          tamano_posicion: res.riskManagement.positionSize,
+          valor_posicion: res.riskManagement.positionValue,
+        },
         datos_tecnicos: {
           rsi: rsiVal,
           macd_hist: macdHist,
@@ -403,6 +418,36 @@ export default function RecommendationPage() {
           });
         }
       });
+
+      // Support & Resistance levels as dashed lines
+      if (result.supports?.length > 0) {
+        result.supports.forEach((s: any) => {
+          if (s.price != null && !isNaN(s.price)) {
+            candleSeries.createPriceLine({
+              price: s.price,
+              color: '#3b82f6',
+              lineWidth: 1,
+              lineStyle: LightweightCharts.LineStyle.Dotted,
+              axisLabelVisible: false,
+              title: `S $${s.price.toFixed(precision)}`,
+            });
+          }
+        });
+      }
+      if (result.resistances?.length > 0) {
+        result.resistances.forEach((r: any) => {
+          if (r.price != null && !isNaN(r.price)) {
+            candleSeries.createPriceLine({
+              price: r.price,
+              color: '#f97316',
+              lineWidth: 1,
+              lineStyle: LightweightCharts.LineStyle.Dotted,
+              axisLabelVisible: false,
+              title: `R $${r.price.toFixed(precision)}`,
+            });
+          }
+        });
+      }
 
       // Shaded Areas for SL and TPs (Wait: LightweightCharts doesn't support drawing box areas naturally,
       // but we can use fill series trick like Bollinger, though it requires historical points matching entry value.
@@ -748,12 +793,29 @@ export default function RecommendationPage() {
                     <div>
                       <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{result.symbol} {/* -- */} <span className={result.direction==='LONG'?'text-green-500':'text-red-500'}>{result.direction}</span></h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-widest mt-1">Precio de Entrada</p>
-                      <p className="text-3xl font-mono text-gray-900 dark:text-white mt-1">${result.entryPrice.toFixed(2)}</p>
+                      <p className="text-3xl font-mono text-gray-900 dark:text-white mt-1">${result.entryPrice.toFixed(precision)}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right space-y-1.5">
                       <span className="inline-block px-2.5 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs font-bold font-mono border border-gray-200 dark:border-gray-600">
                         Int: {result.interval}
                       </span>
+                      {(() => {
+                        const sig = result.signal?.classification || 'NEUTRAL';
+                        const dir = result.direction;
+                        const isContradictory = (dir === 'LONG' && (sig === 'VENTA' || sig === 'VENTA FUERTE')) || (dir === 'SHORT' && (sig === 'COMPRA' || sig === 'COMPRA FUERTE'));
+                        const isAligned = (dir === 'LONG' && (sig === 'COMPRA' || sig === 'COMPRA FUERTE')) || (dir === 'SHORT' && (sig === 'VENTA' || sig === 'VENTA FUERTE'));
+                        return (
+                          <span className={`block px-2.5 py-1 rounded text-[10px] font-bold border ${
+                            isContradictory
+                              ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700/40'
+                              : isAligned
+                                ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700/40'
+                                : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700/40'
+                          }`}>
+                            {isContradictory ? '⚠ Señal contradictoria' : isAligned ? '✓ Señal alineada' : '~ Señal neutral'}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -766,13 +828,55 @@ export default function RecommendationPage() {
                       {result.slMethodLabel}
                     </span>
                   </div>
-                  <p className="text-3xl font-mono text-red-600 dark:text-red-400 font-bold">${result.sl.toFixed(2)}</p>
+                  <p className="text-3xl font-mono text-red-600 dark:text-red-400 font-bold">${result.sl.toFixed(precision)}</p>
                   <p className="text-sm text-red-600/70 dark:text-red-300/70 mt-1">
-                    -{result.slDistancePct.toFixed(2)}% <span className="text-gray-300 dark:text-gray-500 mx-1">|</span> -${result.slDistanceAbs.toFixed(2)}
+                    -{result.slDistancePct.toFixed(2)}% <span className="text-gray-300 dark:text-gray-500 mx-1">|</span> -${result.slDistanceAbs.toFixed(precision)}
                   </p>
                   {result.detectedSLLevel && <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-2 italic">{result.detectedSLLevel}</p>}
                 </div>
               </div>
+
+              {/* ── Panel de Señal Técnica ── */}
+              {result.signal && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-4 h-4 text-gray-500" />
+                      <h4 className="text-sm font-bold text-gray-900 dark:text-white">Señal Técnica</h4>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-lg text-xs font-bold border ${
+                        result.signal.classification === 'COMPRA FUERTE' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700/40' :
+                        result.signal.classification === 'COMPRA' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700/40' :
+                        result.signal.classification === 'NEUTRAL' ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700/40' :
+                        result.signal.classification === 'VENTA' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700/40' :
+                        'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700/40'
+                      }`}>
+                        {result.signal.classification}
+                      </span>
+                      <span className="text-sm font-mono font-bold text-gray-700 dark:text-gray-300">{result.signal.score}/{result.signal.maxScore}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2.5">
+                    {result.signal.breakdown.map((item: any, i: number) => {
+                      const pct = item.maxScore > 0 ? (item.score / item.maxScore) * 100 : 0;
+                      const barColor = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500';
+                      return (
+                        <div key={i}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{item.name}</span>
+                            <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400">{item.score}/{item.maxScore}</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${Math.max(pct, 2)}%` }}></div>
+                          </div>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">{item.detail}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
 
               {/* TPs y Riesgo (3 columnas) */}
@@ -789,9 +893,9 @@ export default function RecommendationPage() {
                             {tp.label}
                           </span>
                         </div>
-                        <p className="text-xl font-mono text-green-600 dark:text-green-400 font-bold">${tp.price.toFixed(2)}</p>
+                        <p className="text-xl font-mono text-green-600 dark:text-green-400 font-bold">${tp.price.toFixed(precision)}</p>
                         <p className="text-xs text-green-600/70 dark:text-green-400/70 mt-1">
-                          +{tp.distancePct.toFixed(2)}% <span className="text-gray-300 dark:text-gray-500 mx-1">|</span> +${tp.distanceAbs.toFixed(2)} <span className="text-gray-300 dark:text-gray-500 mx-1">|</span> R/B: {tp.realRatio.toFixed(2)}
+                          +{tp.distancePct.toFixed(2)}% <span className="text-gray-300 dark:text-gray-500 mx-1">|</span> +${tp.distanceAbs.toFixed(precision)} <span className="text-gray-300 dark:text-gray-500 mx-1">|</span> R/B: {tp.realRatio.toFixed(2)}
                         </p>
                       </div>
                       <div className="text-right">

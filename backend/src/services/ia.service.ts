@@ -16,19 +16,39 @@ export interface IAContexto {
   tipo_activo: string;
   direccion: string;
   intervalo: string;
+  horizonte: string;
   precio_entrada: number;
   sl: number;
   sl_dist_pct: number;
+  metodo_sl: string;
   tps: string;
+  take_profit_1: number | null;
+  take_profit_1_pct: number;
+  metodo_tp_1: string;
+  take_profit_2: number | null;
+  take_profit_2_pct: number;
+  metodo_tp_2: string | null;
+  ratio_rb: number;
+  capital_total: number;
+  capital_riesgo: number;
+  riesgo_pct: number;
+  tamano_posicion: number;
+  valor_posicion: number;
   rsi: number | null;
+  rsi_zona: string;
   macd: string;
+  macd_hist_valor: number;
   sma: string;
+  estado_sma50: string;
+  estado_sma200: string;
+  tendencia_sma: string;
   bollinger: string;
   obv: string;
   soporte: number | null;
   resistencia: number | null;
   señal: string;
   puntuacion: number;
+  cambio_52s: number | null;
   pe: number | null;
   roe: number | null;
   margen: number | null;
@@ -49,20 +69,32 @@ export function construirContexto(data: {
   ticker: string;
   direccion: string;
   intervalo: string;
+  horizonte?: string;
   precio_entrada: number;
   sl: number;
+  metodo_sl?: string;
   tps: Array<{ precio: number; metodo: string }>;
+  tps_detalle?: Array<{ precio: number; metodo: string; pct: number; ratio: number }>;
+  risk_management?: {
+    capital_total?: number;
+    riesgo_pct?: number;
+    capital_riesgo?: number;
+    tamano_posicion?: number;
+    valor_posicion?: number;
+  };
   datos_tecnicos: {
     rsi?: number | null;
     macd_hist?: number;
     sobre_sma50?: boolean;
     sobre_sma200?: boolean;
+    sma50_sobre_sma200?: boolean;
     señal?: string;
     puntuacion?: number;
     bb_posicion?: string;
     obv_tendencia?: string;
     soporte_cercano?: number | null;
     resistencia_cercana?: number | null;
+    cambio_52_semanas?: number | null;
   };
   datos_fundamentales: {
     pe?: number | null;
@@ -76,15 +108,18 @@ export function construirContexto(data: {
   const { ticker, direccion, intervalo, precio_entrada, sl, tps, datos_tecnicos, datos_fundamentales } = data;
 
   const rsi = datos_tecnicos.rsi ?? null;
-  const macd_alcista = (datos_tecnicos.macd_hist ?? 0) > 0;
+  const macd_hist_raw = datos_tecnicos.macd_hist ?? 0;
+  const macd_alcista = macd_hist_raw > 0;
   const sobre_sma50 = datos_tecnicos.sobre_sma50 ?? false;
   const sobre_sma200 = datos_tecnicos.sobre_sma200 ?? false;
+  const sma50_sobre_sma200 = datos_tecnicos.sma50_sobre_sma200 ?? sobre_sma50;
   const señal = datos_tecnicos.señal ?? 'NEUTRAL';
   const puntuacion = datos_tecnicos.puntuacion ?? 0;
   const bb_posicion = datos_tecnicos.bb_posicion ?? 'dentro';
   const obv_tendencia = datos_tecnicos.obv_tendencia ?? 'lateral';
   const soporte_cercano = datos_tecnicos.soporte_cercano ?? null;
   const resistencia_cercana = datos_tecnicos.resistencia_cercana ?? null;
+  const cambio_52s = datos_tecnicos.cambio_52_semanas ?? null;
 
   const pe = datos_fundamentales.pe ?? null;
   const roe = datos_fundamentales.roe ?? null;
@@ -95,29 +130,66 @@ export function construirContexto(data: {
 
   const sl_dist = Math.abs(precio_entrada - sl) / precio_entrada * 100;
 
+  // RSI zone
+  const rsi_zona = rsi != null
+    ? (rsi > 70 ? 'sobrecompra' : rsi < 30 ? 'sobreventa' : 'neutral')
+    : 'N/A';
+
   const tps_str = tps.map((tp, i) => {
     const dist = Math.abs(tp.precio - precio_entrada) / precio_entrada * 100;
     return `TP${i + 1}=${tp.precio.toFixed(2)} (${tp.metodo}, +${dist.toFixed(1)}%)`;
   }).join(' | ');
+
+  // TP detail extraction
+  const detalle = data.tps_detalle || tps.map((tp, _i) => {
+    const dist = Math.abs(tp.precio - precio_entrada) / precio_entrada * 100;
+    const ratio = sl_dist > 0 ? dist / sl_dist : 0;
+    return { precio: tp.precio, metodo: tp.metodo, pct: dist, ratio };
+  });
+
+  const tp1 = detalle[0] || null;
+  const tp2 = detalle[1] || null;
+
+  const rm = data.risk_management || {};
 
   return {
     ticker,
     tipo_activo,
     direccion,
     intervalo,
+    horizonte: data.horizonte || intervalo,
     precio_entrada,
     sl,
     sl_dist_pct: sl_dist,
+    metodo_sl: data.metodo_sl || '% Fijo',
     tps: tps_str,
+    take_profit_1: tp1 ? tp1.precio : null,
+    take_profit_1_pct: tp1 ? tp1.pct : 0,
+    metodo_tp_1: tp1 ? tp1.metodo : 'N/A',
+    take_profit_2: tp2 ? tp2.precio : null,
+    take_profit_2_pct: tp2 ? tp2.pct : 0,
+    metodo_tp_2: tp2 ? tp2.metodo : null,
+    ratio_rb: tp1 ? tp1.ratio : 0,
+    capital_total: rm.capital_total ?? 0,
+    capital_riesgo: rm.capital_riesgo ?? 0,
+    riesgo_pct: rm.riesgo_pct ?? 0,
+    tamano_posicion: rm.tamano_posicion ?? 0,
+    valor_posicion: rm.valor_posicion ?? 0,
     rsi,
+    rsi_zona,
     macd: macd_alcista ? 'alcista' : 'bajista',
+    macd_hist_valor: macd_hist_raw,
     sma: `${sobre_sma50 ? 'por encima' : 'por debajo'} de SMA50, ${sobre_sma200 ? 'por encima' : 'por debajo'} de SMA200`,
+    estado_sma50: sobre_sma50 ? 'por encima' : 'por debajo',
+    estado_sma200: sobre_sma200 ? 'por encima' : 'por debajo',
+    tendencia_sma: sma50_sobre_sma200 ? 'alcista (golden cross)' : 'bajista (death cross)',
     bollinger: bb_posicion,
     obv: obv_tendencia,
     soporte: soporte_cercano,
     resistencia: resistencia_cercana,
     señal,
     puntuacion,
+    cambio_52s,
     pe,
     roe,
     margen,
@@ -138,15 +210,15 @@ async function generarResumen(ctx: IAContexto): Promise<string> {
 
   const prompt = `Eres un analista financiero experto. Tienes los siguientes datos de ${ctx.ticker} (${ctx.tipo_activo}):
 
-OPERACIÓN: ${ctx.direccion} | Entrada: ${ctx.precio_entrada.toFixed(2)} | SL: ${ctx.sl.toFixed(2)} (${ctx.sl_dist_pct.toFixed(1)}% de riesgo) | ${ctx.tps}
-TÉCNICO: Señal ${ctx.señal} (${ctx.puntuacion}/100) | RSI=${ctx.rsi != null ? ctx.rsi.toFixed(1) : 'N/A'} | MACD ${ctx.macd} | Precio ${ctx.sma} | Bollinger: precio ${ctx.bollinger} de las bandas | OBV ${ctx.obv}${fundamentalLine}
+TÉCNICO: Señal ${ctx.señal} (${ctx.puntuacion}/100) | RSI=${ctx.rsi != null ? ctx.rsi.toFixed(1) : 'N/A'} | MACD ${ctx.macd} | Precio ${ctx.sma} | Tendencia SMA50 vs SMA200: ${ctx.tendencia_sma} | Bollinger: precio ${ctx.bollinger} de las bandas | OBV ${ctx.obv}${fundamentalLine}
 NIVELES CLAVE: Soporte en ${soporteStr} | Resistencia en ${resistenciaStr}
 HORIZONTE DE ANÁLISIS: ${ctx.intervalo}
 
-Escribe un resumen de exactamente 3 frases en español para un inversor particular. 
-- Frase 1: situación técnica actual del activo de forma objetiva.
-- Frase 2: justificación de los niveles de entrada, SL y TP propuestos.
-- Frase 3: factores de riesgo más relevantes a vigilar.
+Escribe un resumen de exactamente 3 frases en español para un inversor particular.
+- Frase 1: situación técnica actual del activo — qué está haciendo el precio y cuál es la tendencia dominante.
+- Frase 2: confluencia o divergencia entre indicadores — si todos apuntan en la misma dirección o se contradicen, y qué fiabilidad tiene la señal.
+- Frase 3: niveles clave a vigilar (soporte y resistencia) y qué implicaría romperlos.
+IMPORTANTE: NO menciones niveles de entrada, stop loss ni take profit. Solo describe la foto técnica actual del activo.
 No uses bullet points. No repitas los datos crudos tal cual. Sé directo y específico.`;
 
   const response = await client.chat.completions.create({
@@ -159,34 +231,60 @@ No uses bullet points. No repitas los datos crudos tal cual. Sé directo y espec
   return response.choices[0]?.message?.content || 'No se pudo generar el resumen.';
 }
 
-// ── Módulo 2: Justificación de la señal técnica ──────────────────────────
+// ── Módulo 2: Justificación profesional de la operación ──────────────────
 
 async function generarJustificacion(ctx: IAContexto): Promise<string> {
-  const rsiZona = ctx.rsi != null
-    ? (ctx.rsi > 70 ? '(zona sobrecompra)' : ctx.rsi < 30 ? '(zona sobrevendido)' : '(zona neutral)')
-    : '(no disponible)';
+  const soporteStr = ctx.soporte != null ? ctx.soporte.toFixed(2) : 'N/A';
+  const resistenciaStr = ctx.resistencia != null ? ctx.resistencia.toFixed(2) : 'N/A';
+  const tp2Line = ctx.take_profit_2 != null && ctx.metodo_tp_2
+    ? `- Take Profit 2: ${ctx.take_profit_2.toFixed(2)} (+${ctx.take_profit_2_pct.toFixed(1)}% | método: ${ctx.metodo_tp_2})`
+    : '';
+  const cambio52sLine = ctx.cambio_52s != null ? `- Cambio últimas 52 semanas: ${ctx.cambio_52s.toFixed(1)}%` : '';
 
-  const prompt = `Eres un analista técnico experto. Justifica la siguiente señal técnica de forma educativa:
+  const prompt = `Eres un analista financiero experto en trading técnico y gestión del riesgo. Tu tarea es generar una justificación profesional de una operación bursátil basándote exclusivamente en los datos proporcionados. No inventes datos ni hagas suposiciones sobre información que no se te haya proporcionado.
 
-Activo: ${ctx.ticker} | Señal: ${ctx.señal} (${ctx.puntuacion}/100 puntos)
+IMPORTANTE: Este texto complementa un resumen técnico previo que ya describe la situación técnica actual del activo (tendencia, indicadores, niveles clave). NO repitas la descripción técnica general. Céntrate exclusivamente en justificar la operación propuesta: por qué se eligen estos niveles de SL y TP, si la gestión del riesgo es adecuada y qué podría salir mal.
 
-Desglose de indicadores:
-- Medias móviles: precio ${ctx.sma}
-- RSI(14): ${ctx.rsi != null ? ctx.rsi.toFixed(1) : 'N/A'} ${rsiZona}
-- MACD: histograma ${ctx.macd}
+RESTRICCIONES:
+- No constituye asesoramiento financiero ni recomendación de inversión.
+- Basa cada afirmación en los datos proporcionados. Si un dato es N/A o no está disponible, no lo menciones.
+- Longitud: entre 130 y 160 palabras. Ni más ni menos.
+- Formato: un único bloque de texto continuo, sin listas, sin emojis, sin encabezados, sin negrita.
+- Idioma: español.
+- Si la señal técnica es NEUTRAL o VENTA y la dirección es LONG (o viceversa), señala explícitamente la contradicción y recomienda prudencia o no operar.
+
+ESTRUCTURA INTERNA (no visible en el output, solo como guía):
+1. Coherencia señal/dirección: si la dirección elegida es coherente con la señal técnica global. Si hay contradicción, señalarla.
+2. Stop Loss: explicar por qué se coloca en ese nivel según el método usado (soporte detectado o porcentaje fijo) y si protege adecuadamente la posición.
+3. Take Profit: justificar cada objetivo con su lógica (resistencia, ratio R/B, banda de Bollinger).
+4. Gestión del riesgo: valorar si el ratio R/B es favorable, y si el tamaño de posición es prudente respecto al capital total.
+5. Riesgos principales: uno o dos factores concretos que podrían invalidar la operación, basados en indicadores débiles o contradictorios.
+
+DATOS DE ENTRADA:
+- Activo: ${ctx.ticker} (${ctx.tipo_activo})
+- Precio de entrada: ${ctx.precio_entrada.toFixed(2)}
+- Dirección: ${ctx.direccion}
+- Intervalo / Horizonte: ${ctx.intervalo} / ${ctx.horizonte}
+- Stop Loss: ${ctx.sl.toFixed(2)} (${ctx.sl_dist_pct.toFixed(1)}% | método: ${ctx.metodo_sl})
+- Take Profit 1: ${ctx.take_profit_1 != null ? ctx.take_profit_1.toFixed(2) : 'N/A'} (+${ctx.take_profit_1_pct.toFixed(1)}% | método: ${ctx.metodo_tp_1})
+${tp2Line}
+- Ratio R/B real: ${ctx.ratio_rb.toFixed(2)}
+- Capital en riesgo: ${ctx.capital_riesgo.toFixed(2)} (${ctx.riesgo_pct.toFixed(1)}% del capital total de ${ctx.capital_total.toFixed(2)})
+- Tamaño de posición: ${ctx.tamano_posicion.toFixed(4)} unidades | Valor total: ${ctx.valor_posicion.toFixed(2)}
+- RSI(14): ${ctx.rsi != null ? ctx.rsi.toFixed(1) : 'N/A'} ${ctx.rsi_zona}
+- MACD: ${ctx.macd} (histograma ${ctx.macd_hist_valor})
+- Medias móviles: precio ${ctx.estado_sma50} de SMA50, ${ctx.estado_sma200} de SMA200 | Tendencia SMA50 vs SMA200: ${ctx.tendencia_sma}
 - Bandas de Bollinger: precio ${ctx.bollinger} de las bandas
 - OBV: tendencia ${ctx.obv}
-
-Explica en 4-5 frases en español:
-1. Qué está diciendo cada indicador de forma individual.
-2. Si los indicadores convergen o divergen entre sí (confluencia o contradicción).
-3. Qué significa esa confluencia/contradicción para la fiabilidad de la señal.
-No uses bullet points. Usa lenguaje claro apto para inversores con conocimientos medios.`;
+- Señal técnica global: ${ctx.señal} (${ctx.puntuacion}/100)
+- Soporte más cercano: ${soporteStr}
+- Resistencia más cercana: ${resistenciaStr}
+${cambio52sLine}`;
 
   const response = await client.chat.completions.create({
     model: MODEL,
     messages: [{ role: 'user', content: prompt }],
-    max_tokens: 400,
+    max_tokens: 500,
     temperature: 0.3,
   });
 
