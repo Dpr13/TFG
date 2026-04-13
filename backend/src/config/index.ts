@@ -11,6 +11,7 @@ if (!process.env.DATABASE_URL) {
 
 // Determinar si necesitamos SSL basándonos en el host
 const needsSSL = process.env.DATABASE_URL?.includes('supabase.co') || 
+                 process.env.DATABASE_URL?.includes('neon.tech') ||
                  process.env.DATABASE_URL?.includes('amazonaws.com');
 
 const pool = new Pool({
