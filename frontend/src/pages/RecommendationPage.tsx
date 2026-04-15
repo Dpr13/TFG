@@ -665,6 +665,14 @@ export default function RecommendationPage() {
                   <input type="radio" checked={slMethod === 'SUPPORT_RESISTANCE'} onChange={() => setSlMethod('SUPPORT_RESISTANCE')} className="text-primary-600 focus:ring-primary-500" />
                   {direction === 'LONG' ? 'Soporte más cercano' : 'Resistencia más cercana'}
                 </label>
+                
+                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                  <input type="radio" checked={slMethod === 'DYNAMIC_ATR'} onChange={() => setSlMethod('DYNAMIC_ATR')} className="text-primary-600 focus:ring-primary-500" />
+                  ATR Dinámico
+                  <span className="px-1.5 py-0.5 bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300 rounded text-[9px] font-bold border border-primary-200 dark:border-primary-800/40 ml-1">
+                    RECOMENDADO
+                  </span>
+                </label>
               </div>
             </div>
 
@@ -783,8 +791,8 @@ export default function RecommendationPage() {
                 </div>
               )}
 
-              {/* Layout: Info general y Stop Loss */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Layout: Info general, Stop Loss y Confianza */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
                 {/* Info Card */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm relative overflow-hidden">
@@ -832,8 +840,22 @@ export default function RecommendationPage() {
                   <p className="text-sm text-red-600/70 dark:text-red-300/70 mt-1">
                     -{result.slDistancePct.toFixed(2)}% <span className="text-gray-300 dark:text-gray-500 mx-1">|</span> -${result.slDistanceAbs.toFixed(precision)}
                   </p>
-                  {result.detectedSLLevel && <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-2 italic">{result.detectedSLLevel}</p>}
+                  {result.detectedSLLevel && <p className="text-[10px] text-red-600/80 dark:text-red-400/80 mt-2 italic break-words">{result.detectedSLLevel}</p>}
                 </div>
+
+                {/* Confidence Card */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-900/40 p-5">
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">Confianza</p>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-3xl font-mono text-blue-600 dark:text-blue-400 font-bold">{result.confidence ?? '--'}%</p>
+                  </div>
+                  <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80 mt-2 leading-relaxed">
+                    {result.reasoning ?? 'Sin datos de justificación generados.'}
+                  </p>
+                </div>
+
               </div>
 
               {/* ── Panel de Señal Técnica ── */}
