@@ -322,6 +322,140 @@ export interface AddToWatchlistDTO {
   assetType: 'stock' | 'crypto' | 'forex';
 }
 
+export interface Bot {
+  id: string;
+  userId: string;
+  name: string;
+  symbol: string;
+  strategy: 'momentum' | 'mean-reversion';
+  status: 'running' | 'stopped';
+  initialCapital: number;
+  currentCapital: number;
+  positionSize: number;
+  positionEntryPrice: number | null;
+  currentPrice?: number;
+  lastSignal?: 'BUY' | 'SELL' | 'HOLD';
+  params: Record<string, number>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BotTrade {
+  id: string;
+  botId: string;
+  side: 'BUY' | 'SELL';
+  quantity: number;
+  fillPrice: number;
+  pnl: number | null;
+  executedAt: string;
+}
+
+export interface BotMetrics {
+  totalTrades: number;
+  winningTrades: number;
+  winRate: number;
+  totalPnl: number;
+  pnlPct: number;
+  currentCapital: number;
+  positionSize: number;
+}
+
+export interface CreateBotDTO {
+  name: string;
+  symbol: string;
+  strategy: 'momentum' | 'mean-reversion';
+  initialCapital?: number;
+  params?: Record<string, number>;
+}
+
+export interface BotStrategyParams {
+  fastWindow?: number;
+  slowWindow?: number;
+  thresholdPct?: number;
+  window?: number;
+  k?: number;
+}
+
+export interface BotStrategy {
+  id: string;
+  userId: string;
+  name: string;
+  algorithm: 'momentum' | 'mean-reversion';
+  description?: string;
+  params: BotStrategyParams;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBotStrategyDTO {
+  name: string;
+  algorithm: 'momentum' | 'mean-reversion';
+  description?: string;
+  params: BotStrategyParams;
+}
+
+export const botStrategyService = {
+  getAll: async (): Promise<BotStrategy[]> => {
+    const r = await apiClient.get<BotStrategy[]>('/bot-strategies');
+    return r.data;
+  },
+  create: async (dto: CreateBotStrategyDTO): Promise<BotStrategy> => {
+    const r = await apiClient.post<BotStrategy>('/bot-strategies', dto);
+    return r.data;
+  },
+  update: async (id: string, dto: Partial<CreateBotStrategyDTO>): Promise<BotStrategy> => {
+    const r = await apiClient.put<BotStrategy>(`/bot-strategies/${id}`, dto);
+    return r.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/bot-strategies/${id}`);
+  },
+};
+
+export const autocompleteService = {
+  search: async (q: string): Promise<{ symbol: string; name: string; type: string; exchange: string }[]> => {
+    if (!q || q.trim().length < 1) return [];
+    const response = await apiClient.get(`/assets/autocomplete?q=${encodeURIComponent(q)}`);
+    return response.data;
+  },
+};
+
+export const botService = {
+  getBots: async (): Promise<Bot[]> => {
+    const response = await apiClient.get<Bot[]>('/bots');
+    return response.data;
+  },
+
+  createBot: async (dto: CreateBotDTO): Promise<Bot> => {
+    const response = await apiClient.post<Bot>('/bots', dto);
+    return response.data;
+  },
+
+  startBot: async (id: string): Promise<Bot> => {
+    const response = await apiClient.post<Bot>(`/bots/${id}/start`);
+    return response.data;
+  },
+
+  stopBot: async (id: string): Promise<Bot> => {
+    const response = await apiClient.post<Bot>(`/bots/${id}/stop`);
+    return response.data;
+  },
+
+  getTrades: async (id: string): Promise<BotTrade[]> => {
+    const response = await apiClient.get<BotTrade[]>(`/bots/${id}/trades`);
+    return response.data;
+  },
+
+  getMetrics: async (id: string): Promise<BotMetrics> => {
+    const response = await apiClient.get<BotMetrics>(`/bots/${id}/metrics`);
+    return response.data;
+  },
+
+  deleteBot: async (id: string): Promise<void> => {
+    await apiClient.delete(`/bots/${id}`);
+  },
+};
+
 export const watchlistService = {
   // Obtener la watchlist completa del usuario
   getWatchlist: async (): Promise<WatchlistItem[]> => {
