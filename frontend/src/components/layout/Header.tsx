@@ -43,6 +43,7 @@ export default function Header() {
     },
     { label: 'Recomendación', path: '/recommendation', isDropdown: false },
     { label: 'Journaling', path: '/calendar', isDropdown: false },
+    { label: 'AutoTrader', path: '/bots', isDropdown: false },
     {
       label: 'Más',
       path: '#',

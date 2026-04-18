@@ -6,7 +6,9 @@ function mapOperationFromDb(row: any): Operation {
   return {
     id: row.id,
     userId: row.user_id,
-    date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : row.date,
+    date: row.date instanceof Date
+      ? `${row.date.getFullYear()}-${String(row.date.getMonth() + 1).padStart(2, '0')}-${String(row.date.getDate()).padStart(2, '0')}`
+      : row.date,
     symbol: row.symbol,
     quantity: parseFloat(row.quantity),
     buyPrice: parseFloat(row.buy_price),
