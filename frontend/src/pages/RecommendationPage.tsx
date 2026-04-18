@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Target, Search, Loader2, AlertTriangle, LayoutTemplate, ChevronDown, ChevronUp, Send, Trash2, Sparkles, Bot } from 'lucide-react';
+import { Target, Loader2, AlertTriangle, LayoutTemplate, ChevronDown, ChevronUp, Send, Trash2, Sparkles, Bot } from 'lucide-react';
+import SymbolAutocomplete from '../components/SymbolAutocomplete';
 import { recommendationService, iaService } from '@services/index';
 import { useTheme } from '@/context/ThemeContext';
 import { formatCurrency } from '@utils/format';
@@ -573,23 +574,21 @@ export default function RecommendationPage() {
             {/* Buscador */}
             <div className="space-y-3">
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Activo Financiero</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Ej: AAPL, BTC-USD..."
-                  value={symbol}
-                  onChange={(e) => {
-                    const v = e.target.value.toUpperCase();
-                    if(v !== symbol) setResult(null);
-                    setSymbol(v);
-                  }}
-                  onKeyDown={(e) => e.key === 'Enter' && calculate()}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg
-                             bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400
-                             focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
-                />
-              </div>
+              <SymbolAutocomplete
+                value={symbol}
+                onChange={(sym) => {
+                  if (sym && sym !== symbol) {
+                    clearAndWait(sym);
+                  } else if (!sym) {
+                    setResult(null);
+                    setSymbol('');
+                  }
+                }}
+                onSubmit={() => calculate()}
+                placeholder="Ej: AAPL, BTC-USD..."
+                showSearchIcon
+                inputClassName="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+              />
 
               {/* Popular / Watchlist Badges */}
               <div className="flex flex-wrap items-center gap-2">

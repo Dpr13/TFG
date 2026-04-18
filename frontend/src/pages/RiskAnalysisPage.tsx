@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Search, TrendingUp, Loader2, AlertTriangle,
+  TrendingUp, Loader2, AlertTriangle,
   ShieldCheck, ShieldAlert, BarChart2, Activity,
   Star, Clock, Info, ChevronDown, ChevronUp, PieChart, DollarSign, TrendingUp as GrowthIcon, Shield, Hourglass,
 } from 'lucide-react';
@@ -11,6 +11,7 @@ import { formatPercentage, formatCompactNumber, formatCurrency, formatDateSimple
 import AnalysisSummaryCard, { AnalysisVariant } from '@components/AnalysisSummaryCard';
 import type { RiskMetrics, FinancialData, FundamentalAnalysis } from '../types';
 import TechnicalAnalysisPanel from '../components/TechnicalAnalysisPanel';
+import SymbolAutocomplete from '../components/SymbolAutocomplete';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -523,19 +524,18 @@ export default function RiskAnalysisPage() {
           </div>
         )}
         <div className="flex gap-3">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Símbolo del activo (ej: AAPL, BTC-USD, MSFT)"
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && analyze(symbol)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg
-                         bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400
-                         focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
-            />
-          </div>
+          <SymbolAutocomplete
+            value={symbol}
+            onChange={(sym) => {
+              setSymbol(sym);
+              if (sym) analyze(sym);
+            }}
+            onSubmit={(sym) => analyze(sym)}
+            placeholder="Símbolo del activo (ej: AAPL, BTC-USD, MSFT)"
+            className="flex-1"
+            showSearchIcon
+            inputClassName="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+          />
           <button
             onClick={() => analyze(symbol)}
             disabled={loading || !symbol.trim()}
