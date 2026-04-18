@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAssets, searchAsset, getUserSearchedAssets, saveSearchedAsset } from '../controllers/asset.controller';
+import { getAssets, searchAsset, getUserSearchedAssets, saveSearchedAsset, autocompleteAssets } from '../controllers/asset.controller';
 import { getFinancialData } from '../controllers/financialData.controller';
 import { getFundamentalAnalysis } from '../controllers/fundamentalAnalysis.controller';
 import { getTechnicalAnalysis } from '../controllers/technicalAnalysis.controller';
@@ -12,6 +12,9 @@ router.get('/assets', getAssets);
 
 // GET /api/assets/search/:symbol
 router.get('/assets/search/:symbol', searchAsset);
+
+// GET /api/assets/autocomplete?q=term
+router.get('/assets/autocomplete', autocompleteAssets);
 
 // GET /api/assets/searched - Get user's searched assets (optional auth)
 router.get('/assets/searched', optionalAuth, getUserSearchedAssets);

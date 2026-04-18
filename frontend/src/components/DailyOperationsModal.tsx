@@ -191,8 +191,14 @@ export default function DailyOperationsModal({
 
   if (!isOpen) return null;
 
-  const pnlClass = stats && stats.isProfit ? 'text-green-600' : 'text-red-600';
-  const bgClass = stats && stats.isProfit ? 'bg-green-50' : 'bg-red-50';
+  const pnlClass = stats && stats.isProfit
+    ? 'text-green-600 dark:text-green-400'
+    : 'text-red-600 dark:text-red-400';
+  const bgClass = stats && stats.isProfit
+    ? 'bg-green-50 dark:bg-green-900/20'
+    : stats
+      ? 'bg-red-50 dark:bg-red-900/20'
+      : 'bg-gray-50 dark:bg-gray-700/50';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
@@ -202,12 +208,12 @@ export default function DailyOperationsModal({
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {new Date(date).toLocaleDateString('es-ES', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
+                {(() => {
+                const [y, m, d] = date.split('-').map(Number);
+                return new Date(y, m - 1, d).toLocaleDateString('es-ES', {
+                  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                });
+              })()}
               </h2>
               {stats && (
                 <div className="mt-2">
@@ -279,14 +285,12 @@ export default function DailyOperationsModal({
                       </div>
                       <div className="text-right">
                         <div
-                          className={`text-lg font-semibold ${op.pnl >= 0 ? 'text-green-600' : 'text-red-600'
-                            }`}
+                          className={`text-lg font-semibold ${op.pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
                         >
                           {formatCurrency(op.pnl, 'EUR')}
                         </div>
                         <div
-                          className={`text-sm font-semibold ${op.pnl >= 0 ? 'text-green-600' : 'text-red-600'
-                            }`}
+                          className={`text-sm font-semibold ${op.pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
                         >
                           {op.pnlPercentage.toFixed(2)}%
                         </div>
@@ -307,7 +311,7 @@ export default function DailyOperationsModal({
 
           {/* Add Operation Form */}
           {isEditMode && (
-            <div className="border-t pt-6">
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Añadir Operación
               </h3>
@@ -412,7 +416,7 @@ export default function DailyOperationsModal({
                   <button
                     type="button"
                     onClick={() => setIsEditMode(false)}
-                    className="flex-1 bg-gray-300 text-gray-900 py-2 rounded-lg hover:bg-gray-400"
+                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-200 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600"
                   >
                     Cancelar
                   </button>

@@ -11,6 +11,8 @@ import watchlistRouter from './watchlist.routes';
 import recommendationRouter from './recommendation.routes'; // Added
 import iaRouter from './ia.routes';
 import comparisonRouter from './comparison.routes';
+import botRouter from './bot.routes';
+import botStrategyRouter from './bot_strategy.routes';
 
 const router = Router();
 
@@ -29,6 +31,8 @@ router.use('/', watchlistRouter);
 router.use('/', recommendationRouter); // Added
 router.use('/', iaRouter);
 router.use('/', comparisonRouter);
+router.use('/', botRouter);
+router.use('/', botStrategyRouter);
 
 export default router;
 

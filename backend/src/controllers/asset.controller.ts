@@ -42,6 +42,16 @@ export const searchAsset = async (req: Request, res: Response) => {
   }
 };
 
+export const autocompleteAssets = async (req: Request, res: Response) => {
+  const q = req.query.q as string;
+  try {
+    const results = await AssetService.autocomplete(q);
+    res.json(results);
+  } catch {
+    res.json([]);
+  }
+};
+
 export const getUserSearchedAssets = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
