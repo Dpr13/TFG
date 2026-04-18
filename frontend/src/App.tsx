@@ -17,6 +17,7 @@ import NewsPage from '@pages/NewsPage';
 import ComparePage from '@pages/ComparePage';
 import ForgotPasswordPage from '@pages/ForgotPasswordPage';
 import ResetPasswordPage from '@pages/ResetPasswordPage';
+import BotsPage from '@pages/BotsPage';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { isAuthenticated } = useAuth();
@@ -51,6 +52,7 @@ function AppRoutes() {
                 <Route path="/psychoanalysis" element={<PsychoanalysisPage />} />
                 <Route path="/news" element={<NewsPage />} />
                 <Route path="/comparar" element={<ComparePage />} />
+                <Route path="/bots" element={<BotsPage />} />
               </Routes>
             </Layout>
           </RequireAuth>

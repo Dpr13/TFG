@@ -237,6 +237,24 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
   /**
    * Get financial data (Now using yahoo-finance2 quoteSummary to dodge 401 Unauthorized errors)
    */
+  async searchSymbols(query: string): Promise<{ symbol: string; name: string; type: string; exchange: string }[]> {
+    try {
+      const result: any = await yahooFinance.search(query, { newsCount: 0 }, { validateResult: false } as any);
+      const quotes: any[] = result?.quotes ?? [];
+      return quotes
+        .filter((q: any) => q.symbol && q.quoteType && ['EQUITY', 'CRYPTOCURRENCY', 'ETF', 'CURRENCY', 'FUTURE', 'INDEX'].includes(q.quoteType))
+        .slice(0, 8)
+        .map((q: any) => ({
+          symbol: q.symbol,
+          name: q.longname || q.shortname || q.symbol,
+          type: q.quoteType,
+          exchange: q.exchange || '',
+        }));
+    } catch {
+      return [];
+    }
+  }
+
   async getFinancialData(symbol: string): Promise<FinancialData | null> {
     try {
       const yahooSymbol = this.getYahooSymbol(symbol);
