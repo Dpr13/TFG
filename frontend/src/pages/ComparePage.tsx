@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  Search, TrendingUp, Loader2, AlertTriangle, Plus, X,
+  TrendingUp, Loader2, AlertTriangle, Plus, X,
   BarChart2, Shield, Activity, Star, Clock, Sparkles,
   ArrowUpRight, ArrowDownRight, Minus, Info,
 } from 'lucide-react';
+import SymbolAutocomplete from '../components/SymbolAutocomplete';
 import { useWatchlist } from '@hooks/useWatchlist';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -552,20 +553,14 @@ export default function ComparePage() {
                 </span>
               )}
             </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Ej: AAPL"
-                value={slot1}
-                onChange={e => setSlot1(e.target.value)}
-                onFocus={() => setActiveSlot(1)}
-                onKeyDown={e => e.key === 'Enter' && canCompare && handleCompare()}
-                className="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg
-                           bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400
-                           focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition text-sm"
-              />
-            </div>
+            <SymbolAutocomplete
+              value={slot1}
+              onChange={(sym) => { setSlot1(sym); setActiveSlot(1); }}
+              onSubmit={() => canCompare && handleCompare()}
+              placeholder="Ej: AAPL"
+              showSearchIcon
+              inputClassName="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition text-sm"
+            />
           </div>
 
           {/* Slot 2 */}
@@ -580,20 +575,14 @@ export default function ComparePage() {
                 </span>
               )}
             </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Ej: MSFT"
-                value={slot2}
-                onChange={e => setSlot2(e.target.value)}
-                onFocus={() => setActiveSlot(2)}
-                onKeyDown={e => e.key === 'Enter' && canCompare && handleCompare()}
-                className="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg
-                           bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400
-                           focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition text-sm"
-              />
-            </div>
+            <SymbolAutocomplete
+              value={slot2}
+              onChange={(sym) => { setSlot2(sym); setActiveSlot(2); }}
+              onSubmit={() => canCompare && handleCompare()}
+              placeholder="Ej: MSFT"
+              showSearchIcon
+              inputClassName="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition text-sm"
+            />
           </div>
 
           {/* Slot 3 */}
@@ -618,20 +607,14 @@ export default function ComparePage() {
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Ej: GOOGL"
-                  value={slot3}
-                  onChange={e => setSlot3(e.target.value)}
-                  onFocus={() => setActiveSlot(3)}
-                  onKeyDown={e => e.key === 'Enter' && canCompare && handleCompare()}
-                  className="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg
-                             bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400
-                             focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition text-sm"
-                />
-              </div>
+              <SymbolAutocomplete
+                value={slot3}
+                onChange={(sym) => { setSlot3(sym); setActiveSlot(3); }}
+                onSubmit={() => canCompare && handleCompare()}
+                placeholder="Ej: GOOGL"
+                showSearchIcon
+                inputClassName="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition text-sm"
+              />
             </div>
           ) : (
             <button

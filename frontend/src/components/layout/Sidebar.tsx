@@ -74,7 +74,6 @@ export default function Sidebar() {
       <div className="p-4 border-b border-gray-100 dark:border-gray-700/50">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Newspaper className="w-5 h-5 text-primary-600" />
             <h2 className="text-sm font-bold text-gray-900 dark:text-white">Noticias</h2>
           </div>
           <button

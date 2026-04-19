@@ -63,6 +63,9 @@ export class TechnicalAnalysisService {
     // MACD
     const macd = this.calcMACD(closes, 12, 26, 9, dates);
 
+    // ATR
+    const atr = this.calcATR(highs, lows, closes, 14, dates);
+
     // OBV
     const obv = hasVolume ? this.calcOBV(closes, volumes, dates) : [];
 
@@ -85,7 +88,7 @@ export class TechnicalAnalysisService {
       interval: activeInterval,
       candles,
       sma20, sma50, sma200, ema20, ema50,
-      bollinger, rsi, macd, obv,
+      bollinger, rsi, macd, obv, atr,
       supports, resistances,
       signal,
       hasVolume,
@@ -274,6 +277,35 @@ export class TechnicalAnalysisService {
       const rsiI = avgLoss === 0 ? 100 : 100 - (100 / (1 + rsI));
       result.push({ time: dates[i + 1], value: rsiI });
     }
+    return result;
+  }
+
+  // ── ATR ─────────────────────────────────────────────────────────────────
+
+  private calcATR(highs: number[], lows: number[], closes: number[], period: number, dates: string[]): IndicatorPoint[] {
+    if (highs.length <= period) return [];
+    const trueRanges: number[] = [highs[0] - lows[0]];
+
+    for (let i = 1; i < highs.length; i++) {
+      const h = highs[i];
+      const l = lows[i];
+      const prevC = closes[i - 1];
+      const tr = Math.max(h - l, Math.abs(h - prevC), Math.abs(l - prevC));
+      trueRanges.push(tr);
+    }
+
+    const result: IndicatorPoint[] = [];
+    let sum = 0;
+    for (let i = 0; i < period; i++) sum += trueRanges[i];
+    let currentATR = sum / period;
+    
+    result.push({ time: dates[period - 1], value: currentATR });
+
+    for (let i = period; i < trueRanges.length; i++) {
+      currentATR = ((currentATR * (period - 1)) + trueRanges[i]) / period;
+      result.push({ time: dates[i], value: currentATR });
+    }
+
     return result;
   }
 

@@ -48,6 +48,16 @@ export class RecommendationService {
         ? entryPrice * (1 - pct)
         : entryPrice * (1 + pct);
       slMethodLabel = '% Fijo';
+    } else if (req.slMethod === 'DYNAMIC_ATR') {
+      const atrValue = analysis.atr && analysis.atr.length > 0 ? analysis.atr[analysis.atr.length - 1].value : 0;
+      if (atrValue === 0) {
+        throw new Error('No se pudo obtener el ATR para el cálculo dinámico.');
+      }
+      sl = req.direction === 'LONG'
+        ? entryPrice - (atrValue * 1.5)
+        : entryPrice + (atrValue * 1.5);
+      slMethodLabel = 'ATR Dinámico';
+      detectedSLLevel = `Stop Loss a 1.5x ATR ($${atrValue.toFixed(4)})`;
     } else {
       // SUPPORT_RESISTANCE
       if (req.direction === 'LONG') {
@@ -199,13 +209,37 @@ export class RecommendationService {
     }
 
     // Validate TPs and add warning if any TP is negative distance or reverse side
-    for (const tp of tps) {
+    let validTps = tps.filter(tp => {
       if (req.direction === 'LONG' && tp.price <= entryPrice) {
-        warnings.push(`El TP (${tp.label}) está por debajo del precio de entrada para una posición larga.`);
+        warnings.push(`El TP (${tp.label}) está por debajo del precio de entrada para larga. Se descarta.`);
+        return false;
       }
       if (req.direction === 'SHORT' && tp.price >= entryPrice) {
-        warnings.push(`El TP (${tp.label}) está por encima del precio de entrada para una posición corta.`);
+        warnings.push(`El TP (${tp.label}) está por encima del precio de entrada para corta. Se descarta.`);
+        return false;
       }
+      return true;
+    });
+
+    // 4) Selección final de TP
+    if (validTps.length > 1) {
+      validTps.sort((a, b) => a.distanceAbs - b.distanceAbs);
+      validTps = [validTps[0]]; // Pick the closest and most conservative
+    } else if (validTps.length === 0) {
+      warnings.push('No hay niveles de TP válidos que cumplan con la dirección de la operación.');
+    }
+    
+    // Additional validations
+    if (validTps.length > 0 && validTps[0].realRatio > 0 && validTps[0].realRatio < 1.5) {
+      warnings.push('Operación de baja calidad: El ratio Riesgo/Beneficio del objetivo es menor a 1.5.');
+    }
+
+    const atrValue = analysis.atr && analysis.atr.length > 0 ? analysis.atr[analysis.atr.length - 1].value : 0;
+    if (atrValue > 0 && slDistanceAbs < 0.5 * atrValue) {
+      warnings.push('El Stop Loss está demasiado ajustado (< 0.5x ATR). Alta probabilidad de activación prematura.');
+    }
+    if (atrValue > 0 && atrValue < entryPrice * 0.005) {
+      warnings.push('La volatilidad actual (ATR) es muy baja. El mercado podría estar en un rango lateral.');
     }
 
     // 5) Risk Management
@@ -224,7 +258,7 @@ export class RecommendationService {
     }
 
     // Calculate potential profit for each TP
-    for (const tp of tps) {
+    for (const tp of validTps) {
       tp.potentialProfit = positionSize * tp.distanceAbs;
     }
 
@@ -243,6 +277,28 @@ export class RecommendationService {
       ? analysis.bollinger.lower[analysis.bollinger.lower.length - 1].value
       : null;
 
+    // 7) Confidence and Reasoning
+    let confidence = analysis.signal.score;
+    if (req.direction === 'LONG' && ['COMPRA FUERTE', 'COMPRA'].includes(analysis.signal.classification)) confidence += 15;
+    else if (req.direction === 'SHORT' && ['VENTA FUERTE', 'VENTA'].includes(analysis.signal.classification)) confidence += 15;
+    else if (req.direction === 'LONG' && ['VENTA FUERTE', 'VENTA'].includes(analysis.signal.classification)) confidence -= 20;
+    else if (req.direction === 'SHORT' && ['COMPRA FUERTE', 'COMPRA'].includes(analysis.signal.classification)) confidence -= 20;
+
+    if (atrValue > 0 && atrValue < entryPrice * 0.005) {
+      confidence -= 15;
+    }
+
+    if (tps.length > 1) {
+      confidence += 5; // Confluence of multiple initial TP targets
+    }
+
+    confidence = Math.max(0, Math.min(100, Math.round(confidence)));
+
+    let reasoning = `Confianza calculada (${confidence}%). `;
+    if (confidence >= 70) reasoning += "Existe buena confluencia entre la tendencia técnica y la dirección elegida de la operación, apoyada por una volatilidad adecuada.";
+    else if (confidence < 40) reasoning += "Precaución: El panorama técnico entra en conflicto fuerte con la dirección elegida, o la volatilidad actual del mercado no justifica el riesgo.";
+    else reasoning += "El panorama técnico es mixto o neutral para esta dirección; se recomienda gestión estricta del nivel de Stop Loss.";
+
     return {
       symbol: req.symbol.toUpperCase(),
       direction: req.direction,
@@ -255,7 +311,7 @@ export class RecommendationService {
       slMethod: req.slMethod,
       slMethodLabel,
       detectedSLLevel,
-      tps,
+      tps: validTps,
       riskManagement,
       currency: req.currency,
       warnings,
@@ -278,6 +334,9 @@ export class RecommendationService {
         lower: analysis.bollinger.lower,
       } : null,
       signal: analysis.signal,
+      confidence,
+      reasoning,
+      atr: atrValue,
       analyzedAt: new Date().toISOString(),
     };
   }
