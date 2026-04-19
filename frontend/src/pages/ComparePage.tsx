@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   TrendingUp, Loader2, AlertTriangle, Plus, X,
   BarChart2, Shield, Activity, Star, Clock, Sparkles,
-  ArrowUpRight, ArrowDownRight, Minus, Info,
 } from 'lucide-react';
 import SymbolAutocomplete from '../components/SymbolAutocomplete';
 import { useWatchlist } from '@hooks/useWatchlist';
@@ -239,7 +238,6 @@ function ComparisonTable({ title, description, icon: Icon, rows, tickers }: {
 
 export default function ComparePage() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const { watchlist } = useWatchlist();
 
   // Asset slots
