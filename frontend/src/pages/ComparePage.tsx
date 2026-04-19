@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   TrendingUp, Loader2, AlertTriangle, Plus, X,
-  BarChart2, Shield, Activity, Star, Clock, Sparkles, Search,
+  BarChart2, Shield, Activity, Star, Clock, Sparkles,
 } from 'lucide-react';
 import SymbolAutocomplete from '../components/SymbolAutocomplete';
 import { useWatchlist } from '@hooks/useWatchlist';
