@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { strategyService, botStrategyService } from '../services';
 import type { Strategy, CreateStrategyDTO, StrategyPerformance, Operation } from '../types';
 import type { BotStrategy, CreateBotStrategyDTO, BotStrategyParams } from '../services';
-import { Trash2, Plus, Edit2, ChevronDown, ChevronUp, Bot, BookOpen, X, Info } from 'lucide-react';
+import { Trash2, Plus, Edit2, ChevronDown, ChevronUp, Bot, BookOpen, Info } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Legend,
@@ -227,7 +227,7 @@ function BotStrategiesTab() {
   const startEdit = (s: BotStrategy) => { setEditing(s); setShowForm(true); };
   const cancelForm = () => { setShowForm(false); setEditing(null); };
 
-  const cloneTemplate = (t: typeof TEMPLATES[0]) => {
+  const cloneTemplate = (_t: typeof TEMPLATES[0]) => {
     setEditing(null);
     setShowForm(true);
   };

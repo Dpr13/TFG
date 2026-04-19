@@ -21,7 +21,7 @@ export const calculateRecommendation = async (req: Request, res: Response): Prom
       res.status(400).json({ error: 'La dirección debe ser LONG o SHORT' });
       return;
     }
-    if (!payload.slMethod || !['FIXED_PCT', 'SUPPORT_RESISTANCE'].includes(payload.slMethod)) {
+    if (!payload.slMethod || !['FIXED_PCT', 'SUPPORT_RESISTANCE', 'DYNAMIC_ATR'].includes(payload.slMethod)) {
       res.status(400).json({ error: 'Método de Stop Loss no válido' });
       return;
     }
@@ -43,7 +43,7 @@ export const calculateRecommendation = async (req: Request, res: Response): Prom
       direction: payload.direction as 'LONG' | 'SHORT',
       interval: payload.interval || '1d',
       range: payload.range || '',
-      slMethod: payload.slMethod as 'FIXED_PCT' | 'SUPPORT_RESISTANCE',
+      slMethod: payload.slMethod as 'FIXED_PCT' | 'SUPPORT_RESISTANCE' | 'DYNAMIC_ATR',
       slPct: payload.slPct,
       tpMethods: payload.tpMethods as any[],
       customRatio: payload.customRatio,

@@ -73,7 +73,6 @@ export default function NewsPage() {
         </button>
         <div className="flex items-center gap-3 mb-2">
           <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-            <Newspaper className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             Noticias del mercado
@@ -241,15 +240,6 @@ export default function NewsPage() {
           })}
         </div>
       )}
-
-      {/* ── Info Footer ─────────────────────────────────────────────── */}
-      {!loadingNews && filteredArticles.length > 0 && (
-        <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-4">
-          Mostrando {filteredArticles.length} de {newsData?.count ?? 0} noticias
-          {filterToday && ' de hoy'}
-        </div>
-      )}
-
     </div>
   );
 }

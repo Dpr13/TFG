@@ -365,7 +365,7 @@ export interface CreateBotDTO {
   symbol: string;
   strategy: 'momentum' | 'mean-reversion';
   initialCapital?: number;
-  params?: Record<string, number>;
+  params?: BotStrategyParams;
 }
 
 export interface BotStrategyParams {
@@ -374,6 +374,7 @@ export interface BotStrategyParams {
   thresholdPct?: number;
   window?: number;
   k?: number;
+  [key: string]: number | undefined;
 }
 
 export interface BotStrategy {
