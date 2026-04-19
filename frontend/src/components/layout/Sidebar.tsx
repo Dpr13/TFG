@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Newspaper, RefreshCw, ExternalLink, Info } from 'lucide-react';
+import { RefreshCw, ExternalLink, Info } from 'lucide-react';
 import { newsService } from '../../services';
 import { NewsArticle } from '../../types';
 
