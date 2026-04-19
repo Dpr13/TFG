@@ -6,7 +6,7 @@
 import type { TechnicalSignal } from './technicalAnalysis';
 
 export type Direction = 'LONG' | 'SHORT';
-export type SLMethod = 'FIXED_PCT' | 'SUPPORT_RESISTANCE';
+export type SLMethod = 'FIXED_PCT' | 'SUPPORT_RESISTANCE' | 'DYNAMIC_ATR';
 export type TPMethod = 'RISK_REWARD' | 'SUPPORT_RESISTANCE' | 'BOLLINGER';
 
 export interface RecommendationRequest {
@@ -90,6 +90,11 @@ export interface RecommendationResult {
 
   // Technical signal for AI context
   signal: TechnicalSignal;
+
+  // AI & Advanced Analytics
+  confidence?: number; // 0-100
+  reasoning?: string;
+  atr?: number; // Latest ATR value for reference
 
   analyzedAt: string;
 }

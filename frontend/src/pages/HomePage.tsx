@@ -154,7 +154,7 @@ export default function HomePage() {
       {/* ── Header con Saludo ───────────────────────────────────────────── */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
-          ¡{greeting} {firstName}! 👋
+          ¡{greeting} {firstName}!
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
           Aquí tienes el resumen del mercado de hoy.
@@ -353,7 +353,7 @@ export default function HomePage() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Newspaper className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+            {/*<Newspaper className="w-5 h-5 text-gray-700 dark:text-gray-300" />*/}
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
               Noticias del mercado
             </h3>

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, Loader2, Plus, Star } from 'lucide-react';
+import { Loader2, Plus, Star } from 'lucide-react';
 import { useFetch } from '@hooks/useFetch';
 import { useWatchlist } from '@hooks/useWatchlist';
 import { assetService } from '@services/index';
 import type { Asset } from '../types';
 import AssetDetailModal from '../components/AssetDetailModal';
+import SymbolAutocomplete from '../components/SymbolAutocomplete';
 
 export default function AssetsPage() {
   const location = useLocation();
@@ -62,14 +63,15 @@ export default function AssetsPage() {
   });
 
   // Buscar activo dinámicamente en la API
-  const handleSearchSymbol = async () => {
-    if (!searchQuery.trim()) return;
+  const handleSearchSymbol = async (symbolOverride?: string) => {
+    const sym = symbolOverride || searchQuery.trim();
+    if (!sym) return;
 
     setSearching(true);
     setSearchError(null);
 
     try {
-      const asset = await assetService.searchAssetBySymbol(searchQuery.trim());
+      const asset = await assetService.searchAssetBySymbol(sym);
 
       // Siempre mover el activo buscado al principio (más reciente primero)
       // Incluso si ya estaba en la lista "sugeridos" o ya fue buscado antes.
@@ -85,7 +87,6 @@ export default function AssetsPage() {
       }
 
       // Mantener la búsqueda activa para que la lista quede filtrada
-      // (si prefieres no tocar el input, cambia esto por no hacer nada)
       setSearchQuery(asset.symbol);
     } catch (err: any) {
       setSearchError(
@@ -94,13 +95,6 @@ export default function AssetsPage() {
       );
     } finally {
       setSearching(false);
-    }
-  };
-
-  // Buscar al presionar Enter
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSearchSymbol();
     }
   };
 
@@ -154,21 +148,25 @@ export default function AssetsPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative flex gap-2">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar por nombre o símbolo (ej: AAPL, KO, NFLX)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg 
-                         bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                         focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
+            <SymbolAutocomplete
+              value={searchQuery}
+              onChange={(symbol) => {
+                setSearchQuery(symbol);
+                if (symbol) handleSearchSymbol(symbol);
+              }}
+              onSubmit={(symbol) => {
+                if (symbol) {
+                  setSearchQuery(symbol);
+                  handleSearchSymbol(symbol);
+                }
+              }}
+              placeholder="Buscar por nombre o símbolo (ej: AAPL, KO, NFLX)..."
+              className="flex-1"
+              showSearchIcon
+              inputClassName="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
             <button
-              onClick={handleSearchSymbol}
+              onClick={() => handleSearchSymbol()}
               disabled={searching || !searchQuery.trim()}
               className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 
                        disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"

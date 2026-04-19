@@ -1,5 +1,5 @@
 export type Direction = 'LONG' | 'SHORT';
-export type SLMethod = 'FIXED_PCT' | 'SUPPORT_RESISTANCE';
+export type SLMethod = 'FIXED_PCT' | 'SUPPORT_RESISTANCE' | 'DYNAMIC_ATR';
 export type TPMethod = 'RISK_REWARD' | 'SUPPORT_RESISTANCE' | 'BOLLINGER';
 
 export interface RecommendationRequest {
@@ -7,7 +7,7 @@ export interface RecommendationRequest {
   direction: 'LONG' | 'SHORT';
   interval: string;
   range?: string;
-  slMethod: 'FIXED_PCT' | 'SUPPORT_RESISTANCE';
+  slMethod: 'FIXED_PCT' | 'SUPPORT_RESISTANCE' | 'DYNAMIC_ATR';
   slPct?: number;
   tpMethods: Array<'RISK_REWARD' | 'SUPPORT_RESISTANCE' | 'BOLLINGER'>;
   customRatio?: number;
@@ -50,6 +50,9 @@ export interface RecommendationResult {
   riskManagement: RiskManagementResult;
   currency: 'EUR' | 'USD';
   warnings: string[];
+  confidence?: number;
+  reasoning?: string;
+  atr?: number;
   candles: Array<{
     date: string;
     open: number;

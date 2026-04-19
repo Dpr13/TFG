@@ -73,6 +73,7 @@ export interface TechnicalAnalysisResult {
   rsi: IndicatorPoint[];
   macd: MACDData;
   obv: IndicatorPoint[];
+  atr: IndicatorPoint[];
   supports: SupportResistanceLevel[];
   resistances: SupportResistanceLevel[];
   signal: TechnicalSignal;
