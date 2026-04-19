@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Search, TrendingUp, Loader2, AlertTriangle, Plus, X,
-  BarChart2, Shield, Activity, Star, Clock, Sparkles,
+  TrendingUp, Loader2, AlertTriangle, Plus, X,
+  BarChart2, Shield, Activity, Star, Clock, Sparkles, Search,
 } from 'lucide-react';
 import { useWatchlist } from '@hooks/useWatchlist';
 
