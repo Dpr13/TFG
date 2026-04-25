@@ -1,10 +1,12 @@
 import { User, LogOut, Menu, X, ChevronDown, Search } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useState, useEffect } from 'react';
 
 export default function Header() {
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -29,31 +31,31 @@ export default function Header() {
   }
 
   const navItems: NavItem[] = [
-    { label: 'Inicio', path: '/', isDropdown: false },
+    { label: t.nav.home, path: '/', isDropdown: false },
     {
-      label: 'Análisis',
+      label: t.nav.analysis,
       path: '/analisis',
       isDropdown: true,
       subItems: [
-        { label: 'Análisis Técnico', path: '/analisis?tab=tecnico', tab: 'tecnico' },
-        { label: 'Análisis Fundamental', path: '/analisis?tab=fundamental', tab: 'fundamental' },
-        { label: 'Análisis Cuantitativo', path: '/analisis?tab=cuantitativo', tab: 'cuantitativo' },
-        { label: 'Comparar Activos', path: '/comparar' },
+        { label: t.nav.technicalAnalysis, path: '/analisis?tab=tecnico', tab: 'tecnico' },
+        { label: t.nav.fundamentalAnalysis, path: '/analisis?tab=fundamental', tab: 'fundamental' },
+        { label: t.nav.quantitativeAnalysis, path: '/analisis?tab=cuantitativo', tab: 'cuantitativo' },
+        { label: t.nav.compareAssets, path: '/comparar' },
       ]
     },
-    { label: 'Recomendación', path: '/recommendation', isDropdown: false },
-    { label: 'Journaling', path: '/calendar', isDropdown: false },
-    { label: 'AutoTrader', path: '/bots', isDropdown: false },
+    { label: t.nav.recommendation, path: '/recommendation', isDropdown: false },
+    { label: t.nav.journaling, path: '/calendar', isDropdown: false },
+    { label: t.nav.autoTrader, path: '/bots', isDropdown: false },
     {
-      label: 'Más',
+      label: t.nav.more,
       path: '#',
       isDropdown: true,
       subItems: [
-        { label: 'Estrategias', path: '/strategies' },
-        { label: 'Psicoanálisis', path: '/psychoanalysis' },
+        { label: t.nav.strategies, path: '/strategies' },
+        { label: t.nav.psychoanalysis, path: '/psychoanalysis' },
       ]
     },
-    { label: 'Buscar', path: '/assets', isDropdown: false, icon: Search },
+    { label: t.nav.search, path: '/assets', isDropdown: false, icon: Search },
   ];
 
   const isTabActive = (tab: string) => {
@@ -68,8 +70,8 @@ export default function Header() {
 
   const isItemActive = (item: any) => {
     if (!item.isDropdown) return isPathActive(item.path, true);
-    if (item.label === 'Análisis') return isPathActive('/analisis');
-    if (item.label === 'Más') {
+    if (item.label === t.nav.analysis) return isPathActive('/analisis');
+    if (item.label === t.nav.more) {
       return ['/strategies', '/psychoanalysis'].some(p => isPathActive(p));
     }
     return false;
@@ -84,10 +86,10 @@ export default function Header() {
             <img src="/Logo.png" alt="Logo" className="w-10 h-10 object-contain" />
             <div className="hidden lg:block">
               <h1 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                Análisis de Riesgo
+                {t.nav.riskAnalysis}
               </h1>
               <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                Gestión de Riesgos Financieros
+                {t.nav.riskManagement}
               </p>
             </div>
           </Link>
@@ -97,7 +99,7 @@ export default function Header() {
             {navItems.map((item) => (
               <div
                 key={item.label}
-                className={`relative group ${item.label === 'Buscar' ? 'ml-3' : ''}`}
+                className={`relative group ${item.label === t.nav.search ? 'ml-3' : ''}`}
                 onMouseEnter={() => item.isDropdown && setActiveDropdown(item.label)}
                 onMouseLeave={() => item.isDropdown && setActiveDropdown(null)}
               >
@@ -178,17 +180,17 @@ export default function Header() {
                          dark:hover:bg-gray-700 transition-colors"
               >
                 <User className="w-5 h-5" />
-                <span className="text-sm font-medium hidden lg:inline">Perfil</span>
+                <span className="text-sm font-medium hidden lg:inline">{t.nav.profile}</span>
               </Link>
               <button
                 onClick={handleLogout}
-                title="Cerrar sesión"
+                title={t.nav.closeSession}
                 className="flex items-center space-x-2 px-3 py-2 rounded-lg
                          text-gray-700 dark:text-gray-300 hover:bg-red-50 hover:text-red-600
                          dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors"
               >
                 <LogOut className="w-5 h-5" />
-                <span className="text-sm font-medium hidden lg:inline">Salir</span>
+                <span className="text-sm font-medium hidden lg:inline">{t.auth.logout}</span>
               </button>
             </div>
 
@@ -253,14 +255,14 @@ export default function Header() {
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 dark:text-gray-300"
             >
               <User className="w-5 h-5" />
-              <span className="font-medium">Mi Perfil</span>
+              <span className="font-medium">{t.nav.myProfile}</span>
             </Link>
             <button
               onClick={handleLogout}
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 dark:text-red-400 w-full"
             >
               <LogOut className="w-5 h-5" />
-              <span className="font-medium">Cerrar Sesión</span>
+              <span className="font-medium">{t.auth.logoutMobile}</span>
             </button>
           </div>
         </div>

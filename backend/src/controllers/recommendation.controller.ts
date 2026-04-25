@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { RecommendationService } from '../services/recommendation.service';
+import { getLanguage, i18n } from '../utils/i18n';
 import type { RecommendationRequest } from '../models/recommendation';
 
 const recommendationService = new RecommendationService();
@@ -9,32 +10,35 @@ const recommendationService = new RecommendationService();
  * Calculates Stop Loss, Take Profit, and risk management for a given asset and operation parameters.
  */
 export const calculateRecommendation = async (req: Request, res: Response): Promise<void> => {
+  const lang = getLanguage(req.headers['accept-language']);
+  const t = i18n[lang].recommendation;
+
   try {
     const payload = req.body as Partial<RecommendationRequest>;
 
     // Basic validation
     if (!payload.symbol || typeof payload.symbol !== 'string') {
-      res.status(400).json({ error: 'El símbolo es obligatorio' });
+      res.status(400).json({ error: t.errors.symbolRequired });
       return;
     }
     if (!payload.direction || !['LONG', 'SHORT'].includes(payload.direction)) {
-      res.status(400).json({ error: 'La dirección debe ser LONG o SHORT' });
+      res.status(400).json({ error: t.errors.invalidDirection });
       return;
     }
     if (!payload.slMethod || !['FIXED_PCT', 'SUPPORT_RESISTANCE', 'DYNAMIC_ATR'].includes(payload.slMethod)) {
-      res.status(400).json({ error: 'Método de Stop Loss no válido' });
+      res.status(400).json({ error: t.errors.invalidSLMethod });
       return;
     }
     if (!payload.tpMethods || !Array.isArray(payload.tpMethods) || payload.tpMethods.length === 0) {
-      res.status(400).json({ error: 'Debe seleccionar al menos un método de Take Profit' });
+      res.status(400).json({ error: t.errors.tpMethodRequired });
       return;
     }
     if (!payload.capital || payload.capital <= 0) {
-      res.status(400).json({ error: 'El capital debe ser mayor que 0' });
+      res.status(400).json({ error: t.errors.invalidCapital });
       return;
     }
     if (!payload.riskPct || payload.riskPct <= 0 || payload.riskPct > 100) {
-      res.status(400).json({ error: 'El porcentaje de riesgo debe estar entre 0.1 y 100' });
+      res.status(400).json({ error: t.errors.invalidRisk });
       return;
     }
 
@@ -53,20 +57,23 @@ export const calculateRecommendation = async (req: Request, res: Response): Prom
       currency: payload.currency || 'USD',
     };
 
-    const result = await recommendationService.calculate(request);
+    const result = await recommendationService.calculate(request, lang);
     res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error desconocido';
 
-    if (message.includes('No se encontraron datos') || message.includes('No hay suficientes datos')) {
+    // Errors from service are already localized or caught here
+    if (message === t.errors.noData) {
       res.status(422).json({ error: message });
       return;
     }
 
-    // Business rule errors from service
+    // Business rule errors from service (already localized in service)
     if (
-      message.includes('El stop loss debe estar') ||
-      message.includes('No se detectaron')
+      message === t.errors.slAboveLong ||
+      message === t.errors.slBelowShort ||
+      message === t.errors.noSupport ||
+      message === t.errors.noResistance
     ) {
       res.status(400).json({ error: message });
       return;
@@ -74,7 +81,7 @@ export const calculateRecommendation = async (req: Request, res: Response): Prom
 
     console.error('Error calculating recommendation:', error);
     res.status(500).json({
-      error: 'Error interno al calcular la recomendación',
+      error: t.errors.internal,
       message,
     });
   }

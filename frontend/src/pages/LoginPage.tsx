@@ -11,32 +11,11 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-
-const FEATURES = [
-  {
-    icon: Activity,
-    title: 'Datos en tiempo real',
-    desc: 'Precios y métricas actualizados desde Yahoo Finance',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Análisis avanzado',
-    desc: 'Volatilidad, Sharpe Ratio, VaR, Drawdown y más',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Gestión de riesgo',
-    desc: 'Evalúa y compara el riesgo de cualquier activo',
-  },
-  {
-    icon: AlertTriangle,
-    title: 'Seguimiento personalizado',
-    desc: 'Crea tu lista de activos favoritos al instante',
-  },
-];
+import { useLanguage } from '../context/LanguageContext';
 
 export default function LoginPage() {
   const { login, isLoading } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as any)?.from?.pathname ?? '/';
@@ -47,11 +26,34 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const FEATURES = [
+    {
+      icon: Activity,
+      title: t.auth.feature1Title,
+      desc: t.auth.feature1Desc,
+    },
+    {
+      icon: TrendingUp,
+      title: t.auth.feature2Title,
+      desc: t.auth.feature2Desc,
+    },
+    {
+      icon: ShieldCheck,
+      title: t.auth.feature3Title,
+      desc: t.auth.feature3Desc,
+    },
+    {
+      icon: AlertTriangle,
+      title: t.auth.feature4Title,
+      desc: t.auth.feature4Desc,
+    },
+  ];
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.');
+      setError(t.auth.passwordMinLength);
       return;
     }
     try {
@@ -70,9 +72,8 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error('Login error:', err);
       const backendError = err.response?.data?.error;
-      setError(backendError || 'Error al conectar con el servidor. Inténtalo de nuevo.');
-      // Opcional: limpiar contraseña si es incorrecta
-      if (backendError === 'Contraseña incorrecta. Por favor, inténtelo de nuevo.') {
+      setError(backendError || t.auth.serverError);
+      if (backendError === t.auth.wrongPassword) {
         setPassword('');
       }
     }
@@ -93,8 +94,8 @@ export default function LoginPage() {
             <img src="/Logo.png" alt="Logo" className="w-9 h-9 object-contain" />
           </div>
           <div>
-            <p className="text-white font-bold text-lg leading-tight">Análisis de Riesgo</p>
-            <p className="text-primary-200 text-xs">Plataforma Financiera · TFG</p>
+            <p className="text-white font-bold text-lg leading-tight">{t.auth.brandName}</p>
+            <p className="text-primary-200 text-xs">{t.auth.brandSubtitle}</p>
           </div>
         </div>
 
@@ -102,12 +103,11 @@ export default function LoginPage() {
         <div className="relative z-10 space-y-6">
           <div>
             <h2 className="text-4xl font-extrabold text-white leading-tight">
-              Toma decisiones<br />
-              <span className="text-primary-200">basadas en datos</span>
+              {t.auth.headline1}<br />
+              <span className="text-primary-200">{t.auth.headline2}</span>
             </h2>
             <p className="mt-3 text-primary-100 text-base max-w-sm leading-relaxed">
-              Analiza acciones, criptomonedas y activos de todo el mundo con métricas
-              cuantitativas de riesgo en tiempo real.
+              {t.auth.headlineDesc}
             </p>
           </div>
 
@@ -130,7 +130,7 @@ export default function LoginPage() {
         {/* Footer quote */}
         <div className="relative z-10">
           <p className="text-primary-200 text-xs italic">
-            "Risk comes from not knowing what you're doing." — Warren Buffett
+            "Risk comes from not knowing what you're doing." - Warren Buffett
           </p>
         </div>
       </div>
@@ -142,7 +142,7 @@ export default function LoginPage() {
           <div className="bg-primary-600 p-1 rounded-lg">
             <img src="/Logo.png" alt="Logo" className="w-7 h-7 object-contain" />
           </div>
-          <p className="font-bold text-gray-900 dark:text-white">Análisis de Riesgo Financiero</p>
+          <p className="font-bold text-gray-900 dark:text-white">{t.auth.brandName}</p>
         </div>
 
         <div className="flex-1 flex items-center justify-center px-6 py-12">
@@ -151,10 +151,10 @@ export default function LoginPage() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
               <div className="mb-8">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Bienvenido de nuevo
+                  {t.auth.welcomeBack}
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-                  Inicia sesión para acceder a tu panel
+                  {t.auth.loginSubtitle}
                 </p>
               </div>
 
@@ -165,7 +165,7 @@ export default function LoginPage() {
                     htmlFor="email"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
                   >
-                    Correo electrónico
+                    {t.auth.email}
                   </label>
                   <input
                     id="email"
@@ -174,7 +174,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="usuario@ejemplo.com"
+                    placeholder={t.auth.emailPlaceholder}
                     className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600
                                bg-white dark:bg-gray-700 text-gray-900 dark:text-white
                                placeholder-gray-400 dark:placeholder-gray-500
@@ -190,13 +190,13 @@ export default function LoginPage() {
                       htmlFor="password"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      Contraseña
+                      {t.auth.password}
                     </label>
                     <Link
                       to="/forgot-password"
                       className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
                     >
-                      ¿Olvidaste tu contraseña?
+                      {t.auth.forgotPassword}
                     </Link>
                   </div>
                   <div className="relative">
@@ -218,7 +218,7 @@ export default function LoginPage() {
                       type="button"
                       onClick={() => setShowPassword((p) => !p)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      aria-label={showPassword ? t.auth.hidePassword : t.auth.showPassword}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -238,7 +238,7 @@ export default function LoginPage() {
                     htmlFor="remember"
                     className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none"
                   >
-                    Recordar sesión
+                    {t.auth.rememberSession}
                   </label>
                 </div>
 
@@ -261,12 +261,12 @@ export default function LoginPage() {
                   {isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Iniciando sesión...
+                      {t.auth.loggingIn}
                     </>
                   ) : (
                     <>
                       <LogIn className="w-4 h-4" />
-                      Iniciar sesión
+                      {t.auth.login}
                     </>
                   )}
                 </button>
@@ -275,19 +275,19 @@ export default function LoginPage() {
               {/* Divider */}
               <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                  ¿No tienes cuenta?{' '}
+                  {t.auth.noAccount}{' '}
                   <Link
                     to="/register"
                     className="text-primary-600 dark:text-primary-400 font-semibold hover:underline"
                   >
-                    Regístrate
+                    {t.auth.register}
                   </Link>
                 </p>
               </div>
             </div>
 
             <p className="text-center text-xs text-gray-400 dark:text-gray-600 mt-6">
-              Sistema de Análisis de Riesgo Financiero · TFG {new Date().getFullYear()}
+              {t.auth.systemFooter} {new Date().getFullYear()}
             </p>
           </div>
         </div>

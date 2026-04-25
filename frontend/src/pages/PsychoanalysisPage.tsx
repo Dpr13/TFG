@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { PsychoAnalysisSummary, Strategy } from '../types';
 import { psychoanalysisService, strategyService } from '../services';
+import { useLanguage } from '../context/LanguageContext';
 import {
   BarChart,
   Bar,
@@ -36,6 +37,7 @@ import AnalysisSummaryCard, { AnalysisVariant } from '@components/AnalysisSummar
 // ============================================================================
 
 export default function PsychoanalysisPage() {
+  const { t } = useLanguage();
   const [data, setData] = useState<PsychoAnalysisSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +69,7 @@ export default function PsychoanalysisPage() {
       }
       setData(analysis);
     } catch (err) {
-      setError('Error al cargar el análisis psicológico');
+      setError(t.psycho.error);
       console.error(err);
     } finally {
       setLoading(false);
@@ -81,7 +83,7 @@ export default function PsychoanalysisPage() {
           <div className="inline-block animate-spin">
             <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full"></div>
           </div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Analizando operaciones...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">{t.psycho.analyzing}</p>
         </div>
       </div>
     );
@@ -92,7 +94,7 @@ export default function PsychoanalysisPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
         <div className="max-w-6xl mx-auto">
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            {error || 'No hay datos disponibles'}
+            {error || t.psycho.noDataAvailable}
           </div>
         </div>
       </div>
@@ -112,19 +114,19 @@ export default function PsychoanalysisPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-            🧠 Análisis Psicológico del Operador
+            {t.psycho.title}
           </h1>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                Estrategia:
+                {t.psycho.strategy}
               </label>
               <select
                 value={selectedStrategyId}
                 onChange={(e) => { setSelectedStrategyId(e.target.value); setStartDate(''); setEndDate(''); }}
                 className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
-                <option value="">General (todas)</option>
+                <option value="">{t.psycho.generalAll}</option>
                 {strategies.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -134,7 +136,7 @@ export default function PsychoanalysisPage() {
             </div>
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                Desde:
+                {t.psycho.from}
               </label>
               <input
                 type="date"
@@ -145,7 +147,7 @@ export default function PsychoanalysisPage() {
             </div>
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                Hasta:
+                {t.psycho.to}
               </label>
               <input
                 type="date"
@@ -159,7 +161,7 @@ export default function PsychoanalysisPage() {
                 onClick={() => { setStartDate(''); setEndDate(''); setSelectedStrategyId(''); }}
                 className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline"
               >
-                Limpiar filtros
+                {t.psycho.clearFilters}
               </button>
             )}
           </div>
@@ -175,16 +177,16 @@ export default function PsychoanalysisPage() {
             score -= (highAlerts * 40 + mediumAlerts * 25 + lowAlerts * 10);
             score = Math.max(0, score);
 
-            let classification = 'Psicología Excelente';
+            let classification = t.psycho.excellentPsychology;
             let variant: AnalysisVariant = 'success';
             let Icon = CheckCircle;
 
             if (score < 50) {
-              classification = 'Riesgo Psicológico Alto';
+              classification = t.psycho.highRisk;
               variant = 'danger';
               Icon = AlertTriangle;
             } else if (score < 85) {
-              classification = 'Riesgo Psicológico Moderado';
+              classification = t.psycho.mediumRisk;
               variant = 'warning';
               Icon = AlertTriangle;
             }
@@ -198,15 +200,15 @@ export default function PsychoanalysisPage() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <Icon className="w-5 h-5" />
-                      <span className="text-xl font-bold">Resumen de Comportamiento</span>
+                      <span className="text-xl font-bold">{t.psycho.behaviorAlerts}</span>
                     </div>
                     <p className="text-sm leading-relaxed">
                       {alerts.length === 0 
-                        ? 'No se han detectado patrones de riesgo emocional. Tu disciplina operativa es ejemplar en este periodo.'
-                        : `Se han detectado ${alerts.length} alertas de comportamiento. ${
-                            highAlerts > 0 ? 'Existen patrones de alto riesgo (revenge trading o espirales) que requieren atención inmediata.' :
-                            mediumAlerts > 0 ? 'Hay señales de falta de disciplina que podrían afectar tu rentabilidad a largo plazo.' :
-                            'Existen algunas inconsistencias menores en tu operativa.'
+                        ? t.psycho.noPatternsDetected
+                        : `${t.psycho.detectedAlerts.replace('{count}', alerts.length.toString())} ${
+                            highAlerts > 0 ? t.psycho.highRiskPatterns :
+                            mediumAlerts > 0 ? t.psycho.disciplineIssues :
+                            t.psycho.minorIssues
                           }`
                       }
                     </p>
@@ -216,12 +218,12 @@ export default function PsychoanalysisPage() {
                   <div className="flex flex-wrap gap-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">
                     <div className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      Analizando {generalStats.totalOperations} ops
+                      {t.psycho.analyzingOps.replace('{count}', generalStats.totalOperations.toString())}
                     </div>
                     {generalStats.winRate > 50 && (
                       <div className="flex items-center gap-1 text-green-500">
                         <TrendingUp className="w-3 h-3" />
-                        Rentabilidad positiva
+                        {t.psycho.positiveReturnability}
                       </div>
                     )}
                   </div>
@@ -519,27 +521,26 @@ export default function PsychoanalysisPage() {
           */}
           <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
             {generalStats.winRate > 50 ? (
-              <p>✅ Tu tasa de ganancia es superior al 50%, buen desempeño general.</p>
+              <p>{t.psycho.winRateAbove50}</p>
             ) : (
-              <p>⚠️ Tu tasa de ganancia está por debajo del 50%, considera revisar tu estrategia.</p>
+              <p>{t.psycho.winRateBelow50}</p>
             )}
 
             {behaviorStats.recoverySuccessRate > 60 ? (
-              <p>✅ Recuperas bien de las pérdidas ({behaviorStats.recoverySuccessRate}% de éxito).</p>
+              <p>{t.psycho.recoverySuccess.replace('{rate}', behaviorStats.recoverySuccessRate.toString())}</p>
             ) : (
               <p>
-                ⚠️ Tus intentos de recuperación tienen baja tasa de éxito (
-                {behaviorStats.recoverySuccessRate}%). Evita operar emocionalmente.
+                {t.psycho.recoveryLow.replace('{rate}', behaviorStats.recoverySuccessRate.toString())}
               </p>
             )}
 
             {behaviorStats.opsAfterLoss > behaviorStats.opsAfterWin ? (
               <p>
-                ⚠️ Haces más operaciones después de pérdidas que después de ganancias. Potencial
+                {t.psycho.moreOpsAfterLoss}
                 sobre-trading emocional.
               </p>
             ) : (
-              <p>✅ Tu comportamiento es controlado: menos operaciones después de pérdidas.</p>
+              <p>✅ {t.psycho.controlledBehavior}</p>
             )}
 
             {generalStats.bestAsset.symbol && (

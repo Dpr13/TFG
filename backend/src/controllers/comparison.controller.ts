@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ComparisonService } from '../services/comparison.service';
 import { generarVeredictoComparativa } from '../services/ia.service';
+import { i18n, getLanguage } from '../utils/i18n';
 
 const comparisonService = new ComparisonService();
 
@@ -11,28 +12,28 @@ const comparisonService = new ComparisonService();
 export const compararActivos = async (req: Request, res: Response): Promise<void> => {
   try {
     const { tickers, horizonte = '1y' } = req.body;
+    const lang = getLanguage(req.headers['accept-language']);
+    const t = i18n[lang];
 
     if (!Array.isArray(tickers) || tickers.length < 2 || tickers.length > 3) {
-      res.status(400).json({ error: 'Selecciona entre 2 y 3 activos.' });
+      res.status(400).json({ error: t.comparison.errors.selectCount });
       return;
     }
 
-    // Validate tickers are non-empty strings
     const cleanTickers = tickers.map((t: string) => t.trim().toUpperCase()).filter(Boolean);
     if (cleanTickers.length < 2) {
-      res.status(400).json({ error: 'Selecciona al menos 2 activos válidos.' });
+      res.status(400).json({ error: t.comparison.errors.selectValid });
       return;
     }
 
-    // Analyze all assets in parallel
     const resultados = await Promise.all(
       cleanTickers.map((ticker: string) => comparisonService.analyzeForComparison(ticker, horizonte))
     );
 
     res.json({ resultados, horizonte });
   } catch (error) {
-    console.error('Error in compararActivos:', error);
-    res.status(500).json({ error: 'Error interno al comparar activos.' });
+    const lang = getLanguage(req.headers['accept-language']);
+    res.status(500).json({ error: i18n[lang].comparison.errors.internal });
   }
 };
 
@@ -43,13 +44,15 @@ export const compararActivos = async (req: Request, res: Response): Promise<void
 export const veredictoComparativa = async (req: Request, res: Response): Promise<void> => {
   try {
     const { resultados, horizonte = '1y' } = req.body;
+    const lang = getLanguage(req.headers['accept-language']);
+    const t = i18n[lang];
 
     if (!Array.isArray(resultados) || resultados.length < 2) {
-      res.status(400).json({ veredicto: null, ok: false, error: 'Se necesitan al menos 2 activos.' });
+      res.status(400).json({ veredicto: null, ok: false, error: t.comparison.errors.minTwo });
       return;
     }
 
-    const resultado = await generarVeredictoComparativa(resultados, horizonte);
+    const resultado = await generarVeredictoComparativa(resultados, horizonte, lang);
 
     if (resultado.ok) {
       res.json(resultado);
@@ -57,7 +60,7 @@ export const veredictoComparativa = async (req: Request, res: Response): Promise
       res.status(500).json(resultado);
     }
   } catch (error) {
-    console.error('Error in veredictoComparativa:', error);
-    res.status(500).json({ veredicto: null, ok: false, error: 'Servicio de IA no disponible.' });
+    const lang = getLanguage(req.headers['accept-language']);
+    res.status(500).json({ veredicto: null, ok: false, error: i18n[lang].comparison.errors.aiUnavailable });
   }
 };

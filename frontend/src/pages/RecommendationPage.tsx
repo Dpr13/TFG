@@ -3,6 +3,7 @@ import { Target, Loader2, AlertTriangle, LayoutTemplate, ChevronDown, ChevronUp,
 import SymbolAutocomplete from '../components/SymbolAutocomplete';
 import { recommendationService, iaService } from '@services/index';
 import { useTheme } from '@/context/ThemeContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency } from '@utils/format';
 import type { RecommendationRequest, RecommendationResult, SLMethod, TPMethod, IAChatMessage } from '../types';
 
@@ -14,6 +15,7 @@ const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d', '1wk', '1mo'] as const;
 
 export default function RecommendationPage() {
   const { darkMode } = useTheme();
+  const { t } = useLanguage();
   const [symbol, setSymbol] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,9 +81,9 @@ export default function RecommendationPage() {
         }
         const positionValue = posSize * prev.entryPrice;
         
-        const warnings = prev.warnings.filter((w: string) => !w.includes('capital disponible'));
+        const warnings = prev.warnings.filter((w: string) => !w.includes(t.recommendation.insufficientCapital));
         if (positionValue > capNum) {
-          warnings.push('El tamaño de posición supera el capital disponible. Considera reducir el riesgo o aumentar el stop loss.');
+          warnings.push(t.recommendation.insufficientCapital);
         }
 
         const sameRisk = prev.riskManagement.moneyAtRisk === moneyAtRisk &&
@@ -235,13 +237,13 @@ export default function RecommendationPage() {
           if (iaRes.justificacionError) setIaJustificacionError(iaRes.justificacionError);
         })
         .catch(() => {
-          setIaResumenError('El servicio de IA no está disponible en este momento. Inténtalo de nuevo.');
-          setIaJustificacionError('El servicio de IA no está disponible en este momento. Inténtalo de nuevo.');
+          setIaResumenError(t.recommendation.iaUnavailable);
+          setIaJustificacionError(t.recommendation.iaUnavailable);
         })
         .finally(() => setIaLoading(false));
 
     } catch (err: any) {
-      setError(err?.response?.data?.error || err?.message || 'Error al calcular la recomendación');
+      setError(err?.response?.data?.error || err?.message || t.recommendation.calculationError);
       if (err?.response?.data?.error?.includes('suficientes datos')) {
         setResult(null);
       }
@@ -547,21 +549,16 @@ export default function RecommendationPage() {
     }
   }, [chatMessages, chatLoading]);
 
-  const CHAT_SUGGESTIONS = [
-    '¿Por qué se propone este stop loss?',
-    '¿Qué indica el RSI ahora mismo?',
-    '¿Cuál es el nivel de resistencia más importante?',
-    '¿Los indicadores están en confluencia?',
-  ];
+  const CHAT_SUGGESTIONS = t.recommendation.chatSuggestions;
 
 
   return (
     <div className="space-y-6">
       {/* ── Header ── */}
       <div>
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Recomendación de Operación</h2>
+        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{t.recommendation.title}</h2>
         <p className="text-gray-600 dark:text-gray-400">
-          Calcula automáticamente niveles de Take Profit, Stop Loss y gestión del riesgo.
+          {t.recommendation.subtitle}
         </p>
       </div>
 
@@ -573,7 +570,7 @@ export default function RecommendationPage() {
             
             {/* Buscador */}
             <div className="space-y-3">
-              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Activo Financiero</label>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t.recommendation.financialAsset}</label>
               <SymbolAutocomplete
                 value={symbol}
                 onChange={(sym) => {
@@ -585,14 +582,14 @@ export default function RecommendationPage() {
                   }
                 }}
                 onSubmit={() => calculate()}
-                placeholder="Ej: AAPL, BTC-USD..."
+                placeholder={t.recommendation.searchPlaceholder}
                 showSearchIcon
                 inputClassName="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
               />
 
               {/* Popular / Watchlist Badges */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] uppercase font-bold text-gray-400 mr-1">Populares:</span>
+                <span className="text-[10px] uppercase font-bold text-gray-400 mr-1">{t.recommendation.popular}:</span>
                 {QUICK_SYMBOLS.slice(0,4).map((s) => (
                   <button key={s} onClick={() => clearAndWait(s)}
                     className="px-2 py-0.5 text-[10px] font-medium rounded border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
@@ -604,27 +601,27 @@ export default function RecommendationPage() {
 
             {/* Dirección */}
             <div className="space-y-3">
-              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Dirección de la operación</label>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t.recommendation.tradeDirection}</label>
               <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
                 <button
                   className={`flex-1 py-3 text-sm font-bold transition-colors ${direction === 'LONG' ? 'bg-green-600 text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
                   onClick={() => setDirection('LONG')}
                 >
-                  LONG (Compra)
+                  {t.recommendation.long}
                 </button>
                 <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
                 <button
                   className={`flex-1 py-3 text-sm font-bold transition-colors ${direction === 'SHORT' ? 'bg-red-600 text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
                   onClick={() => setDirection('SHORT')}
                 >
-                  SHORT (Venta)
+                  {t.recommendation.short}
                 </button>
               </div>
             </div>
 
             {/* Intervalo */}
             <div className="space-y-3">
-              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Intervalo de tiempo</label>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t.recommendation.timeframe}</label>
               <div className="flex flex-wrap gap-2">
                 {INTERVALS.map((inv) => (
                   <button
@@ -646,11 +643,11 @@ export default function RecommendationPage() {
 
             {/* Stop Loss */}
             <div className="space-y-3">
-              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Método Stop Loss</label>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t.recommendation.slMethod}</label>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                   <input type="radio" checked={slMethod === 'FIXED_PCT'} onChange={() => setSlMethod('FIXED_PCT')} className="text-primary-600 focus:ring-primary-500" />
-                  Porcentaje fijo
+                  {t.recommendation.fixedPct}
                 </label>
                 {slMethod === 'FIXED_PCT' && (
                   <div className="ml-6 flex items-center gap-2">
@@ -662,14 +659,14 @@ export default function RecommendationPage() {
                 
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                   <input type="radio" checked={slMethod === 'SUPPORT_RESISTANCE'} onChange={() => setSlMethod('SUPPORT_RESISTANCE')} className="text-primary-600 focus:ring-primary-500" />
-                  {direction === 'LONG' ? 'Soporte más cercano' : 'Resistencia más cercana'}
+                  {direction === 'LONG' ? t.recommendation.closestSupport : t.recommendation.closestResistance}
                 </label>
                 
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                   <input type="radio" checked={slMethod === 'DYNAMIC_ATR'} onChange={() => setSlMethod('DYNAMIC_ATR')} className="text-primary-600 focus:ring-primary-500" />
-                  ATR Dinámico
+                  {t.recommendation.dynamicATR}
                   <span className="px-1.5 py-0.5 bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300 rounded text-[9px] font-bold border border-primary-200 dark:border-primary-800/40 ml-1">
-                    RECOMENDADO
+                    {t.recommendation.recommended}
                   </span>
                 </label>
               </div>
@@ -677,11 +674,11 @@ export default function RecommendationPage() {
 
             {/* Take Profit */}
             <div className="space-y-3">
-              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Métodos Take Profit</label>
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t.recommendation.tpMethods}</label>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                   <input type="checkbox" checked={tpMethods.includes('RISK_REWARD')} onChange={() => toggleTpMethod('RISK_REWARD')} className="rounded text-primary-600 focus:ring-primary-500" />
-                  Ratio Riesgo/Beneficio
+                  {t.recommendation.riskRewardRatio}
                 </label>
                 {tpMethods.includes('RISK_REWARD') && (
                   <div className="ml-6 flex flex-wrap gap-2">
@@ -699,12 +696,12 @@ export default function RecommendationPage() {
 
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                   <input type="checkbox" checked={tpMethods.includes('SUPPORT_RESISTANCE')} onChange={() => toggleTpMethod('SUPPORT_RESISTANCE')} className="rounded text-primary-600 focus:ring-primary-500" />
-                  {direction === 'LONG' ? 'Resistencia cercana' : 'Soporte cercano'}
+                  {direction === 'LONG' ? t.recommendation.closestResistance : t.recommendation.closestSupport}
                 </label>
                 
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                   <input type="checkbox" checked={tpMethods.includes('BOLLINGER')} onChange={() => toggleTpMethod('BOLLINGER')} className="rounded text-primary-600 focus:ring-primary-500" />
-                  Bandas de Bollinger
+                  {t.recommendation.bollingerBands}
                 </label>
               </div>
             </div>
@@ -714,7 +711,7 @@ export default function RecommendationPage() {
             {/* Gestión del Riesgo */}
             <div className="space-y-3">
               <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex justify-between">
-                <span>Gestión del Riesgo</span>
+                <span>{t.recommendation.riskManagement}</span>
                 <select value={currency} onChange={e => setCurrency(e.target.value as 'EUR'|'USD')} className="bg-transparent text-xs font-bold text-gray-400 outline-none">
                   <option value="USD">USD ($)</option>
                   <option value="EUR">EUR (€)</option>
@@ -722,7 +719,7 @@ export default function RecommendationPage() {
               </label>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-gray-500">Capital total</label>
+                  <label className="text-xs text-gray-500">{t.recommendation.totalCapital}</label>
                   <div className="relative mt-1">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{currency==='USD'?'$':'€'}</span>
                     <input type="number" min="1" step="100" value={capital} onChange={e => setCapital(e.target.value)}
@@ -730,7 +727,7 @@ export default function RecommendationPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">Riesgo por op.</label>
+                  <label className="text-xs text-gray-500">{t.recommendation.riskPerTrade}</label>
                   <div className="relative mt-1">
                     <input type="number" min="0.1" step="0.1" max="100" value={riskPct} onChange={e => setRiskPct(e.target.value)}
                            className="w-full pl-3 pr-7 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-primary-500 text-white" />
@@ -747,7 +744,7 @@ export default function RecommendationPage() {
               className="w-full py-3.5 bg-primary-600 text-white font-bold rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex justify-center items-center gap-2"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Target className="w-5 h-5" />}
-              {result && symbol === result.symbol ? 'Recalcular Niveles' : 'Calcular Niveles'}
+              {result && symbol === result.symbol ? t.recommendation.recalculateLevels : t.recommendation.calculateLevels}
             </button>
             
           </div>
@@ -769,9 +766,9 @@ export default function RecommendationPage() {
               <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4 text-gray-400">
                 <LayoutTemplate className="w-8 h-8" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Configura la operación</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">{t.recommendation.configureOperation}</h3>
               <p className="text-gray-500 dark:text-gray-400 max-w-sm">
-                Introduce un símbolo, selecciona tus parámetros a la izquierda y pulsa calcular para obtener una recomendación detallada.
+                {t.recommendation.configureDesc}
               </p>
             </div>
           )}
@@ -799,7 +796,7 @@ export default function RecommendationPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{result.symbol} {/* -- */} <span className={result.direction==='LONG'?'text-green-500':'text-red-500'}>{result.direction}</span></h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-widest mt-1">Precio de Entrada</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-widest mt-1">{t.recommendation.entryPriceLabel}</p>
                       <p className="text-3xl font-mono text-gray-900 dark:text-white mt-1">${result.entryPrice.toFixed(precision)}</p>
                     </div>
                     <div className="text-right space-y-1.5">
@@ -819,7 +816,7 @@ export default function RecommendationPage() {
                                 ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700/40'
                                 : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700/40'
                           }`}>
-                            {isContradictory ? '⚠ Señal contradictoria' : isAligned ? '✓ Señal alineada' : '~ Señal neutral'}
+                            {isContradictory ? t.recommendation.signalContradictory : isAligned ? t.recommendation.signalAligned : t.recommendation.signalNeutral}
                           </span>
                         );
                       })()}
@@ -845,13 +842,13 @@ export default function RecommendationPage() {
                 {/* Confidence Card */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-900/40 p-5">
                   <div className="flex justify-between items-center mb-2">
-                    <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">Confianza</p>
+                    <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">{t.recommendation.confidence}</p>
                   </div>
                   <div className="flex items-baseline gap-2">
                     <p className="text-3xl font-mono text-blue-600 dark:text-blue-400 font-bold">{result.confidence ?? '--'}%</p>
                   </div>
                   <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80 mt-2 leading-relaxed">
-                    {result.reasoning ?? 'Sin datos de justificación generados.'}
+                    {result.reasoning ?? t.recommendation.noJustification}
                   </p>
                 </div>
 
@@ -863,7 +860,7 @@ export default function RecommendationPage() {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <Target className="w-4 h-4 text-gray-500" />
-                      <h4 className="text-sm font-bold text-gray-900 dark:text-white">Señal Técnica</h4>
+                      <h4 className="text-sm font-bold text-gray-900 dark:text-white">{t.recommendation.techSignal}</h4>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`px-3 py-1 rounded-lg text-xs font-bold border ${
@@ -920,14 +917,14 @@ export default function RecommendationPage() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-gray-500 mb-1">Potencial</p>
+                        <p className="text-xs text-gray-500 mb-1">{t.recommendation.potential}</p>
                         <p className="text-lg font-mono text-green-600 dark:text-green-400 font-bold">+{formatCurrency(tp.potentialProfit, result.currency)}</p>
                       </div>
                     </div>
                   ))}
                   {result.tps.length === 0 && (
                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
-                      <p className="text-sm text-gray-500">Ningún Take Profit válido calculado.</p>
+                      <p className="text-sm text-gray-500">{t.recommendation.noneValidTP}</p>
                     </div>
                   )}
                 </div>
@@ -935,16 +932,16 @@ export default function RecommendationPage() {
                 {/* Risk Management */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Riesgo / {result.currency}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">{t.recommendation.riskPerCurrency.replace('{currency}', result.currency)}</p>
                     <p className="text-xl font-mono text-gray-900 dark:text-white">{formatCurrency(result.riskManagement.moneyAtRisk, result.currency)}</p>
                     <p className="text-[10px] text-gray-400 mt-0.5">{result.riskManagement.riskPctUsed}% del capital</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Tamaño Posición</p>
-                    <p className="text-xl font-mono text-gray-900 dark:text-white">{result.riskManagement.positionSize.toFixed(4)} <span className="text-sm text-gray-500 dark:text-gray-400">unds</span></p>
+                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">{t.recommendation.positionSize}</p>
+                    <p className="text-xl font-mono text-gray-900 dark:text-white">{result.riskManagement.positionSize.toFixed(4)} <span className="text-sm text-gray-500 dark:text-gray-400">{t.recommendation.units}</span></p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Valor Total</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">{t.recommendation.totalValue}</p>
                     <p className="text-xl font-mono text-gray-900 dark:text-white">{formatCurrency(result.riskManagement.positionValue, result.currency)}</p>
                   </div>
                 </div>
@@ -953,9 +950,7 @@ export default function RecommendationPage() {
 
               {/* Disclaimer */}
               <p className="text-[10px] text-gray-500 text-center px-4">
-                Los niveles mostrados son puramente informativos y se generan de forma automática. 
-                No constituyen asesoramiento financiero ni recomendación de inversión. 
-                Opera siempre con responsabilidad y dentro de tus posibilidades.
+                {t.recommendation.disclaimer}
               </p>
 
               {/* ══════════════════════════════════════════════════════════════════
@@ -966,7 +961,7 @@ export default function RecommendationPage() {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Resumen IA</h4>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">{t.recommendation.iaSummary}</h4>
                   </div>
                   <span className="px-2 py-0.5 bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded text-[10px] font-bold border border-purple-200 dark:border-purple-700/40">
                     Groq · Llama 3.3
@@ -990,7 +985,7 @@ export default function RecommendationPage() {
                 )}
 
                 <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-3">
-                  Generado automáticamente por IA. No constituye asesoramiento financiero.
+                  {t.recommendation.iaGenerated}
                 </p>
               </div>
 
@@ -1004,7 +999,7 @@ export default function RecommendationPage() {
                 >
                   <div className="flex items-center gap-2">
                     <Bot className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Ver justificación detallada (IA)</span>
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t.recommendation.detailedJustification}</span>
                   </div>
                   {showJustificacion ? <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
                 </button>
@@ -1038,9 +1033,9 @@ export default function RecommendationPage() {
                 <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50">
                   <div className="flex items-center gap-2">
                     <Bot className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">Chat con IA</h4>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">{t.recommendation.chatWithIA}</h4>
                     <span className="px-1.5 py-0.5 bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 rounded text-[9px] font-bold border border-cyan-200 dark:border-cyan-800/30">
-                      Contextual
+                      {t.recommendation.contextual}
                     </span>
                   </div>
                   {chatMessages.length > 0 && (
@@ -1049,7 +1044,7 @@ export default function RecommendationPage() {
                       className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                     >
                       <Trash2 className="w-3 h-3" />
-                      Limpiar chat
+                      {t.recommendation.clearChat}
                     </button>
                   )}
                 </div>
@@ -1063,7 +1058,7 @@ export default function RecommendationPage() {
                   {chatMessages.length === 0 && !chatLoading && (
                     <div className="flex flex-col items-center justify-center h-full text-center">
                       <Bot className="w-8 h-8 text-gray-600 mb-2" />
-                      <p className="text-xs text-gray-500 mb-3">Pregunta lo que quieras sobre {result.symbol}</p>
+                      <p className="text-xs text-gray-500 mb-3">{t.recommendation.askWhatever.replace('{symbol}', result.symbol)}</p>
                       {chatSuggestionsVisible && (
                         <div className="flex flex-wrap justify-center gap-2">
                           {CHAT_SUGGESTIONS.map((sug, i) => (
@@ -1125,7 +1120,7 @@ export default function RecommendationPage() {
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && sendChatMessage(chatInput)}
-                    placeholder={chatContextRef.current ? 'Escribe tu pregunta...' : 'Calcula una recomendación primero para activar el chat.'}
+                    placeholder={chatContextRef.current ? t.recommendation.typeYourQuestion : t.recommendation.calculateFirst}
                     disabled={!chatContextRef.current || chatLoading}
                     className="flex-1 px-3.5 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500/50 focus:border-transparent outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
                   />
@@ -1145,15 +1140,15 @@ export default function RecommendationPage() {
                   <div className="flex gap-4">
                     <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
                       <input type="checkbox" checked={showSMA50} onChange={() => setShowSMA50(!showSMA50)} className="rounded border-gray-300 dark:border-gray-600 text-primary-500 w-3.5 h-3.5" />
-                      <span className="w-4 h-0.5 rounded bg-orange-400"></span> SMA 50
+                      <span className="w-4 h-0.5 rounded bg-orange-400"></span> {t.recommendation.sma50}
                     </label>
                     <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
                       <input type="checkbox" checked={showSMA200} onChange={() => setShowSMA200(!showSMA200)} className="rounded border-gray-300 dark:border-gray-600 text-primary-500 w-3.5 h-3.5" />
-                      <span className="w-4 h-[2px] rounded bg-red-500"></span> SMA 200
+                      <span className="w-4 h-[2px] rounded bg-red-500"></span> {t.recommendation.sma200}
                     </label>
                     <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
                       <input type="checkbox" checked={showBollinger} onChange={() => setShowBollinger(!showBollinger)} className="rounded border-gray-300 dark:border-gray-600 text-primary-500 w-3.5 h-3.5" />
-                      <span className="w-4 h-0 border-b-2 border-dashed border-blue-400 rounded"></span> Bollinger
+                      <span className="w-4 h-0 border-b-2 border-dashed border-blue-400 rounded"></span> {t.recommendation.bollinger}
                     </label>
                   </div>
                 </div>

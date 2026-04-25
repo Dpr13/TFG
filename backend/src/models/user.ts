@@ -5,6 +5,7 @@ export interface User {
   passwordHash: string;
   notificationsEnabled: boolean;
   darkMode: boolean;
+  language: string;
   emailVerified: boolean;
   verificationCode: string | null;
   codeExpiration: string | null;
@@ -32,6 +33,7 @@ export interface UpdateUserDTO {
   email?: string;
   notificationsEnabled?: boolean;
   darkMode?: boolean;
+  language?: string;
 }
 
 export interface ChangePasswordDTO {
@@ -53,6 +55,7 @@ export interface UserResponse {
   email: string;
   notificationsEnabled: boolean;
   darkMode: boolean;
+  language: string;
   emailVerified: boolean;
   createdAt: string;
   updatedAt: string;
