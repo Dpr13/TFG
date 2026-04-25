@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { construirContexto, generarAnalisisIA, chatIA, generarResumenTecnico } from '../services/ia.service';
+import { getLanguage } from '../utils/i18n';
 
 /**
  * POST /api/ia/analyze
@@ -18,6 +19,8 @@ export const analyzeIA = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const lang = getLanguage(req.headers['accept-language'] as string);
+
     const ctx = construirContexto({
       ticker,
       direccion: direccion || 'LONG',
@@ -31,6 +34,7 @@ export const analyzeIA = async (req: Request, res: Response): Promise<void> => {
       risk_management: risk_management || undefined,
       datos_tecnicos: datos_tecnicos || {},
       datos_fundamentales: datos_fundamentales || {},
+      lang,
     });
 
     const resultado = await generarAnalisisIA(ctx);
@@ -59,6 +63,8 @@ export const chatIAEndpoint = async (req: Request, res: Response): Promise<void>
       return;
     }
 
+    const lang = getLanguage(req.headers['accept-language'] as string);
+
     const ctx = construirContexto({
       ticker: contexto.ticker,
       direccion: contexto.direccion || 'LONG',
@@ -68,6 +74,7 @@ export const chatIAEndpoint = async (req: Request, res: Response): Promise<void>
       tps: contexto.tps || [],
       datos_tecnicos: contexto.datos_tecnicos || {},
       datos_fundamentales: contexto.datos_fundamentales || {},
+      lang,
     });
 
     const resultado = await chatIA(ctx, historial || [], mensaje);
@@ -94,11 +101,14 @@ export const resumenTecnicoIA = async (req: Request, res: Response): Promise<voi
       return;
     }
 
+    const lang = getLanguage(req.headers['accept-language'] as string);
+
     const resultado = await generarResumenTecnico({
       ticker: data.ticker,
       intervalo: data.intervalo || '1d',
       horizonte: data.horizonte || '1y',
       datos_tecnicos: data.datos_tecnicos || {},
+      lang,
     });
     
     if (resultado.ok) {

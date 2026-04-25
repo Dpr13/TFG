@@ -7,6 +7,7 @@ import { assetService } from '@services/index';
 import type { Asset } from '../types';
 import AssetDetailModal from '../components/AssetDetailModal';
 import SymbolAutocomplete from '../components/SymbolAutocomplete';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function AssetsPage() {
   const location = useLocation();
@@ -19,6 +20,7 @@ export default function AssetsPage() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [activeView, setActiveView] = useState<'all' | 'watchlist'>(initialTab);
   const { watchlist, isFavorite, toggleFavorite } = useWatchlist();
+  const { t } = useLanguage();
 
   const { data: assets, loading, error } = useFetch<Asset[]>(
     () => assetService.getAssets(),
@@ -160,7 +162,7 @@ export default function AssetsPage() {
                   handleSearchSymbol(symbol);
                 }
               }}
-              placeholder="Buscar por nombre o símbolo (ej: AAPL, KO, NFLX)..."
+              placeholder={t.assets.searchPlaceholder}
               className="flex-1"
               showSearchIcon
               inputClassName="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"

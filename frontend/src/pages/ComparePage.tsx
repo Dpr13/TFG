@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import SymbolAutocomplete from '../components/SymbolAutocomplete';
 import { useWatchlist } from '@hooks/useWatchlist';
+import { useLanguage } from '../context/LanguageContext';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -63,10 +64,10 @@ const HORIZON_OPTIONS = [
   { value: '5y', label: '5 años' },
 ];
 
-const ASSET_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  EQUITY: { label: 'Stock', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
-  CRYPTOCURRENCY: { label: 'Crypto', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
-  ETF: { label: 'ETF', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
+const ASSET_TYPE_LABELS: Record<string, { key: 'EQUITY' | 'CRYPTOCURRENCY' | 'ETF'; color: string }> = {
+  EQUITY: { key: 'EQUITY', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+  CRYPTOCURRENCY: { key: 'CRYPTOCURRENCY', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+  ETF: { key: 'ETF', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -190,6 +191,7 @@ function ComparisonTable({ title, description, icon: Icon, rows, tickers }: {
   rows: TableRow[];
   tickers: string[];
 }) {
+  const { t } = useLanguage();
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Header */}
@@ -207,11 +209,11 @@ function ComparisonTable({ title, description, icon: Icon, rows, tickers }: {
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-700">
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-48">
-                Métrica
+                {t.comparison.tables.metricHeader}
               </th>
-              {tickers.map(t => (
-                <th key={t} className="px-6 py-3 text-center text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
-                  {t}
+              {tickers.map(ticker => (
+                <th key={ticker} className="px-6 py-3 text-center text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                  {ticker}
                 </th>
               ))}
             </tr>
@@ -237,6 +239,7 @@ function ComparisonTable({ title, description, icon: Icon, rows, tickers }: {
 // ── Main Page ───────────────────────────────────────────────────────────────
 
 export default function ComparePage() {
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const { watchlist } = useWatchlist();
 
@@ -510,10 +513,10 @@ export default function ComparePage() {
       {/* Header */}
       <div>
         <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Comparativa de Activos
+          {t.comparison.title}
         </h2>
         <p className="text-gray-600 dark:text-gray-400">
-          Compara hasta 3 activos financieros en dimensión fundamental, técnica y cuantitativa
+          {t.comparison.subtitle}
         </p>
       </div>
 
@@ -521,7 +524,7 @@ export default function ComparePage() {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 space-y-4">
         {/* Horizon selector */}
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Horizonte:</span>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">{t.comparison.horizon}</span>
           {HORIZON_OPTIONS.map(h => (
             <button
               key={h.value}
@@ -532,7 +535,7 @@ export default function ComparePage() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
-              {h.label}
+              {t.riskAnalysis.fundamental.ranges[h.value as keyof typeof t.riskAnalysis.fundamental.ranges]}
             </button>
           ))}
         </div>
@@ -542,12 +545,14 @@ export default function ComparePage() {
           {/* Slot 1 */}
           <div className={`relative ${activeSlot === 1 ? 'ring-2 ring-primary-500 rounded-lg' : ''}`}>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Activo 1</span>
+              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                {t.comparison.assetSlot.replace('{n}', '1')}
+              </span>
               {slot1 && resultados.find(r => r.ticker === slot1.toUpperCase()) && (
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
                   ASSET_TYPE_LABELS[resultados.find(r => r.ticker === slot1.toUpperCase())?.tipo || 'EQUITY']?.color || 'bg-gray-100 text-gray-600'
                 }`}>
-                  {ASSET_TYPE_LABELS[resultados.find(r => r.ticker === slot1.toUpperCase())?.tipo || 'EQUITY']?.label || 'Stock'}
+                  {t.comparison.assetTypes[ASSET_TYPE_LABELS[resultados.find(r => r.ticker === slot1.toUpperCase())?.tipo || 'EQUITY']?.key || 'EQUITY']}
                 </span>
               )}
             </div>
@@ -555,7 +560,7 @@ export default function ComparePage() {
               value={slot1}
               onChange={(sym) => { setSlot1(sym); setActiveSlot(1); }}
               onSubmit={() => canCompare && handleCompare()}
-              placeholder="Ej: AAPL"
+              placeholder={t.compare.searchPlaceholder.replace('{symbol}', 'AAPL')}
               showSearchIcon
               inputClassName="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition text-sm"
             />
@@ -564,12 +569,14 @@ export default function ComparePage() {
           {/* Slot 2 */}
           <div className={`relative ${activeSlot === 2 ? 'ring-2 ring-primary-500 rounded-lg' : ''}`}>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Activo 2</span>
+              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                {t.comparison.assetSlot.replace('{n}', '2')}
+              </span>
               {slot2 && resultados.find(r => r.ticker === slot2.toUpperCase()) && (
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
                   ASSET_TYPE_LABELS[resultados.find(r => r.ticker === slot2.toUpperCase())?.tipo || 'EQUITY']?.color || 'bg-gray-100 text-gray-600'
                 }`}>
-                  {ASSET_TYPE_LABELS[resultados.find(r => r.ticker === slot2.toUpperCase())?.tipo || 'EQUITY']?.label || 'Stock'}
+                  {t.comparison.assetTypes[ASSET_TYPE_LABELS[resultados.find(r => r.ticker === slot2.toUpperCase())?.tipo || 'EQUITY']?.key || 'EQUITY']}
                 </span>
               )}
             </div>
@@ -577,7 +584,7 @@ export default function ComparePage() {
               value={slot2}
               onChange={(sym) => { setSlot2(sym); setActiveSlot(2); }}
               onSubmit={() => canCompare && handleCompare()}
-              placeholder="Ej: MSFT"
+              placeholder={t.compare.searchPlaceholder.replace('{symbol}', 'MSFT')}
               showSearchIcon
               inputClassName="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition text-sm"
             />
@@ -588,12 +595,14 @@ export default function ComparePage() {
             <div className={`relative ${activeSlot === 3 ? 'ring-2 ring-primary-500 rounded-lg' : ''}`}>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Activo 3</span>
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                    {t.comparison.assetSlot.replace('{n}', '3')}
+                  </span>
                   {slot3 && resultados.find(r => r.ticker === slot3.toUpperCase()) && (
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
                       ASSET_TYPE_LABELS[resultados.find(r => r.ticker === slot3.toUpperCase())?.tipo || 'EQUITY']?.color || 'bg-gray-100 text-gray-600'
                     }`}>
-                      {ASSET_TYPE_LABELS[resultados.find(r => r.ticker === slot3.toUpperCase())?.tipo || 'EQUITY']?.label || 'Stock'}
+                      {t.comparison.assetTypes[ASSET_TYPE_LABELS[resultados.find(r => r.ticker === slot3.toUpperCase())?.tipo || 'EQUITY']?.key || 'EQUITY']}
                     </span>
                   )}
                 </div>
@@ -609,7 +618,7 @@ export default function ComparePage() {
                 value={slot3}
                 onChange={(sym) => { setSlot3(sym); setActiveSlot(3); }}
                 onSubmit={() => canCompare && handleCompare()}
-                placeholder="Ej: GOOGL"
+                placeholder={t.compare.searchPlaceholder.replace('{symbol}', 'TSLA')}
                 showSearchIcon
                 inputClassName="w-full pl-9 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition text-sm"
               />
@@ -622,7 +631,7 @@ export default function ComparePage() {
                          transition-colors self-end h-[42px] mt-auto"
             >
               <Plus className="w-4 h-4" />
-              <span className="text-sm font-medium">Añadir activo</span>
+              <span className="text-sm font-medium">{t.comparison.addAsset}</span>
             </button>
           )}
         </div>
@@ -637,15 +646,15 @@ export default function ComparePage() {
                        transition-colors flex items-center gap-2 font-medium"
           >
             {loading
-              ? <><Loader2 className="w-5 h-5 animate-spin" /><span>Comparando...</span></>
-              : <><BarChart2 className="w-5 h-5" /><span>Comparar</span></>
+              ? <><Loader2 className="w-5 h-5 animate-spin" /><span>{t.comparison.comparingButton}</span></>
+              : <><BarChart2 className="w-5 h-5" /><span>{t.comparison.compareButton}</span></>
             }
           </button>
         </div>
 
         {/* Popular symbols */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-gray-400 mr-1">Populares:</span>
+          <span className="text-xs text-gray-400 mr-1">{t.comparison.popular}</span>
           {QUICK_SYMBOLS.map(s => (
             <QuickBadge key={s} label={s} onClick={() => setSlotByActive(s)} variant="default" />
           ))}
@@ -655,7 +664,7 @@ export default function ComparePage() {
         {watchlist.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
             <span className="text-xs text-gray-400 flex items-center gap-1 mr-1">
-              <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" /> Seguimiento:
+              <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" /> {t.comparison.watchlist}
             </span>
             {watchlist.slice(0, 8).map(a => (
               <QuickBadge key={a.symbol} label={a.symbol} onClick={() => setSlotByActive(a.symbol)} variant="watchlist" />
@@ -667,7 +676,7 @@ export default function ComparePage() {
         {history.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
             <span className="text-xs text-gray-400 flex items-center gap-1 mr-1">
-              <Clock className="w-3 h-3" /> Recientes:
+              <Clock className="w-3 h-3" /> {t.comparison.history}
             </span>
             {history.map(s => (
               <QuickBadge key={s} label={s} onClick={() => setSlotByActive(s)} variant="history" />
@@ -693,7 +702,7 @@ export default function ComparePage() {
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-4 flex items-center gap-3">
               <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
               <p className="text-yellow-800 dark:text-yellow-300 text-sm">
-                Estás comparando activos de tipos distintos. Algunas métricas no son directamente comparables.
+                {t.comparison.mixedTypeWarning}
               </p>
             </div>
           )}
@@ -712,15 +721,15 @@ export default function ComparePage() {
                     <div>
                       <p className="text-lg font-bold text-gray-900 dark:text-white">{wc.ticker}</p>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${ASSET_TYPE_LABELS[wc.tipo]?.color || 'bg-gray-100 text-gray-600'}`}>
-                        {ASSET_TYPE_LABELS[wc.tipo]?.label || 'Stock'}
+                        {t.comparison.assetTypes[ASSET_TYPE_LABELS[wc.tipo]?.key || 'EQUITY']}
                       </span>
                     </div>
                     <span className={`text-xs px-2 py-1 rounded-full font-bold uppercase ${trendColor}`}>
-                      {wc.tendencia === 'alcista' ? '▲ Alcista' : wc.tendencia === 'bajista' ? '▼ Bajista' : 'Neutral'}
+                      {t.comparison.trends[wc.tendencia as keyof typeof t.comparison.trends] || wc.tendencia}
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    <span className="font-bold text-primary-600 dark:text-primary-400">{wc.wins}</span>/{wc.total} métricas favorables
+                    <span className="font-bold text-primary-600 dark:text-primary-400">{wc.wins}</span>/{wc.total} {t.comparison.metricsFavorable}
                   </p>
                   <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div
@@ -738,31 +747,31 @@ export default function ComparePage() {
             <div key={r.ticker} className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center gap-3">
               <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
               <p className="text-red-800 dark:text-red-300 text-sm">
-                No se pudieron cargar los datos de <strong>{r.ticker}</strong>: {r.error}
+                {t.common.error?.replace('{symbol}', r.ticker) || `Error loading ${r.ticker}`}: {r.error}
               </p>
             </div>
           ))}
 
           {/* Comparison Tables */}
           <ComparisonTable
-            title="Análisis Fundamental"
-            description="Métricas de valoración y rentabilidad empresarial"
+            title={t.comparison.tables.fundamental.title}
+            description={t.comparison.tables.fundamental.desc}
             icon={TrendingUp}
             rows={fundamentalRows}
             tickers={validTickers}
           />
 
           <ComparisonTable
-            title="Análisis Técnico"
-            description="Señales de precio y momentum en el período seleccionado"
+            title={t.comparison.tables.technical.title}
+            description={t.comparison.tables.technical.desc}
             icon={Activity}
             rows={technicalRows}
             tickers={validTickers}
           />
 
           <ComparisonTable
-            title="Análisis Cuantitativo"
-            description="Volatilidad, drawdown y métricas de riesgo/retorno"
+            title={t.comparison.tables.risk.title}
+            description={t.comparison.tables.risk.desc}
             icon={Shield}
             rows={riskRows}
             tickers={validTickers}
@@ -773,7 +782,7 @@ export default function ComparePage() {
             <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary-500" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Veredicto IA</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t.comparison.verdictTitle}</h3>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 font-semibold">
                   Groq · Llama 3.3
                 </span>
@@ -788,7 +797,7 @@ export default function ComparePage() {
                              transition-colors flex items-center gap-2 text-sm font-medium"
                 >
                   <Sparkles className="w-4 h-4" />
-                  Generar veredicto IA
+                  {t.comparison.generateVerdict}
                 </button>
               )}
             </div>
@@ -811,14 +820,14 @@ export default function ComparePage() {
                     </p>
                   ))}
                   <p className="text-[11px] text-gray-400 dark:text-gray-500 pt-3 border-t border-gray-100 dark:border-gray-700 italic">
-                    Generado automáticamente por IA a partir de datos calculados. No constituye asesoramiento financiero.
+                    {t.ia.disclaimer}
                   </p>
                 </div>
               )}
 
               {!veredicto && !veredictoLoading && !veredictoError && (
                 <p className="text-sm text-gray-400 dark:text-gray-500 italic">
-                  Pulsa "Generar veredicto IA" para obtener un análisis comparativo generado por inteligencia artificial.
+                  {t.comparison.generateVerdictDesc}
                 </p>
               )}
             </div>
@@ -831,10 +840,10 @@ export default function ComparePage() {
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-6 text-center">
           <AlertTriangle className="w-8 h-8 text-yellow-500 mx-auto mb-3" />
           <p className="text-yellow-800 dark:text-yellow-300 font-medium">
-            Se necesitan al menos 2 activos válidos para comparar
+            {t.comparison.errors.minTwo}
           </p>
           <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
-            Verifica los tickers introducidos e inténtalo de nuevo.
+            {t.comparison.errors.verifyTickers}
           </p>
         </div>
       )}

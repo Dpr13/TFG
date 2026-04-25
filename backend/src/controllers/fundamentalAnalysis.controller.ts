@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { FundamentalAnalysisService } from '../services/fundamentalAnalysis.service';
+import { getLanguage } from '../utils/i18n';
 
 const analysisService = new FundamentalAnalysisService();
 
@@ -17,9 +18,10 @@ export const getFundamentalAnalysis = async (req: Request, res: Response) => {
 
   const { range } = req.query;
   const selectedRange = (range as string) || '1y';
+  const lang = getLanguage(req.headers['accept-language'] as string);
 
   try {
-    const analysis = await analysisService.analyze(symbol, selectedRange);
+    const analysis = await analysisService.analyze(symbol, lang, selectedRange);
 
     if (!analysis) {
       res.status(404).json({

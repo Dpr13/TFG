@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { riskService, assetService } from '@services/index';
 import { useWatchlist } from '@hooks/useWatchlist';
+import { useLanguage } from '../context/LanguageContext';
 import { formatPercentage, formatCompactNumber, formatCurrency, formatDateSimple } from '@utils/format';
 import AnalysisSummaryCard, { AnalysisVariant } from '@components/AnalysisSummaryCard';
 import type { RiskMetrics, FinancialData, FundamentalAnalysis } from '../types';
@@ -17,182 +18,12 @@ import SymbolAutocomplete from '../components/SymbolAutocomplete';
 
 const QUICK_SYMBOLS = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA', 'BTC-USD', 'ETH-USD', 'SPY'];
 
-const RISK_CONFIG = {
-  LOW: {
-    label: 'Bajo',
-    color: 'text-green-600 dark:text-green-400',
-    bg: 'bg-green-50 dark:bg-green-900/20',
-    border: 'border-green-200 dark:border-green-700',
-    bar: 'bg-green-500',
-    icon: ShieldCheck,
-    gaugeColor: '#22c55e',
-    score: 20,
-  },
-  MEDIUM: {
-    label: 'Moderado',
-    color: 'text-yellow-600 dark:text-yellow-400',
-    bg: 'bg-yellow-50 dark:bg-yellow-900/20',
-    border: 'border-yellow-200 dark:border-yellow-700',
-    bar: 'bg-yellow-500',
-    icon: AlertTriangle,
-    gaugeColor: '#eab308',
-    score: 55,
-  },
-  HIGH: {
-    label: 'Elevado',
-    color: 'text-orange-600 dark:text-orange-400',
-    bg: 'bg-orange-50 dark:bg-orange-900/20',
-    border: 'border-orange-200 dark:border-orange-700',
-    bar: 'bg-orange-500',
-    icon: ShieldAlert,
-    gaugeColor: '#f97316',
-    score: 85,
-  },
-};
-
 const RISK_VARIANTS: Record<string, AnalysisVariant> = {
   LOW: 'success',
   MEDIUM: 'warning',
   HIGH: 'danger',
 };
 
-const METRIC_DEFINITIONS = {
-  marketCap: {
-    label: "Market Cap",
-    definition: "Valor total de mercado del activo. En acciones, precio × acciones en circulación. En crypto, indica el tamaño relativo del proyecto en el ecosistema."
-  },
-  peRatio: {
-    label: "P/E Ratio (PER)",
-    definition: "Cuántas veces se pagan los beneficios por acción. Un PER bajo puede indicar infravaloración si el negocio es sólido. En ETFs, es la media ponderada de sus componentes."
-  },
-  beta: {
-    label: "Beta",
-    definition: "Mide la volatilidad respecto al mercado. <1 es menos volátil, >1 es más volátil. Clave para entender el riesgo sistemático."
-  },
-  eps: {
-    label: "EPS (Beneficio por Acción)",
-    definition: "Beneficio neto dividido entre el número de acciones. Indica la rentabilidad que genera cada título."
-  },
-  netMargin: {
-    label: "Margen Neto",
-    definition: "Porcentaje de ingresos que queda tras todos los gastos. Un margen alto refleja eficiencia operativa y poder de fijación de precios."
-  },
-  roe: {
-    label: "ROE (Rentabilidad sobre Capital)",
-    definition: "Mide la eficiencia con la que la empresa usa el dinero de sus accionistas para generar beneficios."
-  },
-  dividend: {
-    label: "Rentabilidad por Dividendo",
-    definition: "Porcentaje del precio que se reparte anualmente. Importante para estrategias de ingresos pasivos."
-  },
-  week52Range: {
-    label: "Rango 52 semanas",
-    definition: "Mínimo y máximo del último año. Ayuda a ver si el activo está en zona de máximos (sobrecompra) o mínimos (posible oportunidad)."
-  },
-  circulatingSupply: {
-    label: "Oferta Circulante",
-    definition: "Tokens o monedas disponibles para el público. Influye en la escasez y el valor del activo."
-  },
-  maxSupply: {
-    label: "Oferta Máxima",
-    definition: "Límite máximo de emisión. Si no tiene límite, el activo puede ser inflacionario a largo plazo."
-  },
-  volume24h: {
-    label: "Volumen 24h",
-    definition: "Valor transaccionado en el último día. Refleja el interés actual y la facilidad para entrar o salir de la posición."
-  },
-  fiftyTwoWeekChange: {
-    label: "Cambio Anual (%)",
-    definition: "Variación del precio en el último año. Muestra el rendimiento relativo a 365 días."
-  },
-  totalAssets: {
-    label: "Activos Totales (AUM)",
-    definition: "Valor bajo gestión del ETF. Fondos grandes suelen ser más líquidos y estables."
-  },
-  expenseRatio: {
-    label: "Ratio de Gastos (TER)",
-    definition: "Comisión anual de gestión. Un ratio bajo es vital para no erosionar el beneficio compuesto a largo plazo."
-  },
-  beta3Year: {
-    label: "Beta (3 años)",
-    definition: "Volatilidad del ETF respecto a su índice en un periodo de 3 años."
-  },
-  fiveYearReturn: {
-    label: "Retorno (5 años)",
-    definition: "Rendimiento anualizado en el último lustro. Indica la solidez histórica de la estrategia del fondo."
-  },
-  ytdReturn: {
-    label: "Retorno YTD",
-    definition: "Crecimiento acumulado desde el inicio del año actual."
-  },
-  navPrice: {
-    label: "Precio NAV",
-    definition: "Valor Liquidativo Neto por participación. Comprobarlo vs precio de mercado para ver si hay primas o descuentos."
-  }
-};
-
-const MISSING_METRIC_NOTES: Record<string, any> = {
-  CRYPTOCURRENCY: {
-    peRatio: "Las criptos no generan beneficios contables corporativos; su valor es especulativo o por utilidad de red.",
-    eps: "No existen 'ganancias por acción' en activos descentralizados.",
-    beta: "La correlación con el mercado tradicional varía, a menudo invalidando la beta estándar.",
-    netMargin: "No hay estructura corporativa para calcular márgenes de beneficio.",
-    roe: "No existe capital accionarial sobre el cual calcular la eficiencia operativa.",
-    dividend: "Las cryptos no pagan dividendos; el rendimiento viene por apreciación o staking."
-  },
-  ETF: {
-    eps: "Un fondo es un vehículo de inversión, no genera un EPS propio e independiente.",
-    netMargin: "Los márgenes de beneficio corresponden a las empresas dentro del fondo, no al ETF.",
-    roe: "El ROE no es aplicable a estructuras de inversión colectiva como los ETFs."
-  },
-  EQUITY: {
-    dividend: "Esta empresa no reparte dividendos actualmente (estatal de crecimiento o dificultades).",
-    peRatio: "No se puede calcular si la empresa está en pérdidas (EPS negativo).",
-    pegRatio: "Requiere estimaciones de crecimiento futuro no disponibles actualmente."
-  },
-  GENERIC: {
-    default: "Dato no disponible en Yahoo Finance para este símbolo en este momento."
-  }
-};
-
-const SECTION_HELP: Record<string, { what: string; short: string; mid: string; long: string }> = {
-  overview: {
-    what: 'Resumen del contexto del activo bajo el prisma del horizonte seleccionado.',
-    short: 'Punto de partida crucial para entender el momentum inmediato.',
-    mid: 'Contexto necesario para validar la dirección de la inversión.',
-    long: 'Visión estructural que define el papel del activo en la cartera.'
-  },
-  valuation: {
-    what: 'Analiza si el precio actual es razonable (acciones/ETFs) o el posicionamiento de mercado (crypto).',
-    short: 'Muy relevante — el mercado reacciona a múltiplos y posicionamiento en el corto plazo.',
-    mid: 'Relevante para equilibrar el precio de entrada con el potencial futuro.',
-    long: 'Importante como punto de entrada, aunque la calidad del activo prima sobre el precio exacto.'
-  },
-  profitability: {
-    what: 'Analiza la capacidad de generar beneficios (acciones) o la actividad y uso de red (crypto).',
-    short: 'Importante para detectar señales de mejora o deterioro en la actividad reciente.',
-    mid: 'Crucial para evaluar la sostenibilidad del modelo o la adopción de la red.',
-    long: 'Factor estructural — sin rentabilidad o actividad real, un activo no crea valor a largo plazo.'
-  },
-  growth: {
-    what: 'Analiza la evolución de ingresos/beneficios (acciones) o eficiencia de costes (ETFs).',
-    short: 'Relevante si hay catalizadores inmediatos o cambios en la estructura de costes.',
-    mid: 'Confirma que la tesis de crecimiento o eficiencia se está ejecutando.',
-    long: 'El motor principal de creación de valor compuesto en décadas.'
-  },
-  stability: {
-    what: 'Analiza la tendencia, volatilidad y riesgos específicos del activo.',
-    short: 'Crucial para el timing y la gestión del riesgo de caída inmediata.',
-    mid: 'Ayuda a diferenciar la volatilidad normal de cambios en la tendencia estructural.',
-    long: 'Fundamental para asegurar que el activo puede sobrevivir a múltiples ciclos de mercado.'
-  },
-  risks: {
-    what: 'Identifica las amenazas externas, regulatorias o competitivas más críticas.',
-    short: 'Enfoque en catalizadores que podrían causar caídas bruscas repentinas.',
-    mid: 'Enfoque en cambios en el sector o competencia que erosionen la ventaja.',
-    long: 'Enfoque en riesgos existenciales, regulatorios o de obsolescencia del activo.'
-  }
-};
 
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d', '1wk', '1mo'] as const;
 type IntervalMode = typeof INTERVALS[number];
@@ -345,6 +176,7 @@ function EducationPanel({ children, isOpen, onToggle }: { children: React.ReactN
 }
 
 export default function RiskAnalysisPage() {
+  const { language, t } = useLanguage();
   const [symbol, setSymbol] = useState('');
   const [riskData, setRiskData] = useState<RiskMetrics | null>(null);
   const [financialData, setFinancialData] = useState<FinancialData | null>(null);
@@ -438,23 +270,62 @@ export default function RiskAnalysisPage() {
     }
   };
 
-  const risk = riskData ? RISK_CONFIG[riskData.riskLevel] : null;
-  const RiskIcon = risk?.icon ?? ShieldCheck;
-
-  const sharpeLabel = (v?: number) =>
-    v === undefined ? undefined : v > 2 ? 'Excelente' : v > 1 ? 'Bueno' : v > 0 ? 'Aceptable' : 'Negativo';
+  const sharpeLabel = (v?: number) => {
+    if (v === undefined) return undefined;
+    if (v > 2) return t.riskAnalysis.quantitative.sharpe.sub.excellent;
+    if (v > 1) return t.riskAnalysis.quantitative.sharpe.sub.good;
+    if (v > 0) return t.riskAnalysis.quantitative.sharpe.sub.acceptable;
+    return t.riskAnalysis.quantitative.sharpe.sub.negative;
+  };
   const sharpePct = (v?: number) =>
     v === undefined ? undefined : Math.min(100, Math.max(0, ((v + 1) / 4) * 100));
+
+  // Dynamic RISK_CONFIG with translations
+  const dynamicRiskConfig = {
+    LOW: {
+      label: t.riskAnalysis.riskLow,
+      color: 'text-green-600 dark:text-green-400',
+      bg: 'bg-green-50 dark:bg-green-900/20',
+      border: 'border-green-200 dark:border-green-700',
+      bar: 'bg-green-500',
+      icon: ShieldCheck,
+      gaugeColor: '#22c55e',
+      score: 20,
+    },
+    MEDIUM: {
+      label: t.riskAnalysis.riskMedium,
+      color: 'text-yellow-600 dark:text-yellow-400',
+      bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+      border: 'border-yellow-200 dark:border-yellow-700',
+      bar: 'bg-yellow-500',
+      icon: AlertTriangle,
+      gaugeColor: '#eab308',
+      score: 55,
+    },
+    HIGH: {
+      label: t.riskAnalysis.riskHigh,
+      color: 'text-orange-600 dark:text-orange-400',
+      bg: 'bg-orange-50 dark:bg-orange-900/20',
+      border: 'border-orange-200 dark:border-orange-700',
+      bar: 'bg-orange-500',
+      icon: ShieldAlert,
+      gaugeColor: '#f97316',
+      score: 85,
+    },
+  };
+
+  const risk = riskData ? dynamicRiskConfig[riskData.riskLevel] : null;
+  const RiskIcon = risk?.icon ?? ShieldCheck;
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Análisis de Riesgo
+          {t.riskAnalysis.title}
         </h2>
         <p className="text-gray-600 dark:text-gray-400">
-          Calcula métricas de riesgo avanzadas para cualquier activo financiero
+          {t.riskAnalysis.description}
         </p>
       </div>
 
@@ -462,9 +333,9 @@ export default function RiskAnalysisPage() {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 space-y-4">
         {/* Range selector */}
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Período:</span>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">{t.riskAnalysis.period}</span>
           {(['6mo', '1y', '3y', '5y', '10y'] as const).map((range) => {
-            const labels = { '6mo': '6 meses', '1y': '1 año', '3y': '3 años', '5y': '5 años', '10y': '10 años' };
+            const labels = { '6mo': t.riskAnalysis.sixMonths, '1y': t.riskAnalysis.oneYear, '3y': t.riskAnalysis.threeYears, '5y': t.riskAnalysis.fiveYears, '10y': t.riskAnalysis.tenYears };
             const isRangeValid = activeTab === 'TECH' ? VALID_RANGES[selectedInterval].includes(range) : true;
             return (
               <div
@@ -493,7 +364,7 @@ export default function RiskAnalysisPage() {
         {/* Interval Selector (Only in TECH tab) */}
         {activeTab === 'TECH' && (
           <div className="flex flex-wrap items-center mt-3 p-3 gap-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-700 relative">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Intervalo:</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">{t.riskAnalysis.interval}</span>
             {INTERVALS.map((inv) => (
               <button
                 key={inv}
@@ -531,7 +402,7 @@ export default function RiskAnalysisPage() {
               if (sym) analyze(sym);
             }}
             onSubmit={(sym) => analyze(sym)}
-            placeholder="Símbolo del activo (ej: AAPL, BTC-USD, MSFT)"
+            placeholder={t.riskAnalysis.searchPlaceholder}
             className="flex-1"
             showSearchIcon
             inputClassName="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
@@ -544,15 +415,15 @@ export default function RiskAnalysisPage() {
                        transition-colors flex items-center gap-2 font-medium"
           >
             {loading
-              ? <><Loader2 className="w-5 h-5 animate-spin" /><span>Analizando...</span></>
-              : <><TrendingUp className="w-5 h-5" /><span>Analizar</span></>
+              ? <><Loader2 className="w-5 h-5 animate-spin" /><span>{t.riskAnalysis.analyzing}</span></>
+              : <><TrendingUp className="w-5 h-5" /><span>{t.riskAnalysis.analyze}</span></>
             }
           </button>
         </div>
 
         {/* Popular symbols */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-gray-400 mr-1">Populares:</span>
+          <span className="text-xs text-gray-400 mr-1">{t.riskAnalysis.popular}</span>
           {QUICK_SYMBOLS.map((s) => (
             <QuickBadge key={s} label={s} onClick={() => analyze(s)} variant="default" />
           ))}
@@ -562,7 +433,7 @@ export default function RiskAnalysisPage() {
         {watchlist.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
             <span className="text-xs text-gray-400 flex items-center gap-1 mr-1">
-              <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" /> Seguimiento:
+              <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" /> {t.riskAnalysis.tracking}
             </span>
             {watchlist.slice(0, 8).map((a) => (
               <QuickBadge key={a.symbol} label={a.symbol} onClick={() => analyze(a.symbol)} variant="watchlist" />
@@ -574,7 +445,7 @@ export default function RiskAnalysisPage() {
         {history.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
             <span className="text-xs text-gray-400 flex items-center gap-1 mr-1">
-              <Clock className="w-3 h-3" /> Recientes:
+              <Clock className="w-3 h-3" /> {t.riskAnalysis.recent}
             </span>
             {history.map((s) => (
               <QuickBadge key={s} label={s} onClick={() => analyze(s)} variant="history" />
@@ -605,7 +476,7 @@ export default function RiskAnalysisPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
-              Análisis Técnico
+              {t.riskAnalysis.tabTechnical}
             </button>
             <button
               onClick={() => setActiveTab('FUNDS')}
@@ -615,7 +486,7 @@ export default function RiskAnalysisPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
-              Análisis Fundamental
+              {t.riskAnalysis.tabFundamental}
             </button>
             <button
               onClick={() => setActiveTab('QUANTS')}
@@ -625,62 +496,73 @@ export default function RiskAnalysisPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
-              Análisis Cuantitativo
+              {t.riskAnalysis.tabQuantitative}
             </button>
           </div>
 
           {activeTab === 'QUANTS' && (
-            <AnalysisSummaryCard
-              score={RISK_CONFIG[riskData.riskLevel].score}
-              classification={`Riesgo ${risk.label}`}
-              variant={RISK_VARIANTS[riskData.riskLevel]}
-              explanation={
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <RiskIcon className="w-5 h-5" />
-                    <span className="text-xl font-bold">{riskData.symbol}</span>
-                    {riskData.period && (
-                      <span className="text-xs text-gray-500 font-normal">
-                        ({formatDateSimple(riskData.period.start)} - {formatDateSimple(riskData.period.end)})
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm leading-relaxed">
-                    Clasificación basada en su {' '}
-                    <strong>{riskData.volatility > 0.30 ? 'alta volatilidad' : riskData.volatility > 0.15 ? 'volatilidad moderada' : 'baja volatilidad'}</strong> ({formatPercentage(riskData.volatility)}) y{' '}
-                    <strong>{riskData.maxDrawdown > 0.25 ? 'fuertes caídas históricas' : riskData.maxDrawdown > 0.10 ? 'caídas históricas moderadas' : 'caídas limitadas'}</strong> ({formatPercentage(riskData.maxDrawdown)} Max Drawdown).
-                  </p>
-                </div>
-              }
-            >
-              <div className="w-full sm:w-64 space-y-1.5">
-                <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                  <span>Mínimo Riesgo</span>
-                  <span>Máximo Riesgo</span>
-                </div>
-                <div className="h-2 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden border border-black/5 dark:border-white/5">
-                  <div
-                    className={`h-full rounded-full transition-all duration-700 ${risk.bar}`}
-                    style={{ width: `${RISK_CONFIG[riskData.riskLevel].score}%` }}
-                  />
-                </div>
-              </div>
-            </AnalysisSummaryCard>
-          )}
-
-          {activeTab === 'QUANTS' && (
             <>
+              <AnalysisSummaryCard
+                score={dynamicRiskConfig[riskData.riskLevel].score}
+                classification={t.riskAnalysis.riskTitle.replace('{label}', risk.label)}
+                variant={RISK_VARIANTS[riskData.riskLevel]}
+                explanation={
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <RiskIcon className="w-5 h-5" />
+                      <span className="text-xl font-bold">{riskData.symbol}</span>
+                      {riskData.period && (
+                        <span className="text-xs text-gray-500 font-normal">
+                          ({formatDateSimple(riskData.period.start)} - {formatDateSimple(riskData.period.end)})
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm leading-relaxed">
+                      {riskData.explanation ? (
+                        <RichText text={riskData.explanation} />
+                      ) : (
+                        <>
+                          {t.common.basedOn} {' '}
+                          <strong>
+                            {riskData.volatility > 0.30 ? t.riskAnalysis.volatility.high : 
+                             riskData.volatility > 0.15 ? t.riskAnalysis.volatility.moderate : 
+                             t.riskAnalysis.volatility.low}
+                          </strong> ({formatPercentage(riskData.volatility)}) {t.common.and}{' '}
+                          <strong>
+                            {riskData.maxDrawdown > 0.25 ? t.riskAnalysis.drawdown.high : 
+                             riskData.maxDrawdown > 0.10 ? t.riskAnalysis.drawdown.moderate : 
+                             t.riskAnalysis.drawdown.low}
+                          </strong> ({formatPercentage(riskData.maxDrawdown)} Max Drawdown).
+                        </>
+                      )}
+                    </p>
+                  </div>
+                }
+              >
+                <div className="w-full sm:w-64 space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                    <span>{t.riskAnalysis.riskLow}</span>
+                    <span>{t.riskAnalysis.riskHigh}</span>
+                  </div>
+                  <div className="h-2 bg-black/5 dark:bg-white/10 rounded-full overflow-hidden border border-black/5 dark:border-white/5">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${risk.bar}`}
+                      style={{ width: `${dynamicRiskConfig[riskData.riskLevel].score}%` }}
+                    />
+                  </div>
+                </div>
+              </AnalysisSummaryCard>
 
-          {/* Metrics grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Metrics grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <MetricCard
-              label="Volatilidad Anualizada"
+              label={t.riskAnalysis.quantitative.volatility.label}
               value={formatPercentage(riskData.volatility)}
               sub={
-                riskData.volatility > 0.5 ? 'Muy alta'
-                : riskData.volatility > 0.3 ? 'Alta'
-                : riskData.volatility > 0.15 ? 'Moderada'
-                : 'Baja'
+                riskData.volatility > 0.5 ? t.riskAnalysis.quantitative.volatility.sub.veryHigh
+                : riskData.volatility > 0.3 ? t.riskAnalysis.quantitative.volatility.sub.high
+                : riskData.volatility > 0.15 ? t.riskAnalysis.quantitative.volatility.sub.moderate
+                : t.riskAnalysis.quantitative.volatility.sub.low
               }
               color={
                 riskData.volatility > 0.4
@@ -690,21 +572,21 @@ export default function RiskAnalysisPage() {
                   : 'text-green-600 dark:text-green-400'
               }
               barPct={Math.min(100, riskData.volatility * 150)}
-              tooltip="Desviación estándar anualizada de los retornos diarios. Mide cuánto fluctúa el precio. <15% baja · 15-40% moderada · >40% alta."
+              tooltip={t.riskAnalysis.quantitative.volatility.tooltip}
             />
 
             <MetricCard
-              label="Máximo Drawdown"
+              label={t.riskAnalysis.quantitative.drawdown.label}
               value={`-${formatPercentage(riskData.maxDrawdown)}`}
-              sub="Mayor caída desde un máximo"
+              sub={t.riskAnalysis.quantitative.drawdown.sub}
               color="text-red-600 dark:text-red-400"
               barPct={Math.min(100, riskData.maxDrawdown * 150)}
-              tooltip="La mayor caída porcentual desde un pico hasta un valle histórico. Indica el peor escenario al que se enfrentó el activo."
+              tooltip={t.riskAnalysis.quantitative.drawdown.tooltip}
             />
 
             {riskData.sharpeRatio !== undefined && (
               <MetricCard
-                label="Sharpe Ratio"
+                label={t.riskAnalysis.quantitative.sharpe.label}
                 value={riskData.sharpeRatio.toFixed(2)}
                 sub={sharpeLabel(riskData.sharpeRatio)}
                 color={
@@ -715,30 +597,30 @@ export default function RiskAnalysisPage() {
                     : 'text-red-600 dark:text-red-400'
                 }
                 barPct={sharpePct(riskData.sharpeRatio)}
-                tooltip="Rentabilidad por unidad de riesgo. >2 excelente · 1-2 bueno · 0-1 aceptable · <0 pérdidas ajustadas al riesgo."
+                tooltip={t.riskAnalysis.quantitative.sharpe.tooltip}
               />
             )}
 
             {riskData.valueAtRisk95 !== undefined && (
               <MetricCard
-                label="VaR (95%)"
+                label={t.riskAnalysis.quantitative.var.label}
                 value={formatPercentage(riskData.valueAtRisk95)}
-                sub="Pérdida máxima diaria esperada"
+                sub={t.riskAnalysis.quantitative.var.sub}
                 color="text-orange-600 dark:text-orange-400"
                 barPct={Math.min(100, riskData.valueAtRisk95 * 300)}
-                tooltip="Con 95% de confianza, la pérdida diaria no superará este porcentaje en condiciones normales de mercado."
+                tooltip={t.riskAnalysis.quantitative.var.tooltip}
               />
             )}
 
             {riskData.sortinoRatio !== undefined && (
               <MetricCard
-                label="Sortino Ratio"
+                label={t.riskAnalysis.quantitative.sortino.label}
                 value={riskData.sortinoRatio.toFixed(2)}
                 sub={
-                  riskData.sortinoRatio > 2 ? 'Excelente'
-                  : riskData.sortinoRatio > 1 ? 'Bueno'
-                  : riskData.sortinoRatio > 0 ? 'Aceptable'
-                  : 'Negativo'
+                  riskData.sortinoRatio > 2 ? t.riskAnalysis.quantitative.sharpe.sub.excellent
+                  : riskData.sortinoRatio > 1 ? t.riskAnalysis.quantitative.sharpe.sub.good
+                  : riskData.sortinoRatio > 0 ? t.riskAnalysis.quantitative.sharpe.sub.acceptable
+                  : t.riskAnalysis.quantitative.sharpe.sub.negative
                 }
                 color={
                   riskData.sortinoRatio > 1
@@ -748,21 +630,25 @@ export default function RiskAnalysisPage() {
                     : 'text-red-600 dark:text-red-400'
                 }
                 barPct={Math.min(100, Math.max(0, ((riskData.sortinoRatio + 1) / 4) * 100))}
-                tooltip="Igual que Sharpe, pero solo penaliza la volatilidad bajista. Más preciso para activos con retornos asimétricos."
+                tooltip={t.riskAnalysis.quantitative.sortino.tooltip}
               />
             )}
 
             {riskData.calmarRatio !== undefined && (
               <MetricCard
-                label="Calmar Ratio"
+                label={t.riskAnalysis.quantitative.calmar.label}
                 value={riskData.calmarRatio.toFixed(2)}
-                sub={riskData.calmarRatio > 1 ? 'Beneficio justifica el riesgo' : 'Beneficio bajo'}
+                sub={
+                  riskData.calmarRatio > 1 ? t.riskAnalysis.quantitative.sharpe.sub.good
+                  : riskData.calmarRatio > 0.5 ? t.riskAnalysis.quantitative.sharpe.sub.acceptable
+                  : t.riskAnalysis.quantitative.sharpe.sub.negative
+                }
                 color={
                   riskData.calmarRatio > 1
                     ? 'text-green-600 dark:text-green-400'
                     : 'text-yellow-600 dark:text-yellow-400'
                 }
-                tooltip="Rentabilidad anual dividida entre el Máximo Drawdown. Valores >1 indican que el beneficio compensa la mayor caída sufrida."
+                tooltip={t.riskAnalysis.quantitative.calmar.tooltip}
               />
             )}
           </div>
@@ -771,16 +657,16 @@ export default function RiskAnalysisPage() {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
             <h4 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <BarChart2 className="w-5 h-5 text-primary-500" />
-              Guía de Interpretación
+              {t.riskAnalysis.quantitative.guideTitle}
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700 dark:text-gray-300">
               {[
-                { name: 'Volatilidad',   desc: 'Variabilidad de los retornos. <15% baja · 15–40% moderada · >40% alta.' },
-                { name: 'Sharpe Ratio',  desc: 'Rentabilidad ajustada al riesgo. >1 bueno · >2 excelente · <0 indica pérdidas.' },
-                { name: 'Max Drawdown',  desc: 'Peor caída histórica. Indica la resistencia del activo en escenarios adversos.' },
-                { name: 'VaR (95%)',     desc: 'Pérdida máxima esperada en un día normal con un 95% de confianza estadística.' },
-                { name: 'Sortino Ratio', desc: 'Penaliza solo la volatilidad bajista. Mejor indicador del riesgo real de pérdida.' },
-                { name: 'Calmar Ratio',  desc: 'Rentabilidad vs peor caída. >1 indica que el beneficio compensa el riesgo máximo.' },
+                { name: t.riskAnalysis.quantitative.volatility.label, desc: t.riskAnalysis.quantitative.guide.volatility },
+                { name: t.riskAnalysis.quantitative.sharpe.label,     desc: t.riskAnalysis.quantitative.guide.sharpe },
+                { name: t.riskAnalysis.quantitative.drawdown.label,   desc: t.riskAnalysis.quantitative.guide.drawdown },
+                { name: t.riskAnalysis.quantitative.var.label,        desc: t.riskAnalysis.quantitative.guide.var },
+                { name: t.riskAnalysis.quantitative.sortino.label,    desc: t.riskAnalysis.quantitative.guide.sortino },
+                { name: t.riskAnalysis.quantitative.calmar.label,     desc: t.riskAnalysis.quantitative.guide.calmar },
               ].map(({ name, desc }) => (
                 <div key={name} className="flex gap-2">
                   <Activity className="w-4 h-4 text-primary-400 flex-shrink-0 mt-0.5" />
@@ -811,16 +697,16 @@ export default function RiskAnalysisPage() {
                         const f = financialData as any;
                         return (
                           <>
-                            <MetricCard label="Market Cap" value={formatCompactNumber(f.marketCap)} />
-                            <MetricCard label="Oferta Circulante" value={formatCompactNumber(f.circulatingSupply)} />
-                            <MetricCard label="Oferta Máxima" value={f.maxSupply ? formatCompactNumber(f.maxSupply) : 'Sin límite'} />
-                            <MetricCard label="Volumen 24h" value={formatCompactNumber(f.volume24h)} />
+                            <MetricCard label={t.riskAnalysis.metrics.marketCap.label} value={formatCompactNumber(f.marketCap)} />
+                            <MetricCard label={t.riskAnalysis.metrics.circulatingSupply.label} value={formatCompactNumber(f.circulatingSupply)} />
+                            <MetricCard label={t.riskAnalysis.metrics.maxSupply.label} value={f.maxSupply ? formatCompactNumber(f.maxSupply) : t.common.unlimited} />
+                            <MetricCard label={t.riskAnalysis.metrics.volume24h.label} value={formatCompactNumber(f.volume24h)} />
                             <MetricCard 
-                              label="Rango 52 Sem." 
+                              label={t.riskAnalysis.metrics.week52Range.label} 
                               value={`${formatCurrency(f.fiftyTwoWeekLow)} - ${formatCurrency(f.fiftyTwoWeekHigh)}`} 
                             />
                             <MetricCard 
-                              label="Cambio Anual" 
+                              label={t.common.yearlyChange} 
                               value={formatPercentage(f.fiftyTwoWeekChange)} 
                               color={(f.fiftyTwoWeekChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'}
                             />
@@ -832,14 +718,14 @@ export default function RiskAnalysisPage() {
                         const f = financialData as any;
                         return (
                           <>
-                            <MetricCard label="Activos (AUM)" value={formatCompactNumber(f.totalAssets)} tooltip="Valor total bajo gestión" />
-                            <MetricCard label="P/E (Ponderado)" value={f.peRatio?.toFixed(2) || 'N/A'} tooltip="Media ponderada del P/E de los activos" />
-                            <MetricCard label="Div. Yield" value={formatPercentage(f.dividendYield)} tooltip="Rentabilidad por dividendo distribuida" />
-                            <MetricCard label="Precio NAV" value={formatCurrency(f.navPrice)} tooltip="Valor Liquidativo Neto" />
-                            <MetricCard label="Beta (3 años)" value={f.beta3Year?.toFixed(2) || 'N/A'} tooltip="Volatilidad respecto a su Benchmark" />
-                            <MetricCard label="Retorno 5 años" value={formatPercentage(f.fiveYearAverageReturn)} tooltip="Rentabilidad media anualizada" />
-                            <MetricCard label="Retorno YTD" value={formatPercentage(f.ytdReturn)} tooltip="Retorno en el año actual" />
-                            <MetricCard label="Gastos (TER)" value={formatPercentage(f.annualReportExpenseRatio, 2)} tooltip="Comisión total de gestión anual" />
+                            <MetricCard label={t.riskAnalysis.metrics.totalAssets.label} value={formatCompactNumber(f.totalAssets)} tooltip={t.riskAnalysis.metrics.totalAssets.desc} />
+                            <MetricCard label={t.riskAnalysis.metrics.peRatio.label} value={f.peRatio?.toFixed(2) || 'N/A'} tooltip={t.riskAnalysis.metrics.peRatio.desc} />
+                            <MetricCard label={t.riskAnalysis.metrics.dividend.label} value={formatPercentage(f.dividendYield)} tooltip={t.riskAnalysis.metrics.dividend.desc} />
+                            <MetricCard label={t.riskAnalysis.metrics.navPrice.label} value={formatCurrency(f.navPrice)} tooltip={t.riskAnalysis.metrics.navPrice.desc} />
+                            <MetricCard label={t.riskAnalysis.metrics.beta3Year.label} value={f.beta3Year?.toFixed(2) || 'N/A'} tooltip={t.riskAnalysis.metrics.beta3Year.desc} />
+                            <MetricCard label={t.riskAnalysis.metrics.fiveYearAverageReturn.label} value={formatPercentage(f.fiveYearAverageReturn)} tooltip={t.riskAnalysis.metrics.fiveYearAverageReturn.desc} />
+                            <MetricCard label={t.riskAnalysis.metrics.ytdReturn.label} value={formatPercentage(f.ytdReturn)} tooltip={t.riskAnalysis.metrics.ytdReturn.desc} />
+                            <MetricCard label={t.riskAnalysis.metrics.annualReportExpenseRatio.label} value={formatPercentage(f.annualReportExpenseRatio, 2)} tooltip={t.riskAnalysis.metrics.annualReportExpenseRatio.desc} />
                           </>
                         );
                       }
@@ -848,29 +734,29 @@ export default function RiskAnalysisPage() {
                       return (
                         <>
                           {financialData.marketCap != null && (
-                            <MetricCard label="Market Cap (Actual)" value={formatCompactNumber(financialData.marketCap)} />
+                            <MetricCard label={t.riskAnalysis.metrics.marketCap.label} value={formatCompactNumber(financialData.marketCap)} />
                           )}
                           {'peRatio' in financialData && financialData.peRatio != null && (
-                            <MetricCard label="P/E Ratio (Actual)" value={financialData.peRatio.toFixed(2)} />
+                            <MetricCard label={t.riskAnalysis.metrics.peRatio.label} value={financialData.peRatio.toFixed(2)} />
                           )}
                           {'beta' in financialData && financialData.beta != null && (
-                            <MetricCard label="Beta (Actual)" value={financialData.beta.toFixed(2)} />
+                            <MetricCard label={t.riskAnalysis.metrics.beta.label} value={financialData.beta.toFixed(2)} />
                           )}
                           {'eps' in financialData && financialData.eps != null && (
-                            <MetricCard label="EPS (Actual)" value={formatCurrency(financialData.eps)} />
+                            <MetricCard label={t.riskAnalysis.metrics.eps.label} value={formatCurrency(financialData.eps)} />
                           )}
                           {'profitMargin' in financialData && financialData.profitMargin != null && (
-                            <MetricCard label="Margen Neto (Actual)" value={formatPercentage(financialData.profitMargin, 2)} />
+                            <MetricCard label={t.riskAnalysis.metrics.netMargin.label} value={formatPercentage(financialData.profitMargin, 2)} />
                           )}
                           {'roe' in financialData && financialData.roe != null && (
-                            <MetricCard label="ROE (Actual)" value={formatPercentage(financialData.roe, 2)} />
+                            <MetricCard label={t.riskAnalysis.metrics.roe.label} value={formatPercentage(financialData.roe, 2)} />
                           )}
                           {'dividendYield' in financialData && financialData.dividendYield != null && (
-                            <MetricCard label="Dividendo (Actual)" value={formatPercentage(financialData.dividendYield, 2)} />
+                            <MetricCard label={t.riskAnalysis.metrics.dividend.label} value={formatPercentage(financialData.dividendYield, 2)} />
                           )}
                           {financialData.fiftyTwoWeekHigh != null && financialData.fiftyTwoWeekLow != null && (
                             <MetricCard
-                              label="Rango 52 Sem. (Actual)"
+                              label={t.riskAnalysis.metrics.week52Range.label}
                               value={`${formatCurrency(financialData.fiftyTwoWeekLow)} - ${formatCurrency(financialData.fiftyTwoWeekHigh)}`}
                             />
                           )}
@@ -883,25 +769,25 @@ export default function RiskAnalysisPage() {
                   <EducationPanel isOpen={openHelp === 'glossary'} onToggle={() => toggleHelp('glossary')}>
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                        {Object.keys(METRIC_DEFINITIONS).filter(key => {
+                        {Object.keys(t.riskAnalysis.metrics).filter(key => {
                           const f = financialData as any;
                           const val = key === 'week52Range' ? f.fiftyTwoWeekHigh :
                                       key === 'netMargin' ? f.profitMargin :
                                       key === 'dividend' ? f.dividendYield : f[key];
                           return val !== null && val !== undefined && val !== '' && val !== 'N/A';
                         }).map((key) => {
-                          const item = (METRIC_DEFINITIONS as any)[key];
+                          const item = (t.riskAnalysis.metrics as any)[key];
                           return (
                             <div key={key} className="space-y-1">
                               <p className="font-bold text-gray-900 dark:text-gray-100 text-xs">{item.label}</p>
-                              <p className="text-gray-500 dark:text-gray-400 text-xs leading-relaxed">{item.definition}</p>
+                              <p className="text-gray-500 dark:text-gray-400 text-xs leading-relaxed">{item.desc}</p>
                             </div>
                           );
                         })}
                       </div>
 
                       {/* Missing Metrics */}
-                      {Object.keys(METRIC_DEFINITIONS).filter(key => {
+                      {Object.keys(t.riskAnalysis.metrics).filter(key => {
                         const f = financialData as any;
                         const val = key === 'week52Range' ? f.fiftyTwoWeekHigh :
                                     key === 'netMargin' ? f.profitMargin :
@@ -910,20 +796,20 @@ export default function RiskAnalysisPage() {
                       }).length > 0 && (
                         <div className="pt-4 border-t border-gray-100 dark:border-gray-800/50">
                           <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500 mb-3">
-                            Métricas no disponibles para este activo
+                            {t.riskAnalysis.missingMetrics}
                           </p>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 opacity-60">
-                            {Object.keys(METRIC_DEFINITIONS).filter(key => {
+                            {Object.keys(t.riskAnalysis.metrics).filter(key => {
                               const f = financialData as any;
                               const val = key === 'week52Range' ? f.fiftyTwoWeekHigh :
                                           key === 'netMargin' ? f.profitMargin :
                                           key === 'dividend' ? f.dividendYield : f[key];
                               return val === null || val === undefined || val === '' || val === 'N/A';
                             }).map((key) => {
-                              const item = (METRIC_DEFINITIONS as any)[key];
+                              const item = (t.riskAnalysis.metrics as any)[key];
                               const qType = financialData?.quoteType?.toUpperCase() || 'EQUITY';
                               const assetType = qType.includes('ETF') ? 'ETF' : qType.includes('CRYPTO') ? 'CRYPTOCURRENCY' : 'EQUITY';
-                              const note = (MISSING_METRIC_NOTES[assetType] as any)?.[key] || MISSING_METRIC_NOTES.GENERIC.default;
+                              const note = (t.riskAnalysis.missingNotes[assetType] as any)?.[key] || t.riskAnalysis.missingNotes.GENERIC.default;
                               
                               return (
                                 <div key={key} className="space-y-0.5">
@@ -944,7 +830,7 @@ export default function RiskAnalysisPage() {
               {fundsLoading && (
                 <div className="flex items-center justify-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
                   <Loader2 className="w-6 h-6 animate-spin text-primary-500 mr-3" />
-                  <span className="text-gray-500 dark:text-gray-400">Generando análisis fundamental...</span>
+                  <span className="text-gray-500 dark:text-gray-400">{t.riskAnalysis.fundamental.generating}</span>
                 </div>
               )}
 
@@ -953,33 +839,33 @@ export default function RiskAnalysisPage() {
                 <div className="space-y-4">
                   <AnalysisSummaryCard
                     score={fundamentalAnalysis.outlookScore}
-                    classification={`Perspectiva ${fundamentalAnalysis.outlook === 'STRONG' ? 'Fuerte' : fundamentalAnalysis.outlook === 'MODERATE' ? 'Moderada' : 'Débil'}`}
+                    classification={t.riskAnalysis.fundamental.perspectiva
+                      .replace('{range}', (t.riskAnalysis.fundamental.ranges as any)[selectedRange] || selectedRange)
+                      .replace('{outlook}', (t.riskAnalysis.fundamental.outlooks as any)[fundamentalAnalysis.outlook])
+                    }
                     variant={fundamentalAnalysis.outlook === 'STRONG' ? 'success' : fundamentalAnalysis.outlook === 'MODERATE' ? 'warning' : 'danger'}
                     explanation={<RichText text={fundamentalAnalysis.sections.summary?.content || ''} />}
                     footer={
                       <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium">
                         <Clock className="w-3 h-3" />
-                        Analizado el {new Date(fundamentalAnalysis.analyzedAt).toLocaleString('es-ES')}
+                        {t.common.analyzedOn} {new Date(fundamentalAnalysis.analyzedAt).toLocaleString(language === 'es' ? 'es-ES' : 'en-US')}
                       </div>
                     }
                   />
 
-                  {/* Horizon Logic summary */}
-                  {fundamentalAnalysis.sections.horizon && (
-                    <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-xl border border-primary-100 dark:border-primary-800 flex items-start gap-3">
-                      <div className="p-2 bg-primary-100 dark:bg-primary-800 rounded-lg text-primary-600 dark:text-primary-400">
-                        <Hourglass className="w-5 h-5" />
+                      <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-xl border border-primary-100 dark:border-primary-800 flex items-start gap-3">
+                        <div className="p-2 bg-primary-100 dark:bg-primary-800 rounded-lg text-primary-600 dark:text-primary-400">
+                          <Hourglass className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-primary-900 dark:text-primary-100 text-sm">
+                            {fundamentalAnalysis.sections.horizon.title}
+                          </h4>
+                          <p className="text-primary-800 dark:text-primary-200 text-xs leading-relaxed mt-1 italic">
+                            {fundamentalAnalysis.sections.horizon.content}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-bold text-primary-900 dark:text-primary-100 text-sm">
-                          {fundamentalAnalysis.sections.horizon.title}
-                        </h4>
-                        <p className="text-primary-800 dark:text-primary-200 text-xs leading-relaxed mt-1 italic">
-                          {fundamentalAnalysis.sections.horizon.content}
-                        </p>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Section Cards */}
                   <div className="flex flex-col gap-4">
@@ -1034,17 +920,17 @@ export default function RiskAnalysisPage() {
                                 >
                                   <div className="space-y-3">
                                     <div>
-                                      <p className="text-[10px] uppercase font-bold text-primary-500/70 tracking-tight mb-1">Qué analiza esta sección</p>
+                                      <p className="text-[10px] uppercase font-bold text-primary-500/70 tracking-tight mb-1">{t.riskAnalysis.sections.helpWhat}</p>
                                       <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                                        {SECTION_HELP[key]?.what || 'Análisis detallado de este factor para el activo.'}
+                                        {(t.riskAnalysis.sections as any)[key]?.desc || t.common.detailedAnalysis}
                                       </p>
                                     </div>
                                     <div>
-                                      <p className="text-[10px] uppercase font-bold text-primary-500/70 tracking-tight mb-1">Por qué importa en este horizonte</p>
+                                      <p className="text-[10px] uppercase font-bold text-primary-500/70 tracking-tight mb-1">{t.riskAnalysis.sections.helpImportance}</p>
                                       <p className="text-gray-700 dark:text-gray-300 leading-relaxed italic">
-                                        {['6mo', '1y'].includes(selectedRange) ? (SECTION_HELP[key]?.short || 'Factor relevante a corto plazo.') :
-                                         selectedRange === '3y' ? (SECTION_HELP[key]?.mid || 'Factor relevante a medio plazo.') : 
-                                         (SECTION_HELP[key]?.long || 'Factor determinante a largo plazo.')}
+                                        {['6mo', '1y'].includes(selectedRange) ? ((t.riskAnalysis.sections as any)[key]?.short || t.common.shortTermFactor) :
+                                         selectedRange === '3y' ? ((t.riskAnalysis.sections as any)[key]?.mid || t.common.midTermFactor) : 
+                                         ((t.riskAnalysis.sections as any)[key]?.long || t.common.longTermFactor)}
                                       </p>
                                     </div>
                                   </div>
@@ -1061,7 +947,7 @@ export default function RiskAnalysisPage() {
               {/* No data at all */}
               {!fundsLoading && !fundamentalAnalysis && !financialData && (
                 <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-                  <p className="text-gray-500 dark:text-gray-400">Datos fundamentales no disponibles para este activo.</p>
+                  <p className="text-gray-500 dark:text-gray-400">{t.riskAnalysis.noData}</p>
                 </div>
               )}
             </div>
@@ -1078,11 +964,11 @@ export default function RiskAnalysisPage() {
         <div className="text-center py-20 text-gray-400 dark:text-gray-500">
           <TrendingUp className="w-14 h-14 mx-auto mb-4 opacity-30" />
           <p className="text-lg font-medium text-gray-500 dark:text-gray-400">
-            Introduce un símbolo para analizar su riesgo
+            {t.riskAnalysis.noDataAll}
           </p>
           <p className="text-sm mt-1">
-            Prueba con <span className="font-medium">AAPL</span>,{' '}
-            <span className="font-medium">BTC-USD</span> o cualquier activo de tu seguimiento
+            {t.riskAnalysis.tryWith} <span className="font-medium">AAPL</span>,{' '}
+            <span className="font-medium">BTC-USD</span> {t.common.or} {t.assets.watchlist.toLowerCase()} {t.common.of} {t.sidebar.news.toLowerCase()}
           </p>
         </div>
       )}

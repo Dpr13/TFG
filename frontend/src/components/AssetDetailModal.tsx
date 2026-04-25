@@ -1,9 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, TrendingUp, TrendingDown, DollarSign, BarChart3, Calendar, Loader2, Clock, Star } from 'lucide-react';
 import { priceService, assetService } from '@services/index';
 import type { Asset, FinancialData, StockFinancialData, CryptoFinancialData } from '../types';
 import { formatCurrency, formatPercentage } from '@utils/format';
+import { useLanguage } from '../context/LanguageContext';
 
 declare const LightweightCharts: any;
 
@@ -26,20 +27,8 @@ interface PriceStats {
 
 type TimeInterval = '5min' | '15min' | '30min' | '1h' | '4h' | '12h' | '1d' | '1wk' | '1mo' | 'all';
 
-const intervalOptions: { value: TimeInterval; label: string }[] = [
-  { value: '5min', label: '5 min' },
-  { value: '15min', label: '15 min' },
-  { value: '30min', label: '30 min' },
-  { value: '1h', label: '1 hora' },
-  { value: '4h', label: '4 horas' },
-  { value: '12h', label: '12 horas' },
-  { value: '1d', label: 'Diario' },
-  { value: '1wk', label: 'Semanal' },
-  { value: '1mo', label: 'Mensual' },
-  { value: 'all', label: 'Histórico' },
-];
-
 export default function AssetDetailModal({ asset, onClose, isFavorite = false, onToggleFavorite }: AssetDetailModalProps) {
+  const { t, language } = useLanguage();
   const [priceData, setPriceData] = useState<any>(null);
   const [loadingPrice, setLoadingPrice] = useState(true);
   const [priceError, setPriceError] = useState<string | null>(null);
@@ -51,6 +40,19 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
   const [chartError, setChartError] = useState<string | null>(null);
   const [financialData, setFinancialData] = useState<FinancialData | null>(null);
   const [loadingFinancial, setLoadingFinancial] = useState(true);
+
+  const intervalOptions = useMemo(() => [
+    { value: '5min', label: t.assetDetail.intervals['5min'] },
+    { value: '15min', label: t.assetDetail.intervals['15min'] },
+    { value: '30min', label: t.assetDetail.intervals['30min'] },
+    { value: '1h', label: t.assetDetail.intervals['1h'] },
+    { value: '4h', label: t.assetDetail.intervals['4h'] },
+    { value: '12h', label: t.assetDetail.intervals['12h'] },
+    { value: '1d', label: t.assetDetail.intervals['1d'] },
+    { value: '1wk', label: t.assetDetail.intervals['1wk'] },
+    { value: '1mo', label: t.assetDetail.intervals['1mo'] },
+    { value: 'all', label: t.assetDetail.intervals['all'] },
+  ], [t]);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
@@ -382,9 +384,8 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
     fetchFinancialData();
   }, [asset.symbol]);
 
-  // Helper functions
   const formatNumber = (value?: number | null): string => {
-    if (value === undefined || value === null) return 'No disponible';
+    if (value === undefined || value === null) return t.assetDetail.notAvailable;
     if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
     if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
     if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
@@ -393,17 +394,17 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
   };
 
   const formatRatio = (value?: number | null): string => {
-    if (value === undefined || value === null) return 'No disponible';
+    if (value === undefined || value === null) return t.assetDetail.notAvailable;
     return value.toFixed(2);
   };
 
   const formatPercent = (value?: number | null): string => {
-    if (value === undefined || value === null) return 'No disponible';
+    if (value === undefined || value === null) return t.assetDetail.notAvailable;
     return formatPercentage(value);
   };
 
   const formatVolume = (value?: number | null): string => {
-    if (value === undefined || value === null) return 'No disponible';
+    if (value === undefined || value === null) return t.assetDetail.notAvailable;
     if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
     if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
     if (value >= 1e3) return `${(value / 1e3).toFixed(2)}K`;
@@ -461,7 +462,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
             {onToggleFavorite && (
               <button
                 onClick={(e) => { e.stopPropagation(); onToggleFavorite(asset); }}
-                title={isFavorite ? 'Quitar de seguimiento' : 'Añadir a seguimiento'}
+                title={isFavorite ? t.assetDetail.removeWatchlist : t.assetDetail.addWatchlist}
                 className={`p-2 rounded-lg transition-colors ${isFavorite
                   ? 'text-yellow-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
                   : 'text-gray-400 hover:text-yellow-400 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -489,7 +490,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
               <div className="flex items-center gap-2">
                 <DollarSign className="w-6 h-6 text-primary-600 dark:text-primary-400" />
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Cotización Actual
+                  {t.assetDetail.currentPrice}
                 </h3>
               </div>
 
@@ -514,7 +515,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
             {loadingPrice ? (
               <div className="flex items-center gap-2">
                 <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
-                <span className="text-gray-600 dark:text-gray-400">Cargando datos...</span>
+                <span className="text-gray-600 dark:text-gray-400">{t.assetDetail.loading}</span>
               </div>
             ) : priceError ? (
               <p className="text-red-600 dark:text-red-400">{priceError}</p>
@@ -541,19 +542,19 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                 {/* Estadísticas adicionales */}
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t border-primary-200 dark:border-primary-800">
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Máximo</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.high}</p>
                     <p className="text-lg font-bold text-green-600 dark:text-green-400">
                       {formatCurrency(stats.high)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Promedio</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.average}</p>
                     <p className="text-lg font-bold text-gray-900 dark:text-white">
                       {formatCurrency(stats.average)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Mínimo</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.low}</p>
                     <p className="text-lg font-bold text-red-600 dark:text-red-400">
                       {formatCurrency(stats.low)}
                     </p>
@@ -561,7 +562,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                 </div>
               </div>
             ) : (
-              <p className="text-gray-600 dark:text-gray-400">No hay datos de precio disponibles</p>
+              <p className="text-gray-600 dark:text-gray-400">{t.assetDetail.noData}</p>
             )}
           </div>
 
@@ -572,7 +573,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                 <div className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-gray-700 dark:text-gray-300" />
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Evolución de Precios
+                    {t.assetDetail.priceEvolution}
                   </h3>
                 </div>
 
@@ -599,12 +600,12 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                 <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-6 flex items-center justify-center h-64">
                   <div className="flex flex-col items-center gap-3">
                     <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-                    <span className="text-gray-600 dark:text-gray-400">Cargando gráfico...</span>
+                     <span className="text-gray-600 dark:text-gray-400">{t.assetDetail.loadingChart}</span>
                   </div>
                 </div>
               ) : chartError ? (
                 <div className="bg-white dark:bg-gray-700 rounded-lg border border-red-200 dark:border-red-600 p-6">
-                  <p className="text-red-600 dark:text-red-400">{chartError}</p>
+                   <p className="text-red-600 dark:text-red-400">{chartError}</p>
                 </div>
               ) : chartData?.prices && chartData.prices.length > 0 ? (
                 <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-6">
@@ -612,7 +613,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                 </div>
               ) : (
                 <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-6">
-                  <p className="text-gray-600 dark:text-gray-400">No hay datos disponibles para este intervalo</p>
+                   <p className="text-gray-600 dark:text-gray-400">{t.assetDetail.noChartData}</p>
                 </div>
               )}
             </div>
@@ -623,32 +624,32 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
             <div className="flex items-center gap-2 mb-4">
               <BarChart3 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Información General
+                 {t.assetDetail.generalInfo}
               </h3>
             </div>
             <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-6 space-y-6">
 
               {/* Datos Básicos */}
               <div>
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Datos Básicos</h4>
+                 <h4 className="font-semibold text-gray-900 dark:text-white mb-3">{t.assetDetail.basicData}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-600">
-                    <span className="text-gray-600 dark:text-gray-400">Símbolo:</span>
+                     <span className="text-gray-600 dark:text-gray-400">{t.assetDetail.symbol}</span>
                     <span className="font-semibold text-gray-900 dark:text-white">{asset.symbol}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-600">
-                    <span className="text-gray-600 dark:text-gray-400">Nombre:</span>
+                     <span className="text-gray-600 dark:text-gray-400">{t.assetDetail.name}</span>
                     <span className="font-semibold text-gray-900 dark:text-white">{asset.name}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-600 md:col-span-2">
-                    <span className="text-gray-600 dark:text-gray-400">Tipo:</span>
+                     <span className="text-gray-600 dark:text-gray-400">{t.assetDetail.type}</span>
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${asset.type === 'stock'
                       ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300'
                       : asset.type === 'crypto'
                         ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300'
                         : 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
                       }`}>
-                      {asset.type === 'stock' ? 'Acción' : asset.type === 'crypto' ? 'Criptomoneda' : 'Forex'}
+                       {asset.type === 'stock' ? t.assetDetail.stock : asset.type === 'crypto' ? t.assetDetail.crypto : t.assetDetail.forex}
                     </span>
                   </div>
                 </div>
@@ -657,7 +658,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
               {/* Medidas de Valoración */}
               {asset.type === 'stock' && (
                 <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Medidas de Valoración</h4>
+                   <h4 className="font-semibold text-gray-900 dark:text-white mb-3">{t.assetDetail.valuationMeasures}</h4>
                   {loadingFinancial ? (
                     <div className="flex items-center gap-2 py-4">
                       <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
@@ -668,9 +669,9 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                       {/* Mostrar aviso si hay datos limitados */}
                       {!financialData.marketCap && !financialData.peRatio && financialData.fiftyTwoWeekHigh && (
                         <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                          <p className="text-xs text-amber-800 dark:text-amber-300">
-                            ℹ️ Datos limitados disponibles. Algunas métricas financieras no están accesibles actualmente.
-                          </p>
+                           <p className="text-xs text-amber-800 dark:text-amber-300">
+                             ℹ️ {t.assetDetail.limitedData}
+                           </p>
                         </div>
                       )}
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -679,23 +680,23 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                           <p className="text-sm font-bold text-gray-900 dark:text-white">{formatNumber(financialData.marketCap)}</p>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">P/E Ratio</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.peRatio}</p>
                           <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRatio(financialData.peRatio)}</p>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">PEG Ratio</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.pegRatio}</p>
                           <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRatio(financialData.pegRatio)}</p>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Price/Sales</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.priceToSales}</p>
                           <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRatio(financialData.priceToSales)}</p>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Price/Book</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.priceToBook}</p>
                           <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRatio(financialData.priceToBook)}</p>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">EV/EBITDA</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.evToEbitda}</p>
                           <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRatio(financialData.evToEbitda)}</p>
                         </div>
                       </div>
@@ -713,7 +714,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
               {/* Destacados Financieros */}
               {asset.type === 'stock' && (
                 <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Destacados Financieros</h4>
+                   <h4 className="font-semibold text-gray-900 dark:text-white mb-3">{t.assetDetail.financialHighlights}</h4>
                   {loadingFinancial ? (
                     <div className="flex items-center gap-2 py-4">
                       <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
@@ -722,46 +723,46 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                   ) : financialData && isStockData(financialData) ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">EPS (TTM)</p>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">{financialData.eps !== undefined && financialData.eps !== null ? formatCurrency(financialData.eps) : 'No disponible'}</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">EPS (TTM)</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">{financialData.eps !== undefined && financialData.eps !== null ? formatCurrency(financialData.eps) : t.assetDetail.notAvailable}</p>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Dividend Yield</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.dividendYield}</p>
                         <p className="text-sm font-bold text-gray-900 dark:text-white">{formatPercent(financialData.dividendYield)}</p>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Beta</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.beta}</p>
                         <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRatio(financialData.beta)}</p>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">ROE</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.roe}</p>
                         <p className="text-sm font-bold text-gray-900 dark:text-white">{formatPercent(financialData.roe)}</p>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">ROA</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.roa}</p>
                         <p className="text-sm font-bold text-gray-900 dark:text-white">{formatPercent(financialData.roa)}</p>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Margen Neto</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.profitMargin}</p>
                         <p className="text-sm font-bold text-gray-900 dark:text-white">{formatPercent(financialData.profitMargin)}</p>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Máximo 52 sem</p>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">{financialData.fiftyTwoWeekHigh !== undefined && financialData.fiftyTwoWeekHigh !== null ? formatCurrency(financialData.fiftyTwoWeekHigh) : 'No disponible'}</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.fiftyTwoWeekHigh}</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">{financialData.fiftyTwoWeekHigh !== undefined && financialData.fiftyTwoWeekHigh !== null ? formatCurrency(financialData.fiftyTwoWeekHigh) : t.assetDetail.notAvailable}</p>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Mínimo 52 sem</p>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">{financialData.fiftyTwoWeekLow !== undefined && financialData.fiftyTwoWeekLow !== null ? formatCurrency(financialData.fiftyTwoWeekLow) : 'No disponible'}</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.fiftyTwoWeekLow}</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">{financialData.fiftyTwoWeekLow !== undefined && financialData.fiftyTwoWeekLow !== null ? formatCurrency(financialData.fiftyTwoWeekLow) : t.assetDetail.notAvailable}</p>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Vol. Promedio</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.averageVolume}</p>
                         <p className="text-sm font-bold text-gray-900 dark:text-white">{formatVolume(financialData.averageVolume)}</p>
                       </div>
                     </div>
                   ) : (
                     <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        No se pudieron obtener datos financieros detallados en este momento.
+                        {t.assetDetail.noFinancialData}
                       </p>
                     </div>
                   )}
@@ -771,11 +772,11 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
               {/* Información de Criptomonedas */}
               {asset.type === 'crypto' && (
                 <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Información de Mercado</h4>
+                   <h4 className="font-semibold text-gray-900 dark:text-white mb-3">{t.assetDetail.marketInfo}</h4>
                   {loadingFinancial ? (
                     <div className="flex items-center gap-2 py-4">
                       <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Cargando datos financieros...</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{t.assetDetail.loading}</span>
                     </div>
                   ) : financialData && isCryptoData(financialData) ? (
                     <>
@@ -783,33 +784,33 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                       {!financialData.marketCap && !financialData.circulatingSupply && financialData.fiftyTwoWeekHigh && (
                         <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                           <p className="text-xs text-amber-800 dark:text-amber-300">
-                            ℹ️ Datos limitados disponibles. Algunas métricas de mercado no están accesibles actualmente.
+                            ℹ️ {t.assetDetail.limitedData}
                           </p>
                         </div>
                       )}
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Cap. de Mercado</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.marketCap}</p>
                           <p className="text-sm font-bold text-gray-900 dark:text-white">{formatNumber(financialData.marketCap)}</p>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Volumen 24h</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.volume24h}</p>
                           <p className="text-sm font-bold text-gray-900 dark:text-white">{formatVolume(financialData.volume24h)}</p>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Circulación</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.circulatingSupply}</p>
                           <p className="text-sm font-bold text-gray-900 dark:text-white">{formatVolume(financialData.circulatingSupply)}</p>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Suministro Total</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.totalSupply}</p>
                           <p className="text-sm font-bold text-gray-900 dark:text-white">{formatVolume(financialData.totalSupply)}</p>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Máximo 52 semanas</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.fiftyTwoWeekHigh}</p>
                           <p className="text-sm font-bold text-gray-900 dark:text-white">{financialData.fiftyTwoWeekHigh !== undefined && financialData.fiftyTwoWeekHigh !== null ? formatCurrency(financialData.fiftyTwoWeekHigh) : 'No disponible'}</p>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Mínimo 52 semanas</p>
+                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.fiftyTwoWeekLow}</p>
                           <p className="text-sm font-bold text-gray-900 dark:text-white">{financialData.fiftyTwoWeekLow !== undefined && financialData.fiftyTwoWeekLow !== null ? formatCurrency(financialData.fiftyTwoWeekLow) : 'No disponible'}</p>
                         </div>
                       </div>
@@ -817,7 +818,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                   ) : (
                     <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        No se pudieron obtener datos de mercado en este momento.
+                         {t.assetDetail.noMarketData}
                       </p>
                     </div>
                   )}
@@ -827,7 +828,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
               {/* Descripción */}
               {asset.description && (
                 <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Descripción</h4>
+                   <h4 className="font-semibold text-gray-900 dark:text-white mb-2">{t.assetDetail.description}</h4>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     {asset.description}
                   </p>
@@ -842,7 +843,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
               <div className="flex items-center gap-2 mb-4">
                 <Calendar className="w-5 h-5 text-gray-700 dark:text-gray-300" />
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Historial Reciente
+                   {t.assetDetail.recentHistory}
                 </h3>
               </div>
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 p-4 max-h-80 overflow-y-auto">
@@ -857,7 +858,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                     return (
                       <div key={index} className="flex justify-between items-center py-3 px-2 hover:bg-white dark:hover:bg-gray-600 rounded transition-colors">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {new Date(price.date).toLocaleString('es-ES', {
+                           {new Date(price.date).toLocaleString(language === 'es' ? 'es-ES' : 'en-US', {
                             ...(historySpansMultipleYears ? { year: 'numeric' } : {}),
                             month: 'short',
                             day: 'numeric',

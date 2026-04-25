@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { RiskService } from '../services/risk.service';
 import { InsufficientDataError } from '../models/risk';
+import { i18n, getLanguage } from '../utils/i18n';
 
 // Create a single instance of RiskService
 const riskService = new RiskService();
@@ -12,9 +13,11 @@ const riskService = new RiskService();
 export const getRiskMetrics = async (req: Request, res: Response) => {
   const { symbol } = req.params;
   const { range } = req.query;
+  const lang = getLanguage(req.headers['accept-language']);
+  const t = i18n[lang].risk;
 
   if (!symbol || typeof symbol !== 'string') {
-    res.status(400).json({ error: 'Symbol parameter is required' });
+    res.status(400).json({ error: t.errors.symbolRequired });
     return;
   }
 
@@ -29,7 +32,10 @@ export const getRiskMetrics = async (req: Request, res: Response) => {
     // Handle insufficient data error
     if (error instanceof InsufficientDataError) {
       res.status(422).json({
-        error: 'Insufficient data for risk calculation',
+        error: t.errors.insufficientData
+          .replace('{symbol}', symbol)
+          .replace('{required}', error.message.match(/need at least (\d+)/)?.[1] || '?')
+          .replace('{actual}', error.message.match(/got (\d+)/)?.[1] || '?'),
         message: error.message,
       });
       return;
@@ -38,7 +44,7 @@ export const getRiskMetrics = async (req: Request, res: Response) => {
     // Handle asset not found (from price service)
     if (error instanceof Error && error.message.includes('not found')) {
       res.status(404).json({
-        error: `Asset with symbol '${symbol}' not found`,
+        error: t.errors.assetNotFound.replace('{symbol}', symbol),
       });
       return;
     }
@@ -46,7 +52,7 @@ export const getRiskMetrics = async (req: Request, res: Response) => {
     // Handle unexpected errors
     console.error('Error calculating risk metrics:', error);
     res.status(500).json({
-      error: 'Failed to calculate risk metrics',
+      error: t.errors.failedCalculation,
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }

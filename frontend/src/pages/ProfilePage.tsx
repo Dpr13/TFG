@@ -1,12 +1,15 @@
-import { User, Mail, Bell, Moon, Shield, Lock, Save, X, Check } from 'lucide-react';
+import { User, Mail, Bell, Moon, Shield, Lock, Save, X, Check, Globe } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 import { authService } from '../services/auth.service';
+import type { Language } from '../i18n';
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
   const { setDarkMode } = useTheme();
+  const { t, language, setLanguage } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
@@ -18,6 +21,7 @@ export default function ProfilePage() {
     email: '',
     notificationsEnabled: true,
     darkMode: false,
+    language: 'es' as Language,
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -36,9 +40,8 @@ export default function ProfilePage() {
         email: user.email,
         notificationsEnabled: user.notificationsEnabled,
         darkMode: user.darkMode,
+        language: (user.language as Language) || 'es',
       });
-      // Asegurar que el tema visual refleje el estado guardado del usuario al cargar la página
-      // por si se cambió y no se llegó a guardar
       setDarkMode(user.darkMode);
     }
   }, [user, setDarkMode]);
@@ -55,14 +58,15 @@ export default function ProfilePage() {
         email: formData.email,
         notificationsEnabled: formData.notificationsEnabled,
         darkMode: formData.darkMode,
+        language: formData.language,
       });
 
       updateUser(updatedUser);
-      setProfileSuccess('Perfil actualizado correctamente');
+      setProfileSuccess(t.profile.profileUpdated);
 
       setTimeout(() => setProfileSuccess(null), 3000);
     } catch (err: any) {
-      setProfileError(err.response?.data?.error || 'Error al actualizar el perfil');
+      setProfileError(err.response?.data?.error || t.profile.profileError);
     } finally {
       setIsLoading(false);
     }
@@ -74,12 +78,12 @@ export default function ProfilePage() {
     setPasswordSuccess(null);
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordError('Las contraseñas no coinciden');
+      setPasswordError(t.profile.passwordNoMatch);
       return;
     }
 
     if (passwordData.newPassword.length < 6) {
-      setPasswordError('La contraseña debe tener al menos 6 caracteres');
+      setPasswordError(t.profile.passwordMinLength);
       return;
     }
 
@@ -90,13 +94,13 @@ export default function ProfilePage() {
         newPassword: passwordData.newPassword,
       });
 
-      setPasswordSuccess('Contraseña actualizada correctamente');
+      setPasswordSuccess(t.profile.passwordUpdated);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setShowPasswordSection(false);
 
       setTimeout(() => setPasswordSuccess(null), 3000);
     } catch (err: any) {
-      setPasswordError(err.response?.data?.error || 'Error al cambiar la contraseña');
+      setPasswordError(err.response?.data?.error || t.profile.passwordChangeError);
     } finally {
       setIsLoading(false);
     }
@@ -119,7 +123,25 @@ export default function ProfilePage() {
     } catch (err: any) {
       setFormData(prev => ({ ...prev, darkMode: !value }));
       setDarkMode(!value);
-      setProfileError('Error al guardar la preferencia de modo oscuro');
+      setProfileError(t.profile.darkModeError);
+    }
+  };
+
+  const handleLanguageChange = async (value: Language) => {
+    const prevLanguage = formData.language;
+    setFormData(prev => ({ ...prev, language: value }));
+    setLanguage(value);
+
+    try {
+      const updatedUser = await authService.updateProfile({
+        ...formData,
+        language: value,
+      });
+      updateUser(updatedUser);
+    } catch (err: any) {
+      setFormData(prev => ({ ...prev, language: prevLanguage }));
+      setLanguage(prevLanguage);
+      setProfileError(t.profile.languageError);
     }
   };
 
@@ -128,7 +150,7 @@ export default function ProfilePage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
+    return new Date(dateString).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -138,7 +160,7 @@ export default function ProfilePage() {
   if (!user) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">Cargando perfil...</p>
+        <p className="text-gray-500">{t.profile.loadingProfile}</p>
       </div>
     );
   }
@@ -147,10 +169,10 @@ export default function ProfilePage() {
     <div className="space-y-6 max-w-4xl">
       <div>
         <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Editar Perfil
+          {t.profile.editProfile}
         </h2>
         <p className="text-gray-600 dark:text-gray-400">
-          Gestiona tu configuración personal y preferencias
+          {t.profile.editProfileDesc}
         </p>
       </div>
 
@@ -159,7 +181,7 @@ export default function ProfilePage() {
         <div className="p-6">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
             <User className="w-5 h-5 mr-2" />
-            Información Personal
+            {t.profile.personalInfo}
           </h3>
 
           {/* Mensajes de éxito/error de perfil */}
@@ -181,7 +203,7 @@ export default function ProfilePage() {
             {/* Nombre */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Nombre
+                {t.profile.name}
               </label>
               <input
                 type="text"
@@ -199,7 +221,7 @@ export default function ProfilePage() {
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <Mail className="w-4 h-4 inline mr-1" />
-                Email
+                {t.profile.email}
               </label>
               <input
                 type="email"
@@ -217,7 +239,7 @@ export default function ProfilePage() {
             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
               <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                 <Shield className="w-5 h-5 mr-2" />
-                Preferencias
+                {t.profile.preferences}
               </h4>
 
               {/* Notificaciones */}
@@ -226,10 +248,10 @@ export default function ProfilePage() {
                   <Bell className="w-4 h-4 mr-2 text-gray-500" />
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Notificaciones
+                      {t.profile.notifications}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Recibir alertas sobre cambios de riesgo
+                      {t.profile.notificationsDesc}
                     </p>
                   </div>
                 </div>
@@ -256,10 +278,10 @@ export default function ProfilePage() {
                   <Moon className="w-4 h-4 mr-2 text-gray-500" />
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Modo Oscuro
+                      {t.profile.darkMode}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Activar tema oscuro
+                      {t.profile.darkModeDesc}
                     </p>
                   </div>
                 </div>
@@ -279,6 +301,31 @@ export default function ProfilePage() {
                                dark:border-gray-600 peer-checked:bg-blue-600"></div>
                 </label>
               </div>
+
+              {/* Idioma */}
+              <div className="flex items-center justify-between py-3">
+                <div className="flex items-center">
+                  <Globe className="w-4 h-4 mr-2 text-gray-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {t.profile.language}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t.profile.languageDesc}
+                    </p>
+                  </div>
+                </div>
+                <select
+                  value={formData.language}
+                  onChange={(e) => handleLanguageChange(e.target.value as Language)}
+                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg 
+                           bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm
+                           focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+                >
+                  <option value="es">{t.profile.spanish}</option>
+                  <option value="en">{t.profile.english}</option>
+                </select>
+              </div>
             </div>
 
             {/* Botones */}
@@ -292,8 +339,10 @@ export default function ProfilePage() {
                       email: user.email,
                       notificationsEnabled: user.notificationsEnabled,
                       darkMode: user.darkMode,
+                      language: (user.language as Language) || 'es',
                     });
                     setDarkMode(user.darkMode);
+                    setLanguage((user.language as Language) || 'es');
                   }
                   setProfileError(null);
                   setProfileSuccess(null);
@@ -303,7 +352,7 @@ export default function ProfilePage() {
                          rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 disabled={isLoading}
               >
-                Cancelar
+                {t.common.cancel}
               </button>
               <button
                 type="submit"
@@ -313,7 +362,7 @@ export default function ProfilePage() {
                          disabled:cursor-not-allowed flex items-center"
               >
                 <Save className="w-4 h-4 mr-2" />
-                {isLoading ? 'Guardando...' : 'Guardar Cambios'}
+                {isLoading ? t.profile.saving : t.common.save}
               </button>
             </div>
           </form>
@@ -341,7 +390,7 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
               <Lock className="w-5 h-5 mr-2" />
-              Seguridad
+              {t.profile.security}
             </h3>
             {!showPasswordSection && (
               <button
@@ -353,7 +402,7 @@ export default function ProfilePage() {
                 className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 
                          dark:hover:text-blue-300 font-medium"
               >
-                Cambiar Contraseña
+                {t.profile.changePassword}
               </button>
             )}
           </div>
@@ -362,7 +411,7 @@ export default function ProfilePage() {
             <form onSubmit={handlePasswordChange} className="space-y-4">
               <div>
                 <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Contraseña Actual
+                  {t.auth.currentPassword}
                 </label>
                 <input
                   type="password"
@@ -378,7 +427,7 @@ export default function ProfilePage() {
 
               <div>
                 <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Nueva Contraseña
+                  {t.auth.newPassword}
                 </label>
                 <input
                   type="password"
@@ -395,7 +444,7 @@ export default function ProfilePage() {
 
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Confirmar Nueva Contraseña
+                  {t.auth.confirmPassword}
                 </label>
                 <input
                   type="password"
@@ -423,7 +472,7 @@ export default function ProfilePage() {
                            rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                   disabled={isLoading}
                 >
-                  Cancelar
+                  {t.common.cancel}
                 </button>
                 <button
                   type="submit"
@@ -432,7 +481,7 @@ export default function ProfilePage() {
                            rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50
                            disabled:cursor-not-allowed"
                 >
-                  {isLoading ? 'Cambiando...' : 'Cambiar Contraseña'}
+                  {isLoading ? t.profile.changingPassword : t.profile.changePassword}
                 </button>
               </div>
             </form>
@@ -440,7 +489,7 @@ export default function ProfilePage() {
 
           {!showPasswordSection && (
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Última actualización de contraseña: {formatDate(user.updatedAt)}
+              {t.profile.lastPasswordUpdate} {formatDate(user.updatedAt)}
             </p>
           )}
         </div>
@@ -450,26 +499,26 @@ export default function ProfilePage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="p-6">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-            Información de la Cuenta
+            {t.profile.accountInfo}
           </h3>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-              <span className="text-gray-600 dark:text-gray-400">ID de Usuario</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.profile.userId}</span>
               <span className="text-gray-900 dark:text-white font-mono text-xs">{user.id}</span>
             </div>
             <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-              <span className="text-gray-600 dark:text-gray-400">Cuenta creada</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.profile.accountCreated}</span>
               <span className="text-gray-900 dark:text-white font-medium">{formatDate(user.createdAt)}</span>
             </div>
             <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-              <span className="text-gray-600 dark:text-gray-400">Última actualización</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.profile.lastUpdate}</span>
               <span className="text-gray-900 dark:text-white font-medium">{formatDate(user.updatedAt)}</span>
             </div>
             <div className="flex justify-between py-2">
-              <span className="text-gray-600 dark:text-gray-400">Estado de la cuenta</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.profile.accountStatus}</span>
               <span className="text-green-600 dark:text-green-400 font-medium flex items-center">
                 <span className="w-2 h-2 bg-green-600 rounded-full mr-2"></span>
-                Activa
+                {t.common.active}
               </span>
             </div>
           </div>

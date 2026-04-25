@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function Footer() {
   const { darkMode } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <footer className="bg-slate-50 dark:bg-[#0a0c14] text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 mt-auto transition-colors duration-300">
@@ -20,25 +22,25 @@ export default function Footer() {
               <span className="text-base font-bold text-slate-900 dark:text-white">RiskAnalysis</span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-500 leading-tight">
-              Plataforma profesional de análisis y gestión de riesgos financieros para inversores modernos.
+              {t.footer.description}
             </p>
           </div>
 
           {/* Navigation */}
           <div>
-            <h3 className="text-slate-900 dark:text-white text-xs font-semibold mb-2 uppercase tracking-wider">Enlaces Rápidos</h3>
+            <h3 className="text-slate-900 dark:text-white text-xs font-semibold mb-2 uppercase tracking-wider">{t.footer.quickLinks}</h3>
             <ul className="space-y-1.5 flex flex-col">
-              <Link to="/" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">Inicio</Link>
-              <Link to="/about" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">Sobre Nosotros</Link>
-              <Link to="/services" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">Servicios</Link>
-              <Link to="/blog" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">Blog</Link>
-              <Link to="/contact" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">Contacto</Link>
+              <Link to="/" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.home}</Link>
+              <Link to="/about" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.aboutUs}</Link>
+              <Link to="/services" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.services}</Link>
+              <Link to="/blog" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.blog}</Link>
+              <Link to="/contact" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.contact}</Link>
             </ul>
           </div>
 
           {/* Contact */}
           <div>
-            <h3 className="text-slate-900 dark:text-white text-xs font-semibold mb-2 uppercase tracking-wider">Contacto</h3>
+            <h3 className="text-slate-900 dark:text-white text-xs font-semibold mb-2 uppercase tracking-wider">{t.footer.contactTitle}</h3>
             <ul className="space-y-2">
               <li className="flex items-start space-x-2 text-xs">
                 <MapPin className="w-3.5 h-3.5 text-primary-500 flex-shrink-0 mt-0.5" />
@@ -57,7 +59,7 @@ export default function Footer() {
 
           {/* Social */}
           <div>
-            <h3 className="text-slate-900 dark:text-white text-xs font-semibold mb-2 uppercase tracking-wider">Síguenos</h3>
+            <h3 className="text-slate-900 dark:text-white text-xs font-semibold mb-2 uppercase tracking-wider">{t.footer.followUs}</h3>
             <div className="flex space-x-3">
               <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-primary-600 dark:hover:text-indigo-400 transition-colors duration-200">
                 <Linkedin className="w-4 h-4" />
@@ -78,12 +80,12 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800/80 flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">
           <p className="text-[11px] text-slate-500">
-            &copy; 2026 Análisis de Riesgo Financiero. Todos los derechos reservados.
+            {t.footer.copyright}
           </p>
           <div className="flex flex-wrap justify-center md:justify-end gap-x-4 gap-y-1 text-[11px] text-slate-500">
-            <Link to="/privacy" className="hover:text-slate-900 dark:hover:text-white transition-colors duration-200">Política de Privacidad</Link>
-            <Link to="/terms" className="hover:text-slate-900 dark:hover:text-white transition-colors duration-200">Términos y Condiciones</Link>
-            <Link to="/cookies" className="hover:text-slate-900 dark:hover:text-white transition-colors duration-200">Política de Cookies</Link>
+            <Link to="/privacy" className="hover:text-slate-900 dark:hover:text-white transition-colors duration-200">{t.footer.privacy}</Link>
+            <Link to="/terms" className="hover:text-slate-900 dark:hover:text-white transition-colors duration-200">{t.footer.terms}</Link>
+            <Link to="/cookies" className="hover:text-slate-900 dark:hover:text-white transition-colors duration-200">{t.footer.cookies}</Link>
           </div>
         </div>
       </div>
