@@ -285,7 +285,7 @@ export default function PsychoanalysisPage() {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               📊 Rentabilidad por Día de la Semana
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? 250 : 300}>
               <BarChart data={temporalStats.dayOfWeek}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" />
@@ -316,7 +316,7 @@ export default function PsychoanalysisPage() {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               🎯 Tasa de Ganancia por Activo
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? 250 : 300}>
               <BarChart data={assetStats.slice(0, 6)}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="symbol" />

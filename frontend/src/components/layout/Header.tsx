@@ -210,15 +210,15 @@ export default function Header() {
         className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'max-h-screen border-t border-gray-200 dark:border-gray-700' : 'max-h-0'
           }`}
       >
-        <div className="px-4 py-4 space-y-4 bg-gray-50 dark:bg-gray-900/50">
+        <div className="px-4 py-4 space-y-3 bg-gray-50 dark:bg-gray-900/50 max-h-[calc(100vh-65px)] overflow-y-auto overscroll-contain">
           {navItems.map((item) => (
             <div key={item.label} className="space-y-2">
               {!item.isDropdown ? (
                 <Link
                   to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-semibold transition-colors ${isItemActive(item)
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${isItemActive(item)
                     ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 shadow-sm border border-transparent hover:border-gray-200 dark:border-gray-700'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 border border-transparent hover:border-gray-200 dark:hover:border-gray-700'
                     }`}
                 >
                   {item.icon && <item.icon className="w-5 h-5" />}
@@ -249,17 +249,17 @@ export default function Header() {
           ))}
 
           {/* User controls in mobile menu */}
-          <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700 sm:hidden">
+          <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700 sm:hidden pb-4">
             <Link
               to="/profile"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 dark:text-gray-300"
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 transition-colors"
             >
               <User className="w-5 h-5" />
               <span className="font-medium">{t.nav.myProfile}</span>
             </Link>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 dark:text-red-400 w-full"
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-red-600 dark:text-red-400 w-full hover:bg-white dark:hover:bg-gray-800 transition-colors"
             >
               <LogOut className="w-5 h-5" />
               <span className="font-medium">{t.auth.logoutMobile}</span>

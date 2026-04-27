@@ -88,7 +88,7 @@ export default function SymbolAutocomplete({
     <div ref={containerRef} className={`relative ${className}`}>
       <div className="relative">
         {showSearchIcon && (
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 sm:w-5 h-4 sm:h-5 text-gray-400 pointer-events-none" />
         )}
         <input
           type="text"
@@ -100,28 +100,28 @@ export default function SymbolAutocomplete({
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className={inputClassName || `${defaultInputClass} ${showSearchIcon ? 'pl-10' : ''} pr-8`}
+          className={inputClassName || `${defaultInputClass} ${showSearchIcon ? 'pl-9 sm:pl-10' : ''} pr-8 text-sm`}
         />
         {searching && (
           <div className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
         )}
       </div>
       {open && suggestions.length > 0 && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-80 overflow-y-auto">
           {suggestions.map(s => (
             <button
               key={s.symbol}
               type="button"
               onClick={() => select(s.symbol)}
-              className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+              className="w-full flex items-center justify-between px-3 py-2 sm:py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
             >
-              <div>
-                <span className="font-bold text-sm text-gray-900 dark:text-white">{s.symbol}</span>
-                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 truncate max-w-[180px] inline-block align-bottom">{s.name}</span>
+              <div className="min-w-0 flex-1">
+                <span className="font-bold text-sm text-gray-900 dark:text-white block">{s.symbol}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 truncate block">{s.name}</span>
               </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <span className="text-xs text-gray-400 dark:text-gray-500">{s.exchange}</span>
-                <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300">
+              <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">{s.exchange}</span>
+                <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 whitespace-nowrap">
                   {TYPE_LABELS[s.type] ?? s.type}
                 </span>
               </div>

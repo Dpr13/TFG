@@ -308,17 +308,20 @@ export default function RecommendationPage() {
     if (mainChartRef.current) {
       if (candles.length === 0) return;
 
+      const isMobile = window.innerWidth < 768;
+      const chartHeight = isMobile ? 350 : 500;
+      
       mainChartRef.current.innerHTML = '';
       const chartWrapper = document.createElement('div');
       chartWrapper.style.position = 'relative';
       chartWrapper.style.width = '100%';
-      chartWrapper.style.height = '500px';
+      chartWrapper.style.height = `${chartHeight}px`;
       mainChartRef.current.appendChild(chartWrapper);
 
       const chart = LightweightCharts.createChart(chartWrapper, {
         ...chartTheme,
         width: chartWrapper.clientWidth || mainChartRef.current.clientWidth || 800,
-        height: 500,
+        height: chartHeight,
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
       });
       chartsRef.current.push(chart);
@@ -584,7 +587,7 @@ export default function RecommendationPage() {
                 onSubmit={() => calculate()}
                 placeholder={t.recommendation.searchPlaceholder}
                 showSearchIcon
-                inputClassName="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                inputClassName="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
               />
 
               {/* Popular / Watchlist Badges */}
