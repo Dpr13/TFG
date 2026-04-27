@@ -33,8 +33,6 @@ export default function Footer() {
               <Link to="/" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.home}</Link>
               <Link to="/about" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.aboutUs}</Link>
               <Link to="/services" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.services}</Link>
-              <Link to="/blog" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.blog}</Link>
-              <Link to="/contact" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.contact}</Link>
             </ul>
           </div>
 

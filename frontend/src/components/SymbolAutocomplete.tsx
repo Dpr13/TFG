@@ -10,6 +10,7 @@ interface SymbolAutocompleteProps {
   className?: string;
   inputClassName?: string;
   showSearchIcon?: boolean;
+  onFocus?: () => void;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -29,6 +30,7 @@ export default function SymbolAutocomplete({
   className = '',
   inputClassName = '',
   showSearchIcon = false,
+  onFocus,
 }: SymbolAutocompleteProps) {
   const [query, setQuery] = useState(value);
   const [suggestions, setSuggestions] = useState<{ symbol: string; name: string; type: string; exchange: string }[]>([]);
@@ -92,7 +94,10 @@ export default function SymbolAutocomplete({
           type="text"
           value={query}
           onChange={e => { setQuery(e.target.value.toUpperCase()); onChange(''); }}
-          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          onFocus={() => {
+            if (suggestions.length > 0) setOpen(true);
+            if (onFocus) onFocus();
+          }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={inputClassName || `${defaultInputClass} ${showSearchIcon ? 'pl-10' : ''} pr-8`}

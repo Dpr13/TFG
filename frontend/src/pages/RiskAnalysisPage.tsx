@@ -322,7 +322,9 @@ export default function RiskAnalysisPage() {
       {/* Header */}
       <div>
         <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          {t.riskAnalysis.title}
+          {activeTab === 'TECH' ? t.riskAnalysis.detailedTitleTechnical : 
+           activeTab === 'FUNDS' ? t.riskAnalysis.detailedTitleFundamental : 
+           t.riskAnalysis.detailedTitleQuantitative}
         </h2>
         <p className="text-gray-600 dark:text-gray-400">
           {t.riskAnalysis.description}

@@ -358,6 +358,9 @@ const en: Translations = {
     tabTechnical: 'Technical Analysis',
     tabFundamental: 'Fundamental Analysis',
     tabQuantitative: 'Quantitative Analysis',
+    detailedTitleTechnical: 'Technical Risk Analysis',
+    detailedTitleFundamental: 'Fundamental Risk Analysis',
+    detailedTitleQuantitative: 'Quantitative Risk Analysis',
     searchAsset: 'Search asset to analyze...',
     searchPlaceholder: 'Asset symbol (e.g.: AAPL, BTC-USD, MSFT)',
     selectPeriod: 'Select period',
@@ -559,7 +562,7 @@ const en: Translations = {
 
   // ── Comparison Page ──
   comparison: {
-    title: 'Asset Comparison',
+    title: 'Asset Risk Comparison',
     subtitle: 'Compare up to 3 financial assets across fundamental, technical, and quantitative dimensions',
     horizon: 'Horizon:',
     assetSlot: 'Asset {n}',
@@ -590,15 +593,15 @@ const en: Translations = {
     },
     tables: {
       fundamental: {
-        title: 'Fundamental Analysis',
+        title: 'Fundamental Risk Analysis',
         desc: 'Valuation and business profitability metrics'
       },
       technical: {
-        title: 'Technical Analysis',
+        title: 'Technical Risk Analysis',
         desc: 'Price signals and momentum in the selected period'
       },
       risk: {
-        title: 'Quantitative Analysis',
+        title: 'Quantitative Risk Analysis',
         desc: 'Volatility, drawdown, and risk/return metrics'
       },
       metricHeader: 'Metric'
@@ -607,7 +610,7 @@ const en: Translations = {
 
   // ── Recommendation Page ──
   recommendation: {
-    title: 'Trade Recommendation',
+    title: 'Risk Analysis & Recommendation',
     subtitle: 'Automatically calculates Take Profit, Stop Loss levels and risk management.',
     financialAsset: 'Financial Asset',
     searchPlaceholder: 'E.g: AAPL, BTC-USD...',
@@ -684,7 +687,7 @@ const en: Translations = {
 
   // ── Psychoanalysis Page ──
   psycho: {
-    title: '🧠 Trader Psychological Analysis',
+    title: 'Psychological Risk Analysis',
     subtitle: 'Analysis of your behavior and trading patterns',
     noData: 'Record operations to generate your behavior analysis.',
     generalStats: 'General statistics',
@@ -731,7 +734,7 @@ const en: Translations = {
 
   // ── Technical Analysis (TechnicalAnalysisPanel) ──
   technicalAnalysis: {
-    title: 'Technical Analysis',
+    title: 'Technical Risk Analysis',
     generating: 'Generating...',
     disclaimer: 'Informational and automatic signal; does not constitute investment advice.',
     regenerateSummary: 'Regenerate AI summary',

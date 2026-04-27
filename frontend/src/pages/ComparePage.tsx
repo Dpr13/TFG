@@ -559,6 +559,7 @@ export default function ComparePage() {
             <SymbolAutocomplete
               value={slot1}
               onChange={(sym) => { setSlot1(sym); setActiveSlot(1); }}
+              onFocus={() => setActiveSlot(1)}
               onSubmit={() => canCompare && handleCompare()}
               placeholder={t.compare.searchPlaceholder.replace('{symbol}', 'AAPL')}
               showSearchIcon
@@ -583,6 +584,7 @@ export default function ComparePage() {
             <SymbolAutocomplete
               value={slot2}
               onChange={(sym) => { setSlot2(sym); setActiveSlot(2); }}
+              onFocus={() => setActiveSlot(2)}
               onSubmit={() => canCompare && handleCompare()}
               placeholder={t.compare.searchPlaceholder.replace('{symbol}', 'MSFT')}
               showSearchIcon
@@ -617,6 +619,7 @@ export default function ComparePage() {
               <SymbolAutocomplete
                 value={slot3}
                 onChange={(sym) => { setSlot3(sym); setActiveSlot(3); }}
+                onFocus={() => setActiveSlot(3)}
                 onSubmit={() => canCompare && handleCompare()}
                 placeholder={t.compare.searchPlaceholder.replace('{symbol}', 'TSLA')}
                 showSearchIcon
