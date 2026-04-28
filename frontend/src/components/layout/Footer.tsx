@@ -8,8 +8,8 @@ export default function Footer() {
   const { t } = useLanguage();
 
   return (
-    <footer className="bg-slate-50 dark:bg-[#0a0c14] text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 mt-auto transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-6 py-4 w-full">
+    <footer className="bg-slate-50 dark:bg-[#0a0c14] text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 mt-auto transition-colors duration-300 overflow-x-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 w-full">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-4">
           {/* Brand */}
           <div className="space-y-2">
@@ -33,8 +33,6 @@ export default function Footer() {
               <Link to="/" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.home}</Link>
               <Link to="/about" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.aboutUs}</Link>
               <Link to="/services" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.services}</Link>
-              <Link to="/blog" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.blog}</Link>
-              <Link to="/contact" className="text-xs hover:text-primary-600 dark:hover:text-white transition-colors duration-200 w-fit">{t.footer.contact}</Link>
             </ul>
           </div>
 

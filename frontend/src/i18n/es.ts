@@ -357,6 +357,9 @@ const es = {
     tabTechnical: 'Análisis Técnico',
     tabFundamental: 'Análisis Fundamental',
     tabQuantitative: 'Análisis Cuantitativo',
+    detailedTitleTechnical: 'Análisis de Riesgo Técnico',
+    detailedTitleFundamental: 'Análisis de Riesgo Fundamental',
+    detailedTitleQuantitative: 'Análisis de Riesgo Cuantitativo',
     searchAsset: 'Buscar activo para analizar...',
     searchPlaceholder: 'Símbolo del activo (ej: AAPL, BTC-USD, MSFT)',
     selectPeriod: 'Seleccionar período',
@@ -558,7 +561,7 @@ const es = {
 
   // ── Comparison Page ──
   comparison: {
-    title: 'Comparativa de Activos',
+    title: 'Comparativa de Riesgo de Activos',
     subtitle: 'Compara hasta 3 activos financieros en dimensión fundamental, técnica y cuantitativa',
     horizon: 'Horizonte:',
     assetSlot: 'Activo {n}',
@@ -589,15 +592,15 @@ const es = {
     },
     tables: {
       fundamental: {
-        title: 'Análisis Fundamental',
+        title: 'Análisis de Riesgo Fundamental',
         desc: 'Métricas de valoración y rentabilidad empresarial'
       },
       technical: {
-        title: 'Análisis Técnico',
+        title: 'Análisis de Riesgo Técnico',
         desc: 'Señales de precio y momentum en el período seleccionado'
       },
       risk: {
-        title: 'Análisis Cuantitativo',
+        title: 'Análisis de Riesgo Cuantitativo',
         desc: 'Volatilidad, drawdown y métricas de riesgo/retorno'
       },
       metricHeader: 'Métrica'
@@ -606,7 +609,7 @@ const es = {
 
   // ── Recommendation Page ──
   recommendation: {
-    title: 'Recomendación de Operación',
+    title: 'Análisis de Riesgo y Recomendación',
     subtitle: 'Calcula automáticamente niveles de Take Profit, Stop Loss y gestión del riesgo.',
     financialAsset: 'Activo Financiero',
     searchPlaceholder: 'Ej: AAPL, BTC-USD...',
@@ -683,7 +686,7 @@ const es = {
 
   // ── Psychoanalysis Page ──
   psycho: {
-    title: '🧠 Análisis Psicológico del Operador',
+    title: 'Análisis de Riesgo Psicológico',
     subtitle: 'Análisis de tu comportamiento y patrones de trading',
     noData: 'Registra operaciones para generar tu análisis de comportamiento.',
     generalStats: 'Estadísticas generales',
@@ -730,7 +733,7 @@ const es = {
 
   // ── Technical Analysis (ТechnicalAnalysisPanel) ──
   technicalAnalysis: {
-    title: 'Análisis Técnico',
+    title: 'Análisis de Riesgo Técnico',
     generating: 'Generando...',
     disclaimer: 'Señal informativa y automática; no constituye asesoría de inversión.',
     regenerateSummary: 'Regenerar resumen IA',

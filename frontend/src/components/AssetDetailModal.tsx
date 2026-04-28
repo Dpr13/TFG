@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, TrendingUp, TrendingDown, DollarSign, BarChart3, Calendar, Loader2, Clock, Star } from 'lucide-react';
 import { priceService, assetService } from '@services/index';
@@ -56,6 +56,16 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
+  const getSafeChartWidth = useCallback(() => {
+    const el = chartContainerRef.current;
+    const elWidth = el?.getBoundingClientRect?.().width ?? 0;
+    const viewportWidth = document.documentElement?.clientWidth || window.innerWidth || 0;
+    const fallbackWidth = viewportWidth > 0 ? viewportWidth - 32 : 0;
+
+    const width = Math.max(1, Math.floor(elWidth || fallbackWidth || 0));
+    return viewportWidth > 0 ? Math.min(width, viewportWidth) : width;
+  }, []);
+
   useEffect(() => {
     if (!chartContainerRef.current || !chartData?.prices || typeof LightweightCharts === 'undefined') return;
     
@@ -85,9 +95,11 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
 
     chartContainerRef.current.innerHTML = '';
     const isDark = document.documentElement.classList.contains('dark');
+
+    const containerWidth = getSafeChartWidth();
     
     const chart = LightweightCharts.createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
+      width: containerWidth,
       height: 256,
       layout: {
         background: { type: 'solid', color: 'transparent' },
@@ -144,7 +156,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
 
     const handleResize = () => {
       if (chartContainerRef.current) {
-        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+        chart.applyOptions({ width: getSafeChartWidth() });
       }
     };
 
@@ -154,7 +166,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, [chartData, chartInterval]);
+  }, [chartData, chartInterval, getSafeChartWidth]);
 
   // Helper: aggregate hourly prices into candles for 4h and 12h
   const aggregateHourlyToCandlesticks = (prices: Array<any>, hoursPerCandle: number) => {
@@ -434,7 +446,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
       >
 
         {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex justify-between items-start z-10">
+        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 sm:p-6 flex justify-between items-start z-10">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -482,7 +494,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
 
           {/* Precio Actual */}
           <div className="bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20 rounded-lg p-6">
@@ -540,7 +552,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                 </div>
 
                 {/* Estadísticas adicionales */}
-                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-primary-200 dark:border-primary-800">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-primary-200 dark:border-primary-800">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t.assetDetail.high}</p>
                     <p className="text-lg font-bold text-green-600 dark:text-green-400">
@@ -608,8 +620,8 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                    <p className="text-red-600 dark:text-red-400">{chartError}</p>
                 </div>
               ) : chartData?.prices && chartData.prices.length > 0 ? (
-                <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-6">
-                  <div ref={chartContainerRef} className="w-full h-64" />
+                <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-4 sm:p-6 min-w-0 overflow-hidden">
+                  <div ref={chartContainerRef} className="w-full h-64 min-w-0 overflow-hidden" />
                 </div>
               ) : (
                 <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-6">

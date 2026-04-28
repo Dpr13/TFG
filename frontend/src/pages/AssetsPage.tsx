@@ -165,26 +165,26 @@ export default function AssetsPage() {
               placeholder={t.assets.searchPlaceholder}
               className="flex-1"
               showSearchIcon
-              inputClassName="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              inputClassName="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
             <button
               onClick={() => handleSearchSymbol()}
               disabled={searching || !searchQuery.trim()}
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 
-                       disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 
+                       disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 flex-shrink-0"
             >
               {searching ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-4 sm:w-5 h-4 sm:h-5 animate-spin" />
               ) : (
-                <Plus className="w-5 h-5" />
+                <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
               )}
-              Buscar
+              <span className="hidden sm:inline">Buscar</span>
             </button>
           </div>
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg 
+            className="px-3 sm:px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg 
                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white
                      focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >

@@ -208,7 +208,7 @@ function ComparisonTable({ title, description, icon: Icon, rows, tickers }: {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-700">
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-48">
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32 md:w-48 whitespace-nowrap">
                 {t.comparison.tables.metricHeader}
               </th>
               {tickers.map(ticker => (
@@ -559,6 +559,7 @@ export default function ComparePage() {
             <SymbolAutocomplete
               value={slot1}
               onChange={(sym) => { setSlot1(sym); setActiveSlot(1); }}
+              onFocus={() => setActiveSlot(1)}
               onSubmit={() => canCompare && handleCompare()}
               placeholder={t.compare.searchPlaceholder.replace('{symbol}', 'AAPL')}
               showSearchIcon
@@ -583,6 +584,7 @@ export default function ComparePage() {
             <SymbolAutocomplete
               value={slot2}
               onChange={(sym) => { setSlot2(sym); setActiveSlot(2); }}
+              onFocus={() => setActiveSlot(2)}
               onSubmit={() => canCompare && handleCompare()}
               placeholder={t.compare.searchPlaceholder.replace('{symbol}', 'MSFT')}
               showSearchIcon
@@ -617,6 +619,7 @@ export default function ComparePage() {
               <SymbolAutocomplete
                 value={slot3}
                 onChange={(sym) => { setSlot3(sym); setActiveSlot(3); }}
+                onFocus={() => setActiveSlot(3)}
                 onSubmit={() => canCompare && handleCompare()}
                 placeholder={t.compare.searchPlaceholder.replace('{symbol}', 'TSLA')}
                 showSearchIcon

@@ -89,6 +89,16 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
   const chartsContainerRef = useRef<HTMLDivElement>(null);
   const chartsRef = useRef<any[]>([]);
 
+  const getSafeChartWidth = useCallback((el: HTMLElement | null) => {
+    const elWidth = el?.getBoundingClientRect?.().width ?? 0;
+    const containerWidth = chartsContainerRef.current?.getBoundingClientRect?.().width ?? 0;
+    const viewportWidth = document.documentElement?.clientWidth || window.innerWidth || 0;
+    const fallbackWidth = viewportWidth > 0 ? viewportWidth - 32 : 0;
+
+    const width = Math.max(1, Math.floor(elWidth || containerWidth || fallbackWidth || 0));
+    return viewportWidth > 0 ? Math.min(width, viewportWidth) : width;
+  }, []);
+
   // Calculate precision based on first price
   const firstPrice = data?.candles?.[0]?.close || 0;
   const precision = firstPrice < 1 ? 6 : firstPrice < 100 ? 4 : 2;
@@ -121,6 +131,10 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     chartsRef.current.forEach(c => { try { c.remove(); } catch {} });
     chartsRef.current = [];
 
+    const isMobile = window.innerWidth < 768;
+    const mainHeight = isMobile ? 250 : 420;
+    const subHeight = isMobile ? 80 : 120;
+
     const chartTheme = darkMode ? {
       layout: { background: { color: '#1f2937' }, textColor: '#9ca3af' },
       grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
@@ -145,10 +159,12 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     // ── Main Chart ──
     if (mainChartRef.current) {
       mainChartRef.current.innerHTML = '';
+      const containerWidth = getSafeChartWidth(mainChartRef.current);
+      
       const chart = LightweightCharts.createChart(mainChartRef.current, {
         ...chartTheme,
-        width: mainChartRef.current.clientWidth,
-        height: 420,
+        width: containerWidth,
+        height: mainHeight,
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
       });
       chartsRef.current.push(chart);
@@ -262,10 +278,12 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     // ── Volume Chart with formatted OBV ──
     if (volumeChartRef.current && data.hasVolume) {
       volumeChartRef.current.innerHTML = '';
+      const containerWidth = getSafeChartWidth(volumeChartRef.current);
+      
       const chart = LightweightCharts.createChart(volumeChartRef.current, {
         ...chartTheme,
-        width: volumeChartRef.current.clientWidth,
-        height: 120,
+        width: containerWidth,
+        height: subHeight,
         rightPriceScale: { borderColor: darkMode ? '#4b5563' : '#e5e7eb' },
       });
       chartsRef.current.push(chart);
@@ -306,10 +324,12 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     // ── RSI Chart ──
     if (rsiChartRef.current && showRSI && data.rsi.length > 0) {
       rsiChartRef.current.innerHTML = '';
+      const containerWidth = getSafeChartWidth(rsiChartRef.current);
+      
       const chart = LightweightCharts.createChart(rsiChartRef.current, {
         ...chartTheme,
-        width: rsiChartRef.current.clientWidth,
-        height: 120,
+        width: containerWidth,
+        height: subHeight,
       });
       chartsRef.current.push(chart);
 
@@ -327,10 +347,12 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     // ── MACD Chart ──
     if (macdChartRef.current && showMACD && data.macd.macdLine.length > 0) {
       macdChartRef.current.innerHTML = '';
+      const containerWidth = getSafeChartWidth(macdChartRef.current);
+      
       const chart = LightweightCharts.createChart(macdChartRef.current, {
         ...chartTheme,
-        width: macdChartRef.current.clientWidth,
-        height: 120,
+        width: containerWidth,
+        height: subHeight,
       });
       chartsRef.current.push(chart);
 
@@ -364,7 +386,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
         });
       });
     }
-  }, [data, showSMA20, showSMA50, showSMA200, showEMA20, showEMA50, showBollinger, showRSI, showMACD, darkMode]);
+  }, [data, showSMA20, showSMA50, showSMA200, showEMA20, showEMA50, showBollinger, showRSI, showMACD, darkMode, getSafeChartWidth]);
 
   useEffect(() => {
     buildCharts();
@@ -376,16 +398,30 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
 
   // Resize handler
   useEffect(() => {
+    let resizeTimeout: ReturnType<typeof setTimeout>;
     const handleResize = () => {
-      chartsRef.current.forEach((chart, idx) => {
-        const refs = [mainChartRef, volumeChartRef, rsiChartRef, macdChartRef];
-        const ref = refs[idx];
-        if (ref?.current) chart.applyOptions({ width: ref.current.clientWidth });
-      });
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        chartsRef.current.forEach((chart, idx) => {
+          const refs = [mainChartRef, volumeChartRef, rsiChartRef, macdChartRef];
+          const ref = refs[idx];
+          if (ref?.current) {
+            const containerWidth = getSafeChartWidth(ref.current);
+            try {
+              chart.applyOptions({ width: containerWidth });
+            } catch (e) {
+              console.warn('Failed to resize chart', e);
+            }
+          }
+        });
+      }, 100);
     };
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimeout);
+    };
+  }, [getSafeChartWidth]);
 
   // ── Export PNG ─────────────────────────────────────────────────────────
   const exportPNG = () => {
@@ -468,8 +504,8 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
       </p>
 
       {/* ── Controls bar ── */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-wrap items-center gap-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-4 p-4 min-w-max md:min-w-0">
           {/* MA checkboxes */}
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider mr-1">Medias:</span>
@@ -539,36 +575,36 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
       </div>
 
       {/* ── Charts area ── */}
-      <div ref={chartsContainerRef} className="space-y-1">
+      <div ref={chartsContainerRef} className="space-y-1 min-w-0 overflow-hidden">
         {/* Main candlestick chart */}
-        <div className="bg-white dark:bg-gray-800 rounded-t-xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
-          <div ref={mainChartRef} />
+        <div className="bg-white dark:bg-gray-800 rounded-t-xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm transition-colors min-w-0">
+          <div ref={mainChartRef} className="w-full" style={{ minHeight: '250px' }} />
         </div>
 
         {/* Volume chart */}
         {data.hasVolume && (
-          <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
-            <div ref={volumeChartRef} />
+          <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors min-w-0">
+            <div ref={volumeChartRef} className="w-full" style={{ minHeight: '80px' }} />
           </div>
         )}
 
         {/* RSI chart */}
         {showRSI && data.rsi.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
+          <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors min-w-0">
             <div className="px-3 pt-1.5 pb-0">
               <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">RSI (14)</span>
             </div>
-            <div ref={rsiChartRef} />
+            <div ref={rsiChartRef} className="w-full" style={{ minHeight: '80px' }} />
           </div>
         )}
 
         {/* MACD chart */}
         {showMACD && data.macd.macdLine.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-b-xl overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
+          <div className="bg-white dark:bg-gray-800 rounded-b-xl overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors min-w-0">
             <div className="px-3 pt-1.5 pb-0">
               <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">MACD (12, 26, 9)</span>
             </div>
-            <div ref={macdChartRef} />
+            <div ref={macdChartRef} className="w-full" style={{ minHeight: '80px' }} />
           </div>
         )}
       </div>

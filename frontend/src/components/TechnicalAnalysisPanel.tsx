@@ -155,6 +155,16 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
   const chartsRef = useRef<any[]>([]);
   const mainSeriesRefs = useRef<{ type: string, series: any, lastValue: number, color: string, priority: number }[]>([]);
 
+  const getSafeChartWidth = useCallback((el: HTMLElement | null) => {
+    const elWidth = el?.getBoundingClientRect?.().width ?? 0;
+    const containerWidth = chartsContainerRef.current?.getBoundingClientRect?.().width ?? 0;
+    const viewportWidth = document.documentElement?.clientWidth || window.innerWidth || 0;
+    const fallbackWidth = viewportWidth > 0 ? viewportWidth - 32 : 0;
+
+    const width = Math.max(1, Math.floor(elWidth || containerWidth || fallbackWidth || 0));
+    return viewportWidth > 0 ? Math.min(width, viewportWidth) : width;
+  }, []);
+
   // ── Fetch data ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!symbol) return;
@@ -192,6 +202,10 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
 
     const isIntraday = ['1m', '5m', '15m', '1h', '4h'].includes(data.interval || interval || '1d');
 
+    const isMobile = window.innerWidth < 768;
+    const mainHeight = isMobile ? 250 : 420;
+    const subHeight = isMobile ? 80 : 120;
+
     const chartTheme = darkMode ? {
       layout: { background: { color: '#1f2937' }, textColor: '#9ca3af' },
       grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
@@ -216,16 +230,19 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
     // ── Main Chart ──
     if (mainChartRef.current) {
       mainChartRef.current.innerHTML = '';
+      const containerWidth = getSafeChartWidth(mainChartRef.current);
+      
       const chartWrapper = document.createElement('div');
       chartWrapper.style.position = 'relative';
       chartWrapper.style.width = '100%';
-      chartWrapper.style.height = '420px';
+      chartWrapper.style.height = `${mainHeight}px`;
+      chartWrapper.style.overflow = 'hidden';
       mainChartRef.current.appendChild(chartWrapper);
 
       const chart = LightweightCharts.createChart(chartWrapper, {
         ...chartTheme,
-        width: chartWrapper.clientWidth,
-        height: 420,
+        width: containerWidth,
+        height: mainHeight,
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
       });
       chartsRef.current.push(chart);
@@ -429,10 +446,12 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
     // ── Volume Chart with formatted OBV ──
     if (volumeChartRef.current && data.hasVolume) {
       volumeChartRef.current.innerHTML = '';
+      const containerWidth = getSafeChartWidth(volumeChartRef.current);
+      
       const chart = LightweightCharts.createChart(volumeChartRef.current, {
         ...chartTheme,
-        width: volumeChartRef.current.clientWidth,
-        height: 120,
+        width: containerWidth,
+        height: subHeight,
         rightPriceScale: { borderColor: darkMode ? '#4b5563' : '#e5e7eb' },
       });
       chartsRef.current.push(chart);
@@ -470,7 +489,13 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
     // ── RSI Chart ──
     if (rsiChartRef.current && showRSI && data.rsi.length > 0) {
       rsiChartRef.current.innerHTML = '';
-      const chart = LightweightCharts.createChart(rsiChartRef.current, { ...chartTheme, width: rsiChartRef.current.clientWidth, height: 120 });
+      const containerWidth = getSafeChartWidth(rsiChartRef.current);
+      
+      const chart = LightweightCharts.createChart(rsiChartRef.current, {
+        ...chartTheme,
+        width: containerWidth,
+        height: subHeight
+      });
       chartsRef.current.push(chart);
 
       const rsiSeries = chart.addLineSeries({ color: '#a78bfa', lineWidth: 1.5, title: 'RSI(14)' });
@@ -487,7 +512,13 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
     // ── MACD Chart ──
     if (macdChartRef.current && showMACD && data.macd.macdLine.length > 0) {
       macdChartRef.current.innerHTML = '';
-      const chart = LightweightCharts.createChart(macdChartRef.current, { ...chartTheme, width: macdChartRef.current.clientWidth, height: 120 });
+      const containerWidth = getSafeChartWidth(macdChartRef.current);
+      
+      const chart = LightweightCharts.createChart(macdChartRef.current, {
+        ...chartTheme,
+        width: containerWidth,
+        height: subHeight
+      });
       chartsRef.current.push(chart);
 
       const histSeries = chart.addHistogramSeries({ priceScaleId: 'macd', title: 'Hist' });
@@ -515,7 +546,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
         ch.timeScale().subscribeVisibleLogicalRangeChange((range: any) => { if (range) primary.timeScale().setVisibleLogicalRange(range); });
       });
     }
-  }, [data, showSMA20, showSMA50, showSMA200, showEMA20, showEMA50, showBollinger, showRSI, showMACD, symbol, interval, darkMode]);
+  }, [data, showSMA20, showSMA50, showSMA200, showEMA20, showEMA50, showBollinger, showRSI, showMACD, symbol, interval, darkMode, getSafeChartWidth]);
 
   useEffect(() => {
     buildCharts();
@@ -526,16 +557,30 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
   }, [buildCharts]);
 
   useEffect(() => {
+    let resizeTimeout: ReturnType<typeof setTimeout>;
     const handleResize = () => {
-      chartsRef.current.forEach((chart, idx) => {
-        const refs = [mainChartRef, volumeChartRef, rsiChartRef, macdChartRef];
-        const ref = refs[idx];
-        if (ref?.current) chart.applyOptions({ width: ref.current.clientWidth });
-      });
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        chartsRef.current.forEach((chart, idx) => {
+          const refs = [mainChartRef, volumeChartRef, rsiChartRef, macdChartRef];
+          const ref = refs[idx];
+          if (ref?.current) {
+            const containerWidth = getSafeChartWidth(ref.current);
+            try {
+              chart.applyOptions({ width: containerWidth });
+            } catch (e) {
+              console.warn('Failed to resize chart', e);
+            }
+          }
+        });
+      }, 100);
     };
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimeout);
+    };
+  }, [getSafeChartWidth]);
 
   const exportPNG = () => {
     if (!chartsContainerRef.current) return;
@@ -725,10 +770,10 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
       </div>
 
       {/* ── Controls bar ── */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider mr-1">{t.technicalAnalysis.overlays}</span>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-2 sm:gap-4 p-3 sm:p-4 min-w-max md:min-w-0 flex-wrap md:flex-nowrap">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider mr-0.5 sm:mr-1 whitespace-nowrap">{t.technicalAnalysis.overlays}</span>
             {[
               { label: 'SMA 20', checked: showSMA20, set: setShowSMA20, color: '#93c5fd', style: 'solid' as const },
               { label: 'SMA 50', checked: showSMA50, set: setShowSMA50, color: '#fb923c', style: 'solid' as const },
@@ -737,15 +782,15 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
               { label: 'EMA 50', checked: showEMA50, set: setShowEMA50, color: '#a78bfa', style: 'dashed' as const },
               { label: 'Bollinger', checked: showBollinger, set: setShowBollinger, color: 'rgba(100,160,255,1)', style: 'dashed' as const },
             ].map(({ label, checked, set, color, style }) => (
-              <label key={label} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+              <label key={label} className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none whitespace-nowrap">
                 <input
                   type="checkbox"
                   checked={checked}
                   onChange={() => set(!checked)}
-                  className="rounded border-gray-300 dark:border-gray-500 text-primary-500 focus:ring-primary-500 w-3.5 h-3.5 bg-gray-50 dark:bg-gray-700"
+                  className="rounded border-gray-300 dark:border-gray-500 text-primary-500 focus:ring-primary-500 w-3 sm:w-3.5 h-3 sm:h-3.5 bg-gray-50 dark:bg-gray-700"
                 />
                 <span
-                  className="w-4 h-0.5 rounded opacity-90"
+                  className="w-3 sm:w-4 h-0.5 rounded opacity-90"
                   style={{
                     backgroundColor: color,
                     borderBottom: style === 'dashed' ? `2px dashed ${color}` : 'none',
@@ -757,31 +802,31 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
             ))}
           </div>
 
-          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
+          <div className="hidden sm:block h-6 w-px bg-gray-200 dark:bg-gray-700" />
 
-          <div className="flex items-center gap-3">
-            <button onClick={() => setShowRSI(!showRSI)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showRSI ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
-              {showRSI ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} RSI
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button onClick={() => setShowRSI(!showRSI)} className={`flex items-center justify-center sm:justify-start gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors ${showRSI ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+              {showRSI ? <Eye className="w-3 sm:w-3.5 h-3 sm:h-3.5" /> : <EyeOff className="w-3 sm:w-3.5 h-3 sm:h-3.5" />} <span className="hidden sm:inline">RSI</span>
             </button>
-            <button onClick={() => setShowMACD(!showMACD)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showMACD ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
-              {showMACD ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} MACD
+            <button onClick={() => setShowMACD(!showMACD)} className={`flex items-center justify-center sm:justify-start gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-colors ${showMACD ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+              {showMACD ? <Eye className="w-3 sm:w-3.5 h-3 sm:h-3.5" /> : <EyeOff className="w-3 sm:w-3.5 h-3 sm:h-3.5" />} <span className="hidden sm:inline">MACD</span>
             </button>
           </div>
 
-          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 ml-auto" />
+          <div className="hidden sm:block h-6 w-px bg-gray-200 dark:bg-gray-700 ml-auto" />
 
-          <button onClick={exportPNG} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-            <Download className="w-3.5 h-3.5" /> {t.technicalAnalysis.export}
+          <button onClick={exportPNG} className="flex items-center justify-center sm:justify-start gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ml-auto sm:ml-0">
+            <Download className="w-3 sm:w-3.5 h-3 sm:h-3.5" /> <span className="hidden sm:inline">{t.technicalAnalysis.export}</span>
           </button>
         </div>
       </div>
 
       {/* ── Panel split (Charts + Hover Info) ── */}
-      <div className="flex gap-4">
-        <div ref={chartsContainerRef} className="space-y-1 flex-1 min-w-0">
+      <div className="flex gap-4 min-w-0 overflow-hidden">
+        <div ref={chartsContainerRef} className="space-y-1 flex-1 min-w-0 overflow-hidden">
           {/* Main candlestick */}
-          <div className="bg-white dark:bg-gray-800 rounded-t-xl overflow-hidden border border-gray-100 dark:border-gray-700 relative shadow-sm transition-colors">
-            <div ref={mainChartRef} />
+          <div className="bg-white dark:bg-gray-800 rounded-t-xl overflow-hidden border border-gray-100 dark:border-gray-700 relative shadow-sm transition-colors min-w-0">
+            <div ref={mainChartRef} className="w-full" style={{ minHeight: '250px' }} />
             {/* Side tooltip for SR */}
             {hoveredSR && (
               <div className="absolute right-14 top-4 bg-white/95 dark:bg-gray-900/90 border border-gray-200 dark:border-gray-700 text-xs px-3 py-2 rounded-lg shadow-xl z-20 pointer-events-none fade-in">
@@ -796,19 +841,23 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
             )}
           </div>
           {/* Volume */}
-          {data.hasVolume && <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors"><div ref={volumeChartRef} /></div>}
+          {data.hasVolume && (
+            <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors min-w-0">
+              <div ref={volumeChartRef} className="w-full" style={{ minHeight: '80px' }} />
+            </div>
+          )}
           {/* RSI */}
           {showRSI && data.rsi.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
+            <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors min-w-0">
               <div className="px-3 pt-1.5 pb-0"><span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">RSI (14)</span></div>
-              <div ref={rsiChartRef} />
+              <div ref={rsiChartRef} className="w-full" style={{ minHeight: '80px' }} />
             </div>
           )}
           {/* MACD */}
           {showMACD && data.macd.macdLine.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-b-xl overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
+            <div className="bg-white dark:bg-gray-800 rounded-b-xl overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors min-w-0">
               <div className="px-3 pt-1.5 pb-0"><span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">MACD (12, 26, 9)</span></div>
-              <div ref={macdChartRef} />
+              <div ref={macdChartRef} className="w-full" style={{ minHeight: '80px' }} />
             </div>
           )}
         </div>

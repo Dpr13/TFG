@@ -109,8 +109,8 @@ export default function NewsPage() {
       </div>
 
       {/* ── Filters ──────────────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
           {/* Search */}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -119,7 +119,7 @@ export default function NewsPage() {
               placeholder="Buscar noticias..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+              className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
                        bg-white dark:bg-gray-700 text-gray-900 dark:text-white
                        focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
@@ -128,16 +128,16 @@ export default function NewsPage() {
           {/* Filter Today */}
           <button
             onClick={() => setFilterToday(!filterToday)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all
+            className={`flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium text-sm transition-all flex-shrink-0
                      ${filterToday 
                        ? 'bg-blue-600 text-white shadow-md' 
                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                      }`}
           >
             <Filter className="w-4 h-4" />
-            Solo hoy
+            <span className="hidden sm:inline">Solo hoy</span>
             {filterToday && todayCount > 0 && (
-              <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs font-semibold">
+              <span className="px-1.5 sm:px-2 py-0.5 bg-white/20 rounded-full text-xs font-semibold\">
                 {todayCount}
               </span>
             )}

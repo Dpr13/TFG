@@ -146,7 +146,7 @@ function QuickBadge({
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${styles[variant]}`}
+      className={`px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium rounded-full border transition-colors ${styles[variant]}`}
     >
       {label}
     </button>
@@ -322,7 +322,9 @@ export default function RiskAnalysisPage() {
       {/* Header */}
       <div>
         <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          {t.riskAnalysis.title}
+          {activeTab === 'TECH' ? t.riskAnalysis.detailedTitleTechnical : 
+           activeTab === 'FUNDS' ? t.riskAnalysis.detailedTitleFundamental : 
+           t.riskAnalysis.detailedTitleQuantitative}
         </h2>
         <p className="text-gray-600 dark:text-gray-400">
           {t.riskAnalysis.description}
@@ -330,41 +332,43 @@ export default function RiskAnalysisPage() {
       </div>
 
       {/* Search panel */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 space-y-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 dark:border-gray-700 space-y-3 sm:space-y-4">
         {/* Range selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">{t.riskAnalysis.period}</span>
-          {(['6mo', '1y', '3y', '5y', '10y'] as const).map((range) => {
-            const labels = { '6mo': t.riskAnalysis.sixMonths, '1y': t.riskAnalysis.oneYear, '3y': t.riskAnalysis.threeYears, '5y': t.riskAnalysis.fiveYears, '10y': t.riskAnalysis.tenYears };
-            const isRangeValid = activeTab === 'TECH' ? VALID_RANGES[selectedInterval].includes(range) : true;
-            return (
-              <div
-                key={range}
-                className="relative flex items-center"
-                title={!isRangeValid ? `No compatible con intervalo ${selectedInterval}` : undefined}
-              >
-                <button
-                  onClick={() => isRangeValid && setSelectedRange(range)}
-                  disabled={!isRangeValid}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    selectedRange === range
-                      ? 'bg-primary-600 text-white'
-                      : !isRangeValid
-                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 opacity-40 cursor-not-allowed'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 -mx-4 sm:mx-0 px-4 sm:px-0">
+          <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mr-2 whitespace-nowrap">{t.riskAnalysis.period}</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-max">
+            {(['6mo', '1y', '3y', '5y', '10y'] as const).map((range) => {
+              const labels = { '6mo': t.riskAnalysis.sixMonths, '1y': t.riskAnalysis.oneYear, '3y': t.riskAnalysis.threeYears, '5y': t.riskAnalysis.fiveYears, '10y': t.riskAnalysis.tenYears };
+              const isRangeValid = activeTab === 'TECH' ? VALID_RANGES[selectedInterval].includes(range) : true;
+              return (
+                <div
+                  key={range}
+                  className="relative flex items-center"
+                  title={!isRangeValid ? `No compatible con intervalo ${selectedInterval}` : undefined}
                 >
-                  {labels[range]}
-                </button>
-              </div>
-            );
-          })}
+                  <button
+                    onClick={() => isRangeValid && setSelectedRange(range)}
+                    disabled={!isRangeValid}
+                    className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                      selectedRange === range
+                        ? 'bg-primary-600 text-white'
+                        : !isRangeValid
+                        ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 opacity-40 cursor-not-allowed'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {labels[range]}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Interval Selector (Only in TECH tab) */}
         {activeTab === 'TECH' && (
-          <div className="flex flex-wrap items-center mt-3 p-3 gap-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-700 relative">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">{t.riskAnalysis.interval}</span>
+          <div className="flex flex-wrap items-center mt-2 sm:mt-3 p-2 sm:p-3 gap-1.5 sm:gap-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-700 relative">
+            <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mr-1 sm:mr-2 w-full sm:w-auto">{t.riskAnalysis.interval}</span>
             {INTERVALS.map((inv) => (
               <button
                 key={inv}
@@ -377,7 +381,7 @@ export default function RiskAnalysisPage() {
                     setSelectedRange(nextRange as any);
                   }
                 }}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold transition-colors ${
                   selectedInterval === inv
                     ? 'bg-primary-500 text-white shadow-sm'
                     : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
@@ -388,13 +392,18 @@ export default function RiskAnalysisPage() {
             ))}
             
             {intervalToast && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 bg-primary-100 dark:bg-primary-900/40 text-primary-800 dark:text-primary-300 px-3 py-1.5 rounded-md text-xs font-medium animate-pulse">
+              <div className="hidden sm:block absolute right-4 top-1/2 -translate-y-1/2 bg-primary-100 dark:bg-primary-900/40 text-primary-800 dark:text-primary-300 px-3 py-1.5 rounded-md text-xs font-medium animate-pulse">
+                {intervalToast}
+              </div>
+            )}
+            {intervalToast && (
+              <div className="sm:hidden text-[10px] text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 px-2 py-1 rounded font-medium w-full text-center">
                 {intervalToast}
               </div>
             )}
           </div>
         )}
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <SymbolAutocomplete
             value={symbol}
             onChange={(sym) => {
@@ -405,37 +414,37 @@ export default function RiskAnalysisPage() {
             placeholder={t.riskAnalysis.searchPlaceholder}
             className="flex-1"
             showSearchIcon
-            inputClassName="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+            inputClassName="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
           />
           <button
             onClick={() => analyze(symbol)}
             disabled={loading || !symbol.trim()}
-            className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700
+            className="px-3 sm:px-6 py-2 sm:py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700
                        disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed
-                       transition-colors flex items-center gap-2 font-medium"
+                       transition-colors flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 font-medium text-sm sm:text-base flex-shrink-0"
           >
             {loading
-              ? <><Loader2 className="w-5 h-5 animate-spin" /><span>{t.riskAnalysis.analyzing}</span></>
-              : <><TrendingUp className="w-5 h-5" /><span>{t.riskAnalysis.analyze}</span></>
+              ? <><Loader2 className="w-4 sm:w-5 h-4 sm:h-5 animate-spin" /><span className="hidden sm:inline">{t.riskAnalysis.analyzing}</span></>
+              : <><TrendingUp className="w-4 sm:w-5 h-4 sm:h-5" /><span className="hidden sm:inline">{t.riskAnalysis.analyze}</span></>
             }
           </button>
         </div>
 
         {/* Popular symbols */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-gray-400 mr-1">{t.riskAnalysis.popular}</span>
-          {QUICK_SYMBOLS.map((s) => (
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="text-[10px] sm:text-xs text-gray-400 mr-0.5 sm:mr-1">{t.riskAnalysis.popular}</span>
+          {QUICK_SYMBOLS.slice(0, 6).map((s) => (
             <QuickBadge key={s} label={s} onClick={() => analyze(s)} variant="default" />
           ))}
         </div>
 
         {/* Watchlist shortcuts */}
         {watchlist.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
-            <span className="text-xs text-gray-400 flex items-center gap-1 mr-1">
-              <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" /> {t.riskAnalysis.tracking}
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700">
+            <span className="text-[10px] sm:text-xs text-gray-400 flex items-center gap-1 mr-0.5 sm:mr-1">
+              <Star className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-yellow-400 fill-yellow-400" /> {t.riskAnalysis.tracking}
             </span>
-            {watchlist.slice(0, 8).map((a) => (
+            {watchlist.slice(0, 5).map((a) => (
               <QuickBadge key={a.symbol} label={a.symbol} onClick={() => analyze(a.symbol)} variant="watchlist" />
             ))}
           </div>
@@ -443,11 +452,11 @@ export default function RiskAnalysisPage() {
 
         {/* Recent history */}
         {history.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
-            <span className="text-xs text-gray-400 flex items-center gap-1 mr-1">
-              <Clock className="w-3 h-3" /> {t.riskAnalysis.recent}
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-2 sm:pt-3 border-t border-gray-100 dark:border-gray-700">
+            <span className="text-[10px] sm:text-xs text-gray-400 flex items-center gap-1 mr-0.5 sm:mr-1">
+              <Clock className="w-2.5 sm:w-3 h-2.5 sm:h-3" /> {t.riskAnalysis.recent}
             </span>
-            {history.map((s) => (
+            {history.slice(0, 5).map((s) => (
               <QuickBadge key={s} label={s} onClick={() => analyze(s)} variant="history" />
             ))}
           </div>
