@@ -56,6 +56,14 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
   const getSafeChartWidth = useCallback(() => {
     const el = chartContainerRef.current;
     const elWidth = el?.getBoundingClientRect?.().width ?? 0;
@@ -437,11 +445,11 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[9999] flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[9999] flex items-stretch sm:items-center justify-center p-0 sm:p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-800 shadow-xl w-full sm:max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[90vh] rounded-none sm:rounded-lg overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
 
@@ -494,11 +502,11 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
         </div>
 
         {/* Content */}
-        <div className="p-4 sm:p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-6">
 
           {/* Precio Actual */}
           <div className="bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
               <div className="flex items-center gap-2">
                 <DollarSign className="w-6 h-6 text-primary-600 dark:text-primary-400" />
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -507,7 +515,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
               </div>
 
               {/* Selector de intervalo */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-start sm:self-auto">
                 <Clock className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                 <select
                   value={selectedInterval}
@@ -533,8 +541,8 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
               <p className="text-red-600 dark:text-red-400">{priceError}</p>
             ) : stats ? (
               <div>
-                <div className="flex items-end gap-4 mb-4">
-                  <span className="text-5xl font-bold text-gray-900 dark:text-white">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4 mb-4">
+                  <span className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white">
                     {formatCurrency(stats.current)}
                   </span>
                   <div className={`flex items-center gap-2 pb-2 ${stats.changePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
@@ -581,7 +589,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
           {/* Gráfico de Evolución Simple */}
           {(loadingChart || chartData?.prices && chartData.prices.length > 0) && (
             <div>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-gray-700 dark:text-gray-300" />
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -590,7 +598,7 @@ export default function AssetDetailModal({ asset, onClose, isFavorite = false, o
                 </div>
 
                 {/* Selector de intervalo para el gráfico */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 self-start sm:self-auto">
                   <Clock className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                   <select
                     value={chartInterval}
