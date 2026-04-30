@@ -324,6 +324,8 @@ export default function ProfilePage() {
                 >
                   <option value="es">{t.profile.spanish}</option>
                   <option value="en">{t.profile.english}</option>
+                  <option value="de">{t.profile.german}</option>
+                  <option value="fr">{t.profile.french}</option>
                 </select>
               </div>
             </div>

@@ -186,6 +186,8 @@ const es = {
     languageDesc: 'Selecciona el idioma de la interfaz',
     spanish: 'Español',
     english: 'English',
+    german: 'Alemán',
+    french: 'Francés',
     saving: 'Guardando...',
     profileUpdated: 'Perfil actualizado correctamente',
     profileError: 'Error al actualizar el perfil',
