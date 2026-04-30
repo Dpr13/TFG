@@ -351,6 +351,7 @@ const es = {
     description: 'Calcula métricas de riesgo avanzadas para cualquier activo financiero',
     period: 'Período:',
     interval: 'Intervalo:',
+    currentDataOnly: 'Datos actuales — independientes del horizonte seleccionado',
     sixMonths: '6 meses',
     oneYear: '1 año',
     threeYears: '3 años',
@@ -595,15 +596,40 @@ const es = {
     tables: {
       fundamental: {
         title: 'Análisis de Riesgo Fundamental',
-        desc: 'Métricas de valoración y rentabilidad empresarial'
+        desc: 'Métricas de valoración y rentabilidad empresarial',
+        marketCap: 'Market Cap',
+        peRatio: 'P/E Ratio',
+        roe: 'ROE',
+        netMargin: 'Margen Neto',
+        dividend: 'Dividendo',
+        eps: 'EPS',
+        priceBook: 'Price/Book',
+        debtEquity: 'Deuda/Equity',
       },
       technical: {
         title: 'Análisis de Riesgo Técnico',
-        desc: 'Señales de precio y momentum en el período seleccionado'
+        desc: 'Señales de precio y momentum en el período seleccionado',
+        periodChange: 'Cambio en el período',
+        rsi: 'RSI (14)',
+        trend: 'Tendencia',
+        overSMA50: 'Sobre SMA50',
+        overSMA200: 'Sobre SMA200',
+        macd: 'MACD',
+        technicalScore: 'Puntuación técnica',
+        bullish: 'Alcista',
+        bearish: 'Bajista',
+        yes: 'Sí',
+        no: 'No',
       },
       risk: {
         title: 'Análisis de Riesgo Cuantitativo',
-        desc: 'Volatilidad, drawdown y métricas de riesgo/retorno'
+        desc: 'Volatilidad, drawdown y métricas de riesgo/retorno',
+        volatilityAnnual: 'Volatilidad anual',
+        annualizedReturn: 'Retorno anualizado',
+        sharpeRatio: 'Sharpe Ratio',
+        var95: 'VaR 95%',
+        maxDrawdown: 'Max Drawdown',
+        beta: 'Beta',
       },
       metricHeader: 'Métrica'
     }
@@ -736,13 +762,16 @@ const es = {
   // ── Technical Analysis (ТechnicalAnalysisPanel) ──
   technicalAnalysis: {
     title: 'Análisis de Riesgo Técnico',
-    generating: 'Generando...',
+    generating: 'Generando análisis técnico...',
+    noData: 'Datos técnicos no disponibles para este activo.',
     disclaimer: 'Señal informativa y automática; no constituye asesoría de inversión.',
+    signalDisclaimer: 'Esta señal es puramente informativa y se genera de forma automática a partir de indicadores técnicos. No constituye asesoramiento financiero ni recomendación de inversión.',
     regenerateSummary: 'Regenerar resumen IA',
     generateSummary: 'Generar resumen IA',
     aiSummary: 'Resumen IA',
     overlays: 'Superposiciones:',
     export: 'Exportar',
+    exportPNG: 'Exportar PNG',
     dataLimitWarning: 'Los datos de intervalo {interval} en Yahoo Finance tienen un límite de {days} días históricos.',
     historicalDataLimit: 'días históricos',
     analysisError: 'Error al analizar el activo',
@@ -763,6 +792,12 @@ const es = {
       obv: 'Volumen / OBV',
     },
     sr: {
+      title: 'Niveles de Soporte y Resistencia',
+      supports: 'Soportes',
+      resistances: 'Resistencias',
+      noSupports: 'No se detectaron soportes claros',
+      noResistances: 'No se detectaron resistencias claras',
+      strength: 'Fuerza:',
       resistance: 'Resistencia',
       support: 'Soporte',
     },

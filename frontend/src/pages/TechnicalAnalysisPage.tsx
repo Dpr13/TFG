@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { assetService } from '@services/index';
 import { useTheme } from '@/context/ThemeContext';
+import { useLanguage } from '@/context/LanguageContext';
 import AnalysisSummaryCard, { AnalysisVariant } from '@components/AnalysisSummaryCard';
 import type { TechnicalAnalysisResult, TechnicalSignalClass, SignalBreakdown } from '../types';
 
@@ -67,6 +68,7 @@ interface TechnicalAnalysisPanelProps {
 
 export default function TechnicalAnalysisPanel({ symbol, selectedRange }: TechnicalAnalysisPanelProps) {
   const { darkMode } = useTheme();
+  const { t } = useLanguage();
   const [data, setData] = useState<TechnicalAnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -458,7 +460,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     return (
       <div className="flex items-center justify-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
         <Loader2 className="w-6 h-6 animate-spin text-primary-500 mr-3" />
-        <span className="text-gray-500 dark:text-gray-400">Generando análisis técnico...</span>
+        <span className="text-gray-500 dark:text-gray-400">{t.technicalAnalysis.generating}</span>
       </div>
     );
   }
@@ -475,7 +477,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
   if (!data) {
     return (
       <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-        <p className="text-gray-500 dark:text-gray-400">Datos técnicos no disponibles para este activo.</p>
+        <p className="text-gray-500 dark:text-gray-400">{t.technicalAnalysis.noData}</p>
       </div>
     );
   }
@@ -499,8 +501,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
 
       {/* Legal disclaimer */}
       <p className="text-xs text-gray-500 dark:text-gray-500 leading-relaxed px-1">
-        Esta señal es puramente informativa y se genera de forma automática a partir de indicadores técnicos.
-        No constituye asesoramiento financiero ni recomendación de inversión.
+        {t.technicalAnalysis.signalDisclaimer}
       </p>
 
       {/* ── Controls bar ── */}
@@ -613,21 +614,21 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
       {(data.supports.length > 0 || data.resistances.length > 0) && (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-gray-200 dark:border-gray-700">
           <h4 className="font-semibold text-gray-900 dark:text-white mb-3 text-sm">
-            Niveles de Soporte y Resistencia
+            {t.technicalAnalysis.sr.title}
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Supports */}
             <div>
-              <p className="text-xs font-bold text-green-500 uppercase tracking-wider mb-2">Soportes</p>
+              <p className="text-xs font-bold text-green-500 uppercase tracking-wider mb-2">{t.technicalAnalysis.sr.supports}</p>
               {data.supports.length === 0 ? (
-                <p className="text-xs text-gray-500">No se detectaron soportes claros</p>
+                <p className="text-xs text-gray-500">{t.technicalAnalysis.sr.noSupports}</p>
               ) : (
                 <div className="space-y-1.5">
                   {data.supports.map((s, i) => (
                     <div key={i} className="flex items-center justify-between bg-green-50 dark:bg-green-900/10 rounded-lg px-3 py-2 border border-green-100 dark:border-transparent">
                       <span className="text-sm font-mono font-semibold text-green-600 dark:text-green-400">${s.price.toFixed(2)}</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">{s.date.split('T')[0]}</span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">Fuerza: {s.strength}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">{t.technicalAnalysis.sr.strength} {s.strength}</span>
                     </div>
                   ))}
                 </div>
@@ -635,16 +636,16 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
             </div>
             {/* Resistances */}
             <div>
-              <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">Resistencias</p>
+              <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">{t.technicalAnalysis.sr.resistances}</p>
               {data.resistances.length === 0 ? (
-                <p className="text-xs text-gray-500">No se detectaron resistencias claras</p>
+                <p className="text-xs text-gray-500">{t.technicalAnalysis.sr.noResistances}</p>
               ) : (
                 <div className="space-y-1.5">
                   {data.resistances.map((r, i) => (
                     <div key={i} className="flex items-center justify-between bg-red-50 dark:bg-red-900/10 rounded-lg px-3 py-2 border border-red-100 dark:border-transparent">
                       <span className="text-sm font-mono font-semibold text-red-600 dark:text-red-400">${r.price.toFixed(2)}</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">{r.date.split('T')[0]}</span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">Fuerza: {r.strength}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">{t.technicalAnalysis.sr.strength} {r.strength}</span>
                     </div>
                   ))}
                 </div>

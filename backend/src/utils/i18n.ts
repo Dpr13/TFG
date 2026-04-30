@@ -304,10 +304,23 @@ export const i18n = {
 };
 
 export const getLanguage = (acceptLanguage?: string): Language => {
-  if (!acceptLanguage) return 'es';
+  if (!acceptLanguage) {
+    // If no header, check localStorage from user session
+    return 'es';
+  }
   const lang = acceptLanguage.toLowerCase();
-  if (lang.includes('de')) return 'de';
-  if (lang.includes('fr')) return 'fr';
-  if (lang.includes('en')) return 'en';
+  // Parse quality values and get the most preferred language
+  const languages = lang.split(',').map(l => {
+    const [lang, q] = l.split(';');
+    const quality = q ? parseFloat(q.replace('q=', '')) : 1;
+    return { lang: lang.trim(), quality };
+  }).sort((a, b) => b.quality - a.quality);
+  
+  for (const { lang } of languages) {
+    if (lang.includes('de')) return 'de';
+    if (lang.includes('fr')) return 'fr';
+    if (lang.includes('en')) return 'en';
+    if (lang.includes('es')) return 'es';
+  }
   return 'es';
 };

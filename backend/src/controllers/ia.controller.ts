@@ -11,7 +11,7 @@ export const analyzeIA = async (req: Request, res: Response): Promise<void> => {
     const {
       ticker, direccion, intervalo, horizonte, precio_entrada, sl, metodo_sl,
       tps, tps_detalle, risk_management,
-      datos_tecnicos, datos_fundamentales,
+      datos_tecnicos, datos_fundamentales, lang: payloadLang,
     } = req.body;
 
     if (!ticker || !precio_entrada) {
@@ -19,7 +19,8 @@ export const analyzeIA = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const lang = getLanguage(req.headers['accept-language'] as string);
+    // Use lang from payload first, then from header
+    const lang = payloadLang || getLanguage(req.headers['accept-language'] as string);
 
     const ctx = construirContexto({
       ticker,
@@ -56,14 +57,15 @@ export const analyzeIA = async (req: Request, res: Response): Promise<void> => {
  */
 export const chatIAEndpoint = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { contexto, historial, mensaje } = req.body;
+    const { contexto, historial, mensaje, lang: payloadLang } = req.body;
 
     if (!mensaje || !contexto) {
       res.status(400).json({ respuesta: 'Faltan datos obligatorios.', ok: false });
       return;
     }
 
-    const lang = getLanguage(req.headers['accept-language'] as string);
+    // Use lang from payload first, then from header
+    const lang = payloadLang || getLanguage(req.headers['accept-language'] as string);
 
     const ctx = construirContexto({
       ticker: contexto.ticker,

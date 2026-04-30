@@ -43,8 +43,8 @@ export const compararActivos = async (req: Request, res: Response): Promise<void
  */
 export const veredictoComparativa = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { resultados, horizonte = '1y' } = req.body;
-    const lang = getLanguage(req.headers['accept-language']);
+    const { resultados, horizonte = '1y', lang: payloadLang } = req.body;
+    const lang = payloadLang || getLanguage(req.headers['accept-language']);
     const t = i18n[lang];
 
     if (!Array.isArray(resultados) || resultados.length < 2) {

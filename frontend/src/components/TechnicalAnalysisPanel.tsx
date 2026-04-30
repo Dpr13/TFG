@@ -617,6 +617,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange, interval
       ticker: data.symbol,
       intervalo: data.interval,
       horizonte: data.range,
+      lang: language,
       datos_tecnicos: {
         rsi: data.rsi.length > 0 ? data.rsi[data.rsi.length - 1].value : null,
         macd_hist: data.macd.histogram.length > 0 ? data.macd.histogram[data.macd.histogram.length - 1].value : 0,

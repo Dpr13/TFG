@@ -15,7 +15,7 @@ const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d', '1wk', '1mo'] as const;
 
 export default function RecommendationPage() {
   const { darkMode } = useTheme();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [symbol, setSymbol] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -225,11 +225,10 @@ export default function RecommendationPage() {
           resistencia_cercana: resistenciaCercana,
         },
         datos_fundamentales: {},
+        lang: language,
       };
 
       chatContextRef.current = iaPayload;
-
-      iaService.analyze(iaPayload)
         .then((iaRes) => {
           setIaResumen(iaRes.resumen);
           setIaJustificacion(iaRes.justificacion);

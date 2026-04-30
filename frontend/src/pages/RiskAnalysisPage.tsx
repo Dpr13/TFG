@@ -695,7 +695,7 @@ export default function RiskAnalysisPage() {
                   <div className="flex items-center gap-2 px-1">
                     <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
                     <span className="text-[10px] uppercase tracking-widest font-bold text-gray-500 dark:text-gray-400">
-                      Datos actuales — independientes del horizonte seleccionado
+                      {t.riskAnalysis.currentDataOnly}
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
