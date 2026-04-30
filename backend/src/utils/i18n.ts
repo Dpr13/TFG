@@ -1,4 +1,4 @@
-export type Language = 'es' | 'en';
+export type Language = 'es' | 'en' | 'de' | 'fr';
 
 export const i18n = {
   es: {
@@ -305,5 +305,9 @@ export const i18n = {
 
 export const getLanguage = (acceptLanguage?: string): Language => {
   if (!acceptLanguage) return 'es';
-  return acceptLanguage.toLowerCase().includes('en') ? 'en' : 'es';
+  const lang = acceptLanguage.toLowerCase();
+  if (lang.includes('de')) return 'de';
+  if (lang.includes('fr')) return 'fr';
+  if (lang.includes('en')) return 'en';
+  return 'es';
 };
