@@ -246,9 +246,9 @@ const en: Translations = {
 
   // ── Assets Page ──
   assets: {
-    title: 'Search Assets',
-    subtitle: 'Search and analyze stocks, cryptocurrencies and more',
-    searchPlaceholder: 'Search by name or symbol (e.g.: AAPL, KO, NFLX)...',
+    title: 'Financial Assets',
+    subtitle: 'Explore and analyze different available assets',
+    searchPlaceholder: 'Search by name or symbol (e.g: AAPL, KO, NFLX)...',
     watchlist: 'Watchlist',
     recentSearches: 'Search',
     noWatchlistItems: 'Your watchlist is empty.',
@@ -258,6 +258,21 @@ const en: Translations = {
     stock: 'Stock',
     crypto: 'Crypto',
     forex: 'Forex',
+    tabs: {
+      all: 'All',
+      watchlist: 'Watchlist',
+    },
+    filters: {
+      allTypes: 'All Types',
+    },
+    search: 'Search',
+    noResults: 'No assets found matching your search',
+    trySpecific: 'Try searching for a specific symbol (e.g: AAPL, NFLX, META) by pressing Enter or the "Search" button',
+    options: {
+      stock: 'Stocks',
+      crypto: 'Cryptocurrencies',
+      forex: 'Forex',
+    },
   },
 
   assetDetail: {

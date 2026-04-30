@@ -105,10 +105,10 @@ export default function AssetsPage() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Activos Financieros
+            {t.assets.title}
           </h2>
           <p className="text-gray-600 dark:text-gray-400">
-            Explora y analiza diferentes activos disponibles
+            {t.assets.subtitle}
           </p>
         </div>
         {/* Tabs vista */}
@@ -121,7 +121,7 @@ export default function AssetsPage() {
                 : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
-            Todos
+            {t.assets.tabs.all}
           </button>
           <button
             onClick={() => setActiveView('watchlist')}
@@ -132,7 +132,7 @@ export default function AssetsPage() {
             }`}
           >
             <Star className="w-4 h-4" fill={activeView === 'watchlist' ? 'currentColor' : 'none'} />
-            Seguimiento
+            {t.assets.tabs.watchlist}
             {watchlist.length > 0 && (
               <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
                 activeView === 'watchlist'
@@ -178,7 +178,7 @@ export default function AssetsPage() {
               ) : (
                 <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
               )}
-              <span className="hidden sm:inline">Buscar</span>
+              <span className="hidden sm:inline">{t.assets.search}</span>
             </button>
           </div>
           <select
@@ -188,10 +188,10 @@ export default function AssetsPage() {
                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white
                      focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
-            <option value="">Todos los tipos</option>
-            <option value="stock">Acciones</option>
-            <option value="crypto">Criptomonedas</option>
-            <option value="forex">Forex</option>
+            <option value="">{t.assets.filters.allTypes}</option>
+            <option value="stock">{t.assets.options.stock}</option>
+            <option value="crypto">{t.assets.options.crypto}</option>
+            <option value="forex">{t.assets.options.forex}</option>
           </select>
         </div>
         {searchError && (
@@ -282,11 +282,11 @@ export default function AssetsPage() {
           ) : (
             <>
               <p className="text-gray-600 dark:text-gray-400 mb-2">
-                No se encontraron activos que coincidan con tu búsqueda
+                {t.assets.noResults}
               </p>
               {searchQuery && (
                 <p className="text-sm text-gray-500 dark:text-gray-500">
-                  Intenta buscar un símbolo específico (ej: AAPL, NFLX, META) presionando Enter o el botón "Buscar"
+                  {t.assets.trySpecific}
                 </p>
               )}
             </>

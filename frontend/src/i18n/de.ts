@@ -245,8 +245,8 @@ footer: {
 
 // ── Assets Page ──
 assets: {
-  title: 'Assets suchen',
-  subtitle: 'Suche und analysiere Aktien, Kryptowährungen und mehr',
+  title: 'Finanzielle Assets',
+  subtitle: 'Erkunde und analysiere verschiedene verfügbare Assets',
   searchPlaceholder: 'Suche nach Name oder Symbol (z. B.: AAPL, KO, NFLX)...',
   watchlist: 'Watchlist',
   recentSearches: 'Suchen',
@@ -257,6 +257,21 @@ assets: {
   stock: 'Aktie',
   crypto: 'Krypto',
   forex: 'Forex',
+  tabs: {
+    all: 'Alle',
+    watchlist: 'Watchlist',
+  },
+  filters: {
+    allTypes: 'Alle Typen',
+  },
+  search: 'Suchen',
+  noResults: 'Keine Assets gefunden, die Ihrer Suche entsprechen',
+  trySpecific: 'Versuchen Sie, nach einem bestimmten Symbol (z. B.: AAPL, NFLX, META) zu suchen, indem Sie die Eingabetaste drücken oder auf die Schaltfläche "Suchen" klicken',
+  options: {
+    stock: 'Aktien',
+    crypto: 'Kryptowährungen',
+    forex: 'Forex',
+  },
 },
 
 assetDetail: {

@@ -245,8 +245,8 @@ const es = {
 
   // ── Assets Page ──
   assets: {
-    title: 'Buscar Activos',
-    subtitle: 'Busca y analiza acciones, criptomonedas y más',
+    title: 'Activos Financieros',
+    subtitle: 'Explora y analiza diferentes activos disponibles',
     searchPlaceholder: 'Buscar por nombre o símbolo (ej: AAPL, KO, NFLX)...',
     watchlist: 'Watchlist',
     recentSearches: 'Buscar',
@@ -257,6 +257,21 @@ const es = {
     stock: 'Acción',
     crypto: 'Cripto',
     forex: 'Forex',
+    tabs: {
+      all: 'Todos',
+      watchlist: 'Seguimiento',
+    },
+    filters: {
+      allTypes: 'Todos los tipos',
+    },
+    search: 'Buscar',
+    noResults: 'No se encontraron activos que coincidan con tu búsqueda',
+    trySpecific: 'Intenta buscar un símbolo específico (ej: AAPL, NFLX, META) presionando Enter o el botón "Buscar"',
+    options: {
+      stock: 'Acciones',
+      crypto: 'Criptomonedas',
+      forex: 'Forex',
+    },
   },
 
   assetDetail: {
