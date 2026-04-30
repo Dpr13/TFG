@@ -719,7 +719,7 @@ const es = {
     winRateBelow50: '⚠️ Tu tasa de ganancia está por debajo del 50%, considera revisar tu estrategia.',
     recoverySuccess: '✅ Recuperas bien de las pérdidas ({rate}% de éxito).',
     recoveryLow: '⚠️ Tus intentos de recuperación tienen baja tasa de éxito ({rate}%). Evita operar emocionalmente.',
-    moreOpsAfterLoss: '⚠️ Haces más operaciones después de pérdidas que después de ganancias. Potencial',
+    moreOpsAfterLoss: '⚠️ Haces más operaciones después de pérdidas que después de ganancias. Comportamiento potencialmanete riesgoso.',
     controlledBehavior: 'Tu comportamiento es controlado: menos operaciones después de pérdidas.',
   },
 

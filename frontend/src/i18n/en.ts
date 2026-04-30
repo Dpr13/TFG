@@ -720,7 +720,7 @@ const en: Translations = {
     winRateBelow50: '⚠️ Your win rate is below 50%, consider reviewing your strategy.',
     recoverySuccess: '✅ You recover well from losses ({rate}% success rate).',
     recoveryLow: '⚠️ Your recovery attempts have a low success rate ({rate}%). Avoid trading emotionally.',
-    moreOpsAfterLoss: '⚠️ You make more trades after losses than after wins. Potential',
+    moreOpsAfterLoss: '⚠️ You make more trades after losses than after wins. Potential risky behavior',
     controlledBehavior: 'Your behavior is controlled: fewer trades after losses.',
   },
 

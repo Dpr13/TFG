@@ -1,6 +1,6 @@
 import type { Translations } from './es';
 
-const gr: Translations = {
+const de: Translations = {
   // ── Common ──
   common: {
     save: 'Änderungen speichern',
@@ -792,4 +792,4 @@ ia: {
 }
 };
 
-export default gr;
+export default de;
