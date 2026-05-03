@@ -768,10 +768,25 @@ const es = {
 
   // ── News Page ──
   news: {
-    title: 'Noticias Financieras',
-    subtitle: 'Últimas noticias de los mercados financieros',
+    title: 'Noticias del mercado',
+    subtitle: 'Mantente informado con las últimas noticias financieras',
+    back: 'Volver',
     searchPlaceholder: 'Buscar noticias...',
-    noNews: 'No hay noticias disponibles.',
+    onlyToday: 'Solo hoy',
+    noNews: 'No hay noticias disponibles',
+    noNewsToday: 'No hay noticias publicadas hoy. Intenta desactivar el filtro.',
+    noResults: 'Intenta con un término de búsqueda diferente.',
+    banner: {
+      source: 'Actualizado en tiempo real · Yahoo Finance',
+      title: '¡Revisa las últimas noticias del mercado!',
+      subtitle: 'Usa el buscador para filtrar por empresa, sector o activo.',
+    },
+    time: {
+      ago: 'hace',
+      min: 'min',
+      hour: 'h',
+      day: 'd'
+    }
   },
 
   // ── Technical Analysis (ТechnicalAnalysisPanel) ──

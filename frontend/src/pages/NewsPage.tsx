@@ -11,25 +11,29 @@ import {
 } from 'lucide-react';
 import { useFetch } from '@hooks/useFetch';
 import { newsService } from '@services/index';
+import { useLanguage } from '../context/LanguageContext';
 
 import type { NewsArticle } from '../types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: any): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `hace ${mins} min`;
+  const { ago, min, hour, day } = t.news.time;
+
+  if (mins < 60) return ago ? `${ago} ${mins} ${min}` : `${mins} ${min}`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `hace ${hours} h`;
+  if (hours < 24) return ago ? `${ago} ${hours} ${hour}` : `${hours} ${hour}`;
   const days = Math.floor(hours / 24);
-  return `hace ${days} d`;
+  return ago ? `${ago} ${days} ${day}` : `${days} ${day}`;
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function NewsPage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('financial markets stocks economy');
   const [filterToday, setFilterToday] = useState(false);
 
@@ -69,17 +73,18 @@ export default function NewsPage() {
           className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors mb-3"
         >
           <ChevronLeft className="w-4 h-4" />
-          Volver
+          {t.news.back}
         </button>
         <div className="flex items-center gap-3 mb-2">
           <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+            <Newspaper className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Noticias del mercado
+            {t.news.title}
           </h1>
         </div>
         <p className="text-gray-600 dark:text-gray-400">
-          Mantente informado con las últimas noticias financieras
+          {t.news.subtitle}
         </p>
       </div>
 
@@ -96,13 +101,13 @@ export default function NewsPage() {
           </div>
           <div>
             <p className="text-xs font-semibold text-blue-100 uppercase tracking-widest mb-0.5">
-              Actualizado en tiempo real · Yahoo Finance
+              {t.news.banner.source}
             </p>
             <h2 className="text-xl font-bold text-white">
-              ¡Revisa las últimas noticias del mercado!
+              {t.news.banner.title}
             </h2>
             <p className="text-blue-100 text-sm mt-0.5">
-              Usa el buscador para filtrar por empresa, sector o activo.
+              {t.news.banner.subtitle}
             </p>
           </div>
         </div>
@@ -116,7 +121,7 @@ export default function NewsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Buscar noticias..."
+              placeholder={t.news.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
@@ -135,9 +140,9 @@ export default function NewsPage() {
                      }`}
           >
             <Filter className="w-4 h-4" />
-            <span className="hidden sm:inline">Solo hoy</span>
+            <span className="hidden sm:inline">{t.news.onlyToday}</span>
             {filterToday && todayCount > 0 && (
-              <span className="px-1.5 sm:px-2 py-0.5 bg-white/20 rounded-full text-xs font-semibold\">
+              <span className="px-1.5 sm:px-2 py-0.5 bg-white/20 rounded-full text-xs font-semibold">
                 {todayCount}
               </span>
             )}
@@ -171,12 +176,12 @@ export default function NewsPage() {
             <Newspaper className="w-8 h-8 text-gray-400" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            No hay noticias disponibles
+            {t.news.noNews}
           </h3>
           <p className="text-gray-500 dark:text-gray-400">
             {filterToday 
-              ? 'No hay noticias publicadas hoy. Intenta desactivar el filtro.'
-              : 'Intenta con un término de búsqueda diferente.'
+              ? t.news.noNewsToday
+              : t.news.noResults
             }
           </p>
         </div>
@@ -229,7 +234,7 @@ export default function NewsPage() {
                     <span className="truncate max-w-[160px]">{article.publisher}</span>
                     <span>·</span>
                     <span className={`font-medium ${isToday ? 'text-green-600 dark:text-green-400' : ''}`}>
-                      {timeAgo(article.publishedAt)}
+                      {timeAgo(article.publishedAt, t)}
                     </span>
                   </div>
                 </div>

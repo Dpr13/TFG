@@ -134,8 +134,14 @@ export function construirContexto(data: {
   const sl_dist = Math.abs(precio_entrada - sl) / precio_entrada * 100;
 
   // RSI zone
+  const rsi_labels: Record<Language, { overbought: string, oversold: string, neutral: string }> = {
+    es: { overbought: 'sobrecompra', oversold: 'sobreventa', neutral: 'neutral' },
+    en: { overbought: 'overbought', oversold: 'oversold', neutral: 'neutral' },
+    fr: { overbought: 'surachat', oversold: 'survente', neutral: 'neutre' },
+    de: { overbought: 'überkauft', oversold: 'überverkauft', neutral: 'neutral' },
+  };
   const rsi_zona = rsi != null
-    ? (rsi > 70 ? (lang === 'es' ? 'sobrecompra' : 'overbought') : rsi < 30 ? (lang === 'es' ? 'sobreventa' : 'oversold') : 'neutral')
+    ? (rsi > 70 ? rsi_labels[lang].overbought : rsi < 30 ? rsi_labels[lang].oversold : rsi_labels[lang].neutral)
     : 'N/A';
 
   const tps_str = tps.map((tp, i) => {
@@ -180,16 +186,23 @@ export function construirContexto(data: {
     valor_posicion: rm.valor_posicion ?? 0,
     rsi,
     rsi_zona,
-    macd: macd_alcista ? (lang === 'es' ? 'alcista' : 'bullish') : (lang === 'es' ? 'bajista' : 'bearish'),
+    macd: (macd_alcista ? { es: 'alcista', en: 'bullish', fr: 'haussier', de: 'bullisch' } : { es: 'bajista', en: 'bearish', fr: 'baissier', de: 'bärisch' })[lang],
     macd_hist_valor: macd_hist_raw,
-    sma: lang === 'es' 
-      ? `${sobre_sma50 ? 'por encima' : 'por debajo'} de SMA50, ${sobre_sma200 ? 'por encima' : 'por debajo'} de SMA200`
-      : `${sobre_sma50 ? 'above' : 'below'} SMA50, ${sobre_sma200 ? 'above' : 'below'} SMA200`,
-    estado_sma50: lang === 'es' ? (sobre_sma50 ? 'por encima' : 'por debajo') : (sobre_sma50 ? 'above' : 'below'),
-    estado_sma200: lang === 'es' ? (sobre_sma200 ? 'por encima' : 'por debajo') : (sobre_sma200 ? 'above' : 'below'),
-    tendencia_sma: lang === 'es' 
-      ? (sma50_sobre_sma200 ? 'alcista (golden cross)' : 'bajista (death cross)')
-      : (sma50_sobre_sma200 ? 'bullish (golden cross)' : 'bearish (death cross)'),
+    sma: ((): string => {
+      const texts = {
+        es: { above: 'por encima de', below: 'por debajo de' },
+        en: { above: 'above', below: 'below' },
+        fr: { above: 'au-dessus de', below: 'en dessous de' },
+        de: { above: 'über', below: 'unter' },
+      };
+      const t = texts[lang];
+      return `${sobre_sma50 ? t.above : t.below} SMA50, ${sobre_sma200 ? t.above : t.below} SMA200`;
+    })(),
+    estado_sma50: (sobre_sma50 ? { es: 'por encima', en: 'above', fr: 'au-dessus', de: 'über' } : { es: 'por debajo', en: 'below', fr: 'en dessous', de: 'unter' })[lang],
+    estado_sma200: (sobre_sma200 ? { es: 'por encima', en: 'above', fr: 'au-dessus', de: 'über' } : { es: 'por debajo', en: 'below', fr: 'en dessous', de: 'unter' })[lang],
+    tendencia_sma: (sma50_sobre_sma200 
+      ? { es: 'alcista (golden cross)', en: 'bullish (golden cross)', fr: 'haussier (golden cross)', de: 'bullisch (Golden Cross)' }
+      : { es: 'bajista (death cross)', en: 'bearish (death cross)', fr: 'baissier (death cross)', de: 'bärisch (Death Cross)' })[lang],
     bollinger: bb_posicion,
     obv: obv_tendencia,
     soporte: soporte_cercano,
@@ -216,32 +229,26 @@ async function generarResumen(ctx: IAContexto): Promise<string> {
   const soporteStr = ctx.soporte != null ? ctx.soporte.toFixed(2) : 'N/A';
   const resistenciaStr = ctx.resistencia != null ? ctx.resistencia.toFixed(2) : 'N/A';
 
-  const isEn = ctx.lang === 'en';
-  const prompt = isEn 
-    ? `You are an expert financial analyst. You have the following data for ${ctx.ticker} (${ctx.tipo_activo}):
+  const languageNames: Record<Language, string> = {
+    es: 'Spanish',
+    en: 'English',
+    fr: 'French',
+    de: 'German',
+  };
+  const targetLang = languageNames[ctx.lang];
+
+  const prompt = `You are an expert financial analyst. You have the following data for ${ctx.ticker} (${ctx.tipo_activo}):
 
 TECHNICAL: Signal ${ctx.señal} (${ctx.puntuacion}/100) | RSI=${ctx.rsi != null ? ctx.rsi.toFixed(1) : 'N/A'} | MACD ${ctx.macd} | Price ${ctx.sma} | SMA50 vs SMA200 Trend: ${ctx.tendencia_sma} | Bollinger: price ${ctx.bollinger} of the bands | OBV ${ctx.obv}${fundamentalLine}
 KEY LEVELS: Support at ${soporteStr} | Resistance at ${resistenciaStr}
 ANALYSIS TIMEFRAME: ${ctx.intervalo}
 
-Write a summary of exactly 3 sentences in English for a retail investor.
+Write a summary of exactly 3 sentences in ${targetLang} for a retail investor.
 - Sentence 1: current technical situation — what the price is doing and current dominant trend.
 - Sentence 2: confluence or divergence between indicators — reliability of the signal.
 - Sentence 3: key levels to monitor (support and resistance) and implications of breakouts.
 IMPORTANT: Do NOT mention entry levels, stop loss, or take profit. Only describe the current technical picture.
-No bullet points. No raw data repetition. Be direct and specific.`
-    : `Eres un analista financiero experto. Tienes los siguientes datos de ${ctx.ticker} (${ctx.tipo_activo}):
-
-TÉCNICO: Señal ${ctx.señal} (${ctx.puntuacion}/100) | RSI=${ctx.rsi != null ? ctx.rsi.toFixed(1) : 'N/A'} | MACD ${ctx.macd} | Precio ${ctx.sma} | Tendencia SMA50 vs SMA200: ${ctx.tendencia_sma} | Bollinger: precio ${ctx.bollinger} de las bandas | OBV ${ctx.obv}${fundamentalLine}
-NIVELES CLAVE: Soporte en ${soporteStr} | Resistencia en ${resistenciaStr}
-HORIZONTE DE ANÁLISIS: ${ctx.intervalo}
-
-Escribe un resumen de exactamente 3 frases en español para un inversor particular.
-- Frase 1: situación técnica actual del activo - qué está haciendo el precio y cuál es la tendencia dominante.
-- Frase 2: confluencia o divergencia entre indicadores - si todos apuntan en la misma dirección o se contradicen, y qué fiabilidad tiene la señal.
-- Frase 3: niveles clave a vigilar (soporte y resistencia) y qué implicaría romperlos.
-IMPORTANTE: NO menciones niveles de entrada, stop loss ni take profit. Solo describe la foto técnica actual del activo.
-No uses bullet points. No repitas los datos crudos tal cual. Sé directo y específico.`;
+No bullet points. No raw data repetition. Be direct and specific.`;
 
   const response = await client.chat.completions.create({
     model: MODEL,
@@ -250,7 +257,14 @@ No uses bullet points. No repitas los datos crudos tal cual. Sé directo y espec
     temperature: 0.4,
   });
 
-  return response.choices[0]?.message?.content || (isEn ? 'Could not generate the summary.' : 'No se pudo generar el resumen.');
+  const errorMessages: Record<Language, string> = {
+    es: 'No se pudo generar el resumen.',
+    en: 'Could not generate the summary.',
+    fr: 'Impossible de générer le résumé.',
+    de: 'Zusammenfassung konnte nicht erstellt werden.',
+  };
+
+  return response.choices[0]?.message?.content || errorMessages[ctx.lang];
 }
 
 // ── Módulo 2: Justificación profesional de la operación ──────────────────
@@ -258,14 +272,20 @@ No uses bullet points. No repitas los datos crudos tal cual. Sé directo y espec
 async function generarJustificacion(ctx: IAContexto): Promise<string> {
   const soporteStr = ctx.soporte != null ? ctx.soporte.toFixed(2) : 'N/A';
   const resistenciaStr = ctx.resistencia != null ? ctx.resistencia.toFixed(2) : 'N/A';
-  const isEn = ctx.lang === 'en';
-  const tp2Line = ctx.take_profit_2 != null && ctx.metodo_tp_2
-    ? `- Take Profit 2: ${ctx.take_profit_2.toFixed(2)} (+${ctx.take_profit_2_pct.toFixed(1)}% | ${isEn ? 'method' : 'método'}: ${ctx.metodo_tp_2})`
-    : '';
-  const cambio52sLine = ctx.cambio_52s != null ? `- Cambio últimas 52 semanas: ${ctx.cambio_52s.toFixed(1)}%` : '';
+  const languageNames: Record<Language, string> = {
+    es: 'Spanish',
+    en: 'English',
+    fr: 'French',
+    de: 'German',
+  };
+  const targetLang = languageNames[ctx.lang];
 
-  const prompt = isEn
-    ? `You are an expert financial analyst in technical trading and risk management. Your task is to generate a professional justification for a trading operation based exclusively on the provided data. Do not invent data or make assumptions about information not provided.
+  const tp2Line = ctx.take_profit_2 != null && ctx.metodo_tp_2
+    ? `- Take Profit 2: ${ctx.take_profit_2.toFixed(2)} (+${ctx.take_profit_2_pct.toFixed(1)}% | method: ${ctx.metodo_tp_2})`
+    : '';
+  const cambio52sLine = ctx.cambio_52s != null ? `- Last 52 weeks change: ${ctx.cambio_52s.toFixed(1)}%` : '';
+
+  const prompt = `You are an expert financial analyst in technical trading and risk management. Your task is to generate a professional justification for a trading operation based exclusively on the provided data. Do not invent data or make assumptions about information not provided.
 
 IMPORTANT: This text complements a previous technical summary that already describes the asset's current technical situation (trend, indicators, key levels). DO NOT repeat the general technical description. Focus exclusively on justifying the proposed operation: why these SL and TP levels are chosen, if risk management is appropriate, and what could go wrong.
 
@@ -274,7 +294,7 @@ RESTRICTIONS:
 - Base every statement on the provided data. If data is N/A or not available, do not mention it.
 - Length: between 130 and 160 words. No more, no less.
 - Format: a single continuous block of text, no lists, no emojis, no headers, no bold.
-- Language: English.
+- Language: ${targetLang}.
 - If the technical signal is NEUTRAL or SELL and the direction is LONG (or vice versa), explicitly point out the contradiction and recommend caution or not trading.
 
 INTERNAL STRUCTURE (not visible in the output, only as a guide):
@@ -303,45 +323,6 @@ ${tp2Line}
 - Global technical signal: ${ctx.señal} (${ctx.puntuacion}/100)
 - Nearest support: ${soporteStr}
 - Nearest resistance: ${resistenciaStr}
-${cambio52sLine}`
-    : `Eres un analista financiero experto en trading técnico y gestión del riesgo. Tu tarea es generar una justificación profesional de una operación bursátil basándote exclusivamente en los datos proporcionados. No inventes datos ni hagas suposiciones sobre información que no se te haya proporcionado.
-
-IMPORTANTE: Este texto complementa un resumen técnico previo que ya describe la situación técnica actual del activo (tendencia, indicadores, niveles clave). NO repitas la descripción técnica general. Céntrate exclusivamente en justificar la operación propuesta: por qué se eligen estos niveles de SL y TP, si la gestión del riesgo es adecuada y qué podría salir mal.
-
-RESTRICCIONES:
-- No constituye asesoramiento financiero ni recomendación de inversión.
-- Basa cada afirmación en los datos proporcionados. Si un dato es N/A o no está disponible, no lo menciones.
-- Longitud: entre 130 y 160 palabras. Ni más ni menos.
-- Formato: un único bloque de texto continuo, sin listas, sin emojis, sin encabezados, sin negrita.
-- Idioma: español.
-- Si la señal técnica es NEUTRAL o VENTA y la dirección es LONG (o viceversa), señala explícitamente la contradicción y recomienda prudencia o no operar.
-
-ESTRUCTURA INTERNA (no visible en el output, solo como guía):
-1. Coherencia señal/dirección: si la dirección elegida es coherente con la señal técnica global. Si hay contradicción, señalarla.
-2. Stop Loss: explicar por qué se coloca en ese nivel según el método usado (soporte detectado o porcentaje fijo) y si protege adecuadamente la posición.
-3. Take Profit: justificar cada objetivo con su lógica (resistencia, ratio R/B, banda de Bollinger).
-4. Gestión del riesgo: valorar si el ratio R/B es favorable, y si el tamaño de posición es prudente respecto al capital total.
-5. Riesgos principales: uno o dos factores concretos que podrían invalidar la operación, basados en indicadores débiles o contradictorios.
-
-DATOS DE ENTRADA:
-- Activo: ${ctx.ticker} (${ctx.tipo_activo})
-- Precio de entrada: ${ctx.precio_entrada.toFixed(2)}
-- Dirección: ${ctx.direccion}
-- Intervalo / Horizonte: ${ctx.intervalo} / ${ctx.horizonte}
-- Stop Loss: ${ctx.sl.toFixed(2)} (${ctx.sl_dist_pct.toFixed(1)}% | método: ${ctx.metodo_sl})
-- Take Profit 1: ${ctx.take_profit_1 != null ? ctx.take_profit_1.toFixed(2) : 'N/A'} (+${ctx.take_profit_1_pct.toFixed(1)}% | método: ${ctx.metodo_tp_1})
-${tp2Line}
-- Ratio R/B real: ${ctx.ratio_rb.toFixed(2)}
-- Capital en riesgo: ${ctx.capital_riesgo.toFixed(2)} (${ctx.riesgo_pct.toFixed(1)}% del capital total de ${ctx.capital_total.toFixed(2)})
-- Tamaño de posición: ${ctx.tamano_posicion.toFixed(4)} unidades | Valor total: ${ctx.valor_posicion.toFixed(2)}
-- RSI(14): ${ctx.rsi != null ? ctx.rsi.toFixed(1) : 'N/A'} ${ctx.rsi_zona}
-- MACD: ${ctx.macd} (histograma ${ctx.macd_hist_valor})
-- Medias móviles: precio ${ctx.estado_sma50} de SMA50, ${ctx.estado_sma200} de SMA200 | Tendencia SMA50 vs SMA200: ${ctx.tendencia_sma}
-- Bandas de Bollinger: precio ${ctx.bollinger} de las bandas
-- OBV: tendencia ${ctx.obv}
-- Señal técnica global: ${ctx.señal} (${ctx.puntuacion}/100)
-- Soporte más cercano: ${soporteStr}
-- Resistencia más cercano: ${resistenciaStr}
 ${cambio52sLine}`;
 
   const response = await client.chat.completions.create({
@@ -351,7 +332,14 @@ ${cambio52sLine}`;
     temperature: 0.3,
   });
 
-  return response.choices[0]?.message?.content || (isEn ? 'Could not generate the justification.' : 'No se pudo generar la justificación.');
+  const errorMessages: Record<Language, string> = {
+    es: 'No se pudo generar la justificación.',
+    en: 'Could not generate the justification.',
+    fr: 'Impossible de générer la justification.',
+    de: 'Begründung konnte nicht erstellt werden.',
+  };
+
+  return response.choices[0]?.message?.content || errorMessages[ctx.lang];
 }
 
 // ── Análisis en paralelo (módulos 1 y 2) ────────────────────────────────
@@ -403,9 +391,15 @@ export async function chatIA(
     ? `\n- P/E: ${ctx.pe} | ROE: ${ctx.roe}% | Margen: ${ctx.margen}%`
     : '';
 
-  const isEn = ctx.lang === 'en';
-  const systemPrompt = isEn
-    ? `You are a specialized financial analysis assistant.
+  const languageNames: Record<Language, string> = {
+    es: 'Spanish',
+    en: 'English',
+    fr: 'French',
+    de: 'German',
+  };
+  const targetLang = languageNames[ctx.lang];
+
+  const systemPrompt = `You are a specialized financial analysis assistant.
 You have access to the following real-time data for asset ${ctx.ticker}:
 
 CURRENT DATA:
@@ -421,28 +415,9 @@ CURRENT DATA:
 INSTRUCTIONS:
 - Respond ONLY based on the above data. Do not invent data that is not here.
 - If the user asks something you cannot answer with this data, say so clearly.
-- Always respond in English, concisely (maximum 4 sentences per response).
+- Always respond in ${targetLang}, concisely (maximum 4 sentences per response).
 - Do not give direct investment recommendations. Explain, analyze, educate.
-- If the user asks whether to buy or sell, explain the factors but do not give a binary answer.`
-    : `Eres un asistente de análisis financiero especializado. 
-Tienes acceso a los siguientes datos en tiempo real del activo ${ctx.ticker}:
-
-DATOS ACTUALES:
-- Tipo de activo: ${ctx.tipo_activo}
-- Precio de entrada analizado: ${ctx.precio_entrada.toFixed(2)}
-- Stop Loss propuesto: ${ctx.sl.toFixed(2)} (${ctx.sl_dist_pct.toFixed(1)}% de riesgo)
-- Take Profits: ${ctx.tps}
-- Señal técnica: ${ctx.señal} (${ctx.puntuacion}/100)
-- RSI: ${ctx.rsi != null ? ctx.rsi.toFixed(1) : 'N/A'} | MACD: ${ctx.macd} | Precio ${ctx.sma}
-- Bollinger: precio ${ctx.bollinger} de las bandas | OBV: ${ctx.obv}
-- Soporte cercano: ${soporteStr} | Resistencia cercana: ${resistenciaStr}${fundamentalLine}
-
-INSTRUCCIONES:
-- Responde SOLO basándote en los datos anteriores. No inventes datos que no están aquí.
-- Si el usuario pregunta algo que no puedes responder con estos datos, dilo claramente.
-- Responde siempre en español, de forma concisa (máximo 4 frases por respuesta).
-- No des recomendaciones de inversión directas. Explica, analiza, educa.
-- Si el usuario pregunta si debe comprar o vender, explica los factores pero no des una respuesta binaria.`;
+- If the user asks whether to buy or sell, explain the factors but do not give a binary answer.`;
 
   // Keep last 10 messages (5 turns)
   const trimmedHistorial = historial.slice(-10);
@@ -464,13 +439,23 @@ INSTRUCCIONES:
       temperature: 0.5,
     });
 
-    const respuesta = response.choices[0]?.message?.content || (isEn ? 'No response.' : 'Sin respuesta.');
+    const errorMessages: Record<Language, string> = {
+      es: 'No response.',
+      en: 'No response.',
+      fr: 'Pas de réponse.',
+      de: 'Keine Antwort.',
+    };
+    const respuesta = response.choices[0]?.message?.content || errorMessages[ctx.lang];
     return { respuesta, ok: true };
   } catch (e) {
+    const errorMessages: Record<Language, string> = {
+      es: 'El servicio de IA no está disponible en este momento. Inténtalo de nuevo.',
+      en: 'The AI service is not available at this time. Please try again.',
+      fr: 'Le service IA n\'est pas disponible pour le moment. Veuillez réessayer.',
+      de: 'Der KI-Dienst ist derzeit nicht verfügbar. Bitte versuchen Sie es erneut.',
+    };
     return {
-      respuesta: isEn 
-        ? 'The AI service is not available at this time. Please try again.' 
-        : 'El servicio de IA no está disponible en este momento. Inténtalo de nuevo.',
+      respuesta: errorMessages[ctx.lang],
       ok: false,
     };
   }
@@ -515,8 +500,15 @@ export async function generarResumenTecnico(data: {
     const resistencia = datos_tecnicos.resistencia_cercana ?? null;
     const cambio_52s = datos_tecnicos.cambio_52_semanas;
 
-    const prompt = isEn
-      ? `You are an expert technical analyst. Analyze the following technical situation for ${ticker} and generate a clear and objective narrative summary.
+    const languageNames: Record<Language, string> = {
+      es: 'Spanish',
+      en: 'English',
+      fr: 'French',
+      de: 'German',
+    };
+    const targetLang = languageNames[lang];
+
+    const prompt = `You are an expert technical analyst. Analyze the following technical situation for ${ticker} and generate a clear and objective narrative summary.
 
 CURRENT TECHNICAL DATA:
 - Interval analyzed: ${intervalo} | Horizon: ${horizonte}
@@ -531,33 +523,12 @@ CURRENT TECHNICAL DATA:
 ${cambio_52s != null ? `- Last 52 weeks change: ${cambio_52s.toFixed(1)}%` : ''}
 
 INSTRUCTIONS:
-Write exactly 3 short paragraphs in English, without bullet points or headers:
+Write exactly 3 short paragraphs in ${targetLang}, without bullet points or headers:
 1. Paragraph 1 (1-2 sentences): current technical situation — what the price is doing and current dominant trend.
 2. Paragraph 2 (2-3 sentences): confluence or divergence between indicators — what that means for signal reliability.
 3. Paragraph 3 (1-2 sentences): key levels to monitor (support and resistance) and implications of breakouts.
 
-Be direct, specific with data and use language understandable for medium-level investors. Do not repeat raw numerical values — interpret them.`
-      : `Eres un analista técnico experto. Analiza la siguiente situación técnica de ${ticker} y genera un resumen narrativo claro y objetivo.
-
-DATOS TÉCNICOS ACTUALES:
-- Intervalo analizado: ${intervalo} | Horizonte: ${horizonte}
-- Señal global: ${señal} (${puntuacion}/100 puntos)
-- RSI(14): ${rsi != null ? rsi.toFixed(1) : 'N/A'} ${rsi && rsi > 70 ? '→ zona sobrecompra' : rsi && rsi < 30 ? '→ zona sobrevendido' : '→ zona neutral'}
-- MACD: histograma ${macd_alcista ? 'positivo y alcista' : 'negativo y bajista'}
-- Medias móviles: precio ${sobre_sma50 ? 'por encima' : 'por debajo'} de SMA50, ${sobre_sma200 ? 'por encima' : 'por debajo'} de SMA200
-- Tendencia estructural (SMA50 vs SMA200): ${sma50_sobre_sma200 ? 'alcista (golden cross)' : 'bajista (death cross)'}
-- Bandas de Bollinger: precio ${bb_posicion} de las bandas
-- OBV: tendencia ${obv_tendencia}
-- Soporte cercano: ${soporte != null ? soporte.toFixed(2) : 'N/A'} | Resistencia cercana: ${resistencia != null ? resistencia.toFixed(2) : 'N/A'}
-${cambio_52s != null ? `- Cambio últimas 52 semanas: ${cambio_52s.toFixed(1)}%` : ''}
-
-INSTRUCCIONES:
-Escribe exactamente 3 párrafos cortos en español, sin bullet points ni encabezados:
-1. Párrafo 1 (1-2 frases): situación técnica actual — qué está haciendo el precio y cuál es la tendencia dominante.
-2. Párrafo 2 (2-3 frases): confluencia o divergencia entre indicadores — si todos apuntan en la misma dirección o se contradicen, y qué significa eso para la fiabilidad de la señal.
-3. Párrafo 3 (1-2 frases): niveles clave a vigilar (soporte y resistencia) y qué implicaría romperlos.
-
-Sé directo, específico con los datos y usa lenguaje comprensible para inversores con conocimientos medios. No repitas los valores numéricos crudos tal cual aparecen arriba — interprétalos.`;
+Be direct, specific with data and use language understandable for medium-level investors. Do not repeat raw numerical values — interpret them.`;
 
     const response = await client.chat.completions.create({
       model: MODEL,
@@ -620,35 +591,28 @@ ${r.ticker} (${r.nombre}, ${r.tipo}):
 `;
   }
 
-  const prompt = isEn
-    ? `You are an expert financial analyst. Compare the following financial assets and emit a clear verdict:
+  const languageNames: Record<Language, string> = {
+    es: 'Spanish',
+    en: 'English',
+    fr: 'French',
+    de: 'German',
+  };
+  const targetLang = languageNames[lang];
+
+  const prompt = `You are an expert financial analyst. Compare the following financial assets and emit a clear verdict:
 
 COMPARISON: ${tickersStr} | Horizon: ${horizonte}
 
 DATA:
 ${resumenActivos}
 
-Generate a structured verdict in English with exactly these three parts, without using bullet points or headers with #:
+Generate a structured verdict in ${targetLang} with exactly these three parts, without using bullet points or headers with #:
 
 Part 1 (2-3 sentences): Which asset shows a better FUNDAMENTAL profile and why, citing specific metrics.
 Part 2 (2-3 sentences): Which asset shows a better TECHNICAL AND RISK profile in the analyzed horizon, with specific data.
 Part 3 (2-3 sentences): Global verdict — which asset seems more attractive considering all factors and for what type of investor (conservative, moderate, aggressive). If assets are of different types (stock vs crypto), mention that direct comparison has limitations.
 
-Be direct and specific. Do not repeat raw numerical values — interpret them.`
-    : `Eres un analista financiero experto. Compara los siguientes activos financieros y emite un veredicto claro:
-
-COMPARATIVA: ${tickersStr} | Horizonte: ${horizonte}
-
-DATOS:
-${resumenActivos}
-
-Genera un veredicto estructurado en español con exactamente estas tres partes, sin usar bullet points ni encabezados con #:
-
-Parte 1 (2-3 frases): Cuál activo muestra mejor perfil FUNDAMENTAL y por qué, citando métricas concretas.
-Parte 2 (2-3 frases): Cuál activo muestra mejor perfil TÉCNICO Y DE RIESGO en el horizonte analizado, con datos específicos.
-Parte 3 (2-3 frases): Veredicto global — cuál activo parece más atractivo considerando el conjunto y para qué tipo de inversor (conservador, moderado, agresivo). Si los activos son de tipos distintos (stock vs crypto), menciona que la comparación directa tiene limitaciones.
-
-Sé directo y específico. No repitas los valores numéricos crudos — interprétalos.`;
+Be direct and specific. Do not repeat raw numerical values — interpret them.`;
 
   try {
     const response = await client.chat.completions.create({
@@ -665,7 +629,13 @@ Sé directo y específico. No repitas los valores numéricos crudos — interpr�
     return { veredicto, ok: true };
   } catch (e) {
     console.error(`[ERROR veredicto IA]:`, e);
-    return { veredicto: null, ok: false, error: isEn ? 'AI service not available.' : 'Servicio de IA no disponible.' };
+    const errorMessages: Record<Language, string> = {
+      es: 'Servicio de IA no disponible.',
+      en: 'AI service not available.',
+      fr: 'Service IA non disponible.',
+      de: 'KI-Dienst nicht verfügbar.',
+    };
+    return { veredicto: null, ok: false, error: errorMessages[lang] };
   }
 }
 

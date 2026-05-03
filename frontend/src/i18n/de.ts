@@ -768,10 +768,25 @@ psycho: {
 
 // ── News Page ──
 news: {
-  title: 'Finanznachrichten',
-  subtitle: 'Neueste Nachrichten aus den Finanzmärkten',
+  title: 'Marktnachrichten',
+  subtitle: 'Bleiben Sie über die neuesten Finanznachrichten informiert',
+  back: 'Zurück',
   searchPlaceholder: 'Nachrichten suchen...',
-  noNews: 'Keine Nachrichten verfügbar.',
+  onlyToday: 'Nur heute',
+  noNews: 'Keine Nachrichten verfügbar',
+  noNewsToday: 'Heute wurden keine Nachrichte veröffentlicht. Versuchen Sie, den Filter zu deaktivieren.',
+  noResults: 'Versuchen Sie es mit einem anderen Suchbegriff.',
+  banner: {
+    source: 'Aktualisiert in Echtzeit · Yahoo Finance',
+    title: 'Schauen Sie sich die neuesten Marktnachrichten an!',
+    subtitle: 'Nutzen Sie die Suchleiste, um nach Unternehmen, Sektor oder Anlage zu filtern.',
+  },
+  time: {
+    ago: 'vor',
+    min: 'Min.',
+    hour: 'Std.',
+    day: 'T.'
+  }
 },
 
 // ── Technical Analysis (TechnicalAnalysisPanel) ──

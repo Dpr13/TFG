@@ -60,11 +60,16 @@ export class FundamentalAnalysisService {
       const pos = ((currentPrice - data.fiftyTwoWeekLow) / (data.fiftyTwoWeekHigh - data.fiftyTwoWeekLow)) * 100;
       momentumScore = pos > 70 ? 80 : pos < 30 ? 30 : 50;
     }
+    
     sections.stability = { 
       title: t.sections.stability, 
-      content: lang === 'en' 
-        ? `Beta of ${data.beta?.toFixed(2)} (${benchmark}). The asset trades in a range of ${currency}${data.fiftyTwoWeekLow?.toFixed(2)} - ${currency}${data.fiftyTwoWeekHigh?.toFixed(2)}. Short-term momentum is the dominant factor.`
-        : `Beta de ${data.beta?.toFixed(2)} (${benchmark}). El activo cotiza en un rango de ${currency}${data.fiftyTwoWeekLow?.toFixed(2)} - ${currency}${data.fiftyTwoWeekHigh?.toFixed(2)}. El momentum de corto plazo es el factor dominante.` 
+      content: this.fillTemplate(t.templates.stability_beta, {
+        beta: data.beta?.toFixed(2) || 'N/A',
+        benchmark,
+        currency,
+        low: data.fiftyTwoWeekLow?.toFixed(2) || 'N/A',
+        high: data.fiftyTwoWeekHigh?.toFixed(2) || 'N/A'
+      })
     };
     scores.push({ val: momentumScore, weight: 0.4 });
 
@@ -73,17 +78,18 @@ export class FundamentalAnalysisService {
     if (data.eps != null) {
       earningsScore = data.eps > 0 ? 70 : 20;
     }
-    let earningsContent = '';
-    if (lang === 'en') {
-      earningsContent = data.eps && data.eps > 0 
-        ? `Positive earnings per share of ${currency}${data.eps.toFixed(2)}. The market reacts favorably to immediate profitability.` 
-        : `Lack of recent earnings (${currency}${data.eps?.toFixed(2)}), creating bearish pressure in the short term.`;
-    } else {
-      earningsContent = data.eps && data.eps > 0 
-        ? `Beneficio por acción positivo de ${currency}${data.eps.toFixed(2)}. El mercado reacciona favorablemente a la rentabilidad inmediata.` 
-        : `Ausencia de beneficios recientes (${currency}${data.eps?.toFixed(2)}), lo que genera presión bajista en el corto plazo.`;
-    }
-    sections.growth = { title: t.sections.growth, content: earningsContent };
+
+    const earningsTemplate = data.eps && data.eps > 0 
+      ? t.templates.growth_eps_pos 
+      : t.templates.growth_eps_neg;
+    
+    sections.growth = { 
+      title: t.sections.growth, 
+      content: this.fillTemplate(earningsTemplate, {
+        currency,
+        eps: data.eps?.toFixed(2) || '0.00'
+      })
+    };
     scores.push({ val: earningsScore, weight: 0.3 });
 
     // 3. Profitability (Short Term - Requested)
@@ -93,9 +99,10 @@ export class FundamentalAnalysisService {
     }
     sections.profitability = { 
       title: t.sections.profitability, 
-      content: lang === 'en'
-        ? `Net margin of ${(data.profitMargin ? data.profitMargin * 100 : 0).toFixed(2)}% and ROE of ${(data.roe ? data.roe * 100 : 0).toFixed(2)}%. These figures confirm current operating efficiency.`
-        : `Margen neto del ${(data.profitMargin ? data.profitMargin * 100 : 0).toFixed(2)}% y ROE del ${(data.roe ? data.roe * 100 : 0).toFixed(2)}%. Estos datos confirman la eficiencia operativa actual.` 
+      content: this.fillTemplate(t.templates.profitability_margins, {
+        margin: (data.profitMargin ? data.profitMargin * 100 : 0).toFixed(2),
+        roe: (data.roe ? data.roe * 100 : 0).toFixed(2)
+      })
     };
     scores.push({ val: profitScore, weight: 0.2 });
 
@@ -106,9 +113,9 @@ export class FundamentalAnalysisService {
     }
     sections.valuation = { 
       title: t.sections.valuation, 
-      content: lang === 'en'
-        ? `Current P/E Ratio of ${data.peRatio?.toFixed(2) || 'N/A'}. In the short term, the market validates comparative multiples.`
-        : `P/E Ratio actual de ${data.peRatio?.toFixed(2) || 'N/A'}. En el corto plazo, el mercado valida múltiplos comparativos.` 
+      content: this.fillTemplate(t.templates.valuation_pe, {
+        pe: data.peRatio?.toFixed(2) || 'N/A'
+      })
     };
     scores.push({ val: valScore, weight: 0.1 });
 
@@ -132,9 +139,9 @@ export class FundamentalAnalysisService {
     }
     sections.growth = { 
       title: t.sections.growth, 
-      content: lang === 'en'
-        ? `PEG Ratio of ${data.pegRatio?.toFixed(2) || 'N/A'}. Indicates whether projected growth justifies the paid multiple.`
-        : `PEG Ratio de ${data.pegRatio?.toFixed(2) || 'N/A'}. Indica si el crecimiento proyectado justifica el múltiplo pagado.` 
+      content: this.fillTemplate(t.templates.growth_peg, {
+        peg: data.pegRatio?.toFixed(2) || 'N/A'
+      })
     };
     scores.push({ val: growthScore, weight: 0.5 });
 
@@ -145,9 +152,9 @@ export class FundamentalAnalysisService {
     }
     sections.profitability = { 
       title: t.sections.profitability, 
-      content: lang === 'en'
-        ? `Operating margin of ${((data.operatingMargin || 0) * 100).toFixed(2)}%. Reflects the ability to convert revenue into sustained gross profit.`
-        : `Margen operativo del ${((data.operatingMargin || 0) * 100).toFixed(2)}%. Refleja la capacidad de convertir ingresos en beneficio bruto sostenido.` 
+      content: this.fillTemplate(t.templates.profitability_op_margin, {
+        margin: ((data.operatingMargin || 0) * 100).toFixed(2)
+      })
     };
     scores.push({ val: marginScore, weight: 0.3 });
 
@@ -158,9 +165,9 @@ export class FundamentalAnalysisService {
     }
     sections.valuation = { 
       title: t.sections.valuation, 
-      content: lang === 'en'
-        ? `Current P/E Ratio of ${data.peRatio?.toFixed(2)}. Moderate valuation in a cycle context. Growth is prioritized vs static multiples.`
-        : `Ratio P/E actual de ${data.peRatio?.toFixed(2)}. Valoración moderada en contexto de ciclo. Se prioriza el crecimiento vs múltiplos estáticos.` 
+      content: this.fillTemplate(t.templates.valuation_pe_mid, {
+        pe: data.peRatio?.toFixed(2) || 'N/A'
+      })
     };
     scores.push({ val: valScore, weight: 0.2 });
 
@@ -176,6 +183,7 @@ export class FundamentalAnalysisService {
     const sections: Record<string, AnalysisSection> = {};
     const scores: { val: number; weight: number }[] = [];
     const t = i18n[lang].fundamental;
+    const currency = this.getCurrencySymbol(data.financialCurrency);
 
     // 1. Structural Quality (ROE / Capital Efficiency)
     let qualityScore = 50;
@@ -184,9 +192,9 @@ export class FundamentalAnalysisService {
     }
     sections.profitability = { 
       title: t.sections.profitability, 
-      content: lang === 'en'
-        ? `Sustainable ROE of ${(data.roe ? data.roe * 100 : 0).toFixed(2)}%. ROE is the main engine of value creation over a decade.`
-        : `ROE sostenible del ${(data.roe ? data.roe * 100 : 0).toFixed(2)}%. El ROE es el motor principal de creación de valor a una década vista.` 
+      content: this.fillTemplate(t.templates.profitability_lt_roe, {
+        roe: (data.roe ? data.roe * 100 : 0).toFixed(2)
+      })
     };
     scores.push({ val: qualityScore, weight: 0.4 });
 
@@ -197,9 +205,9 @@ export class FundamentalAnalysisService {
     }
     sections.stability = { 
       title: t.sections.stability, 
-      content: lang === 'en'
-        ? `Market capitalization of ${this.formatLargeNumber(data.marketCap || 0)}. Indicates maturity and structural resilience across long cycles.`
-        : `Capitalización de mercado de ${this.formatLargeNumber(data.marketCap || 0)}. Indica madurez y resistencia estructural ante ciclos largos.` 
+      content: this.fillTemplate(t.templates.stability_mkt_cap, {
+        cap: this.formatLargeNumber(data.marketCap || 0)
+      })
     };
     scores.push({ val: moatScore, weight: 0.2 });
 
@@ -208,12 +216,12 @@ export class FundamentalAnalysisService {
     let growthContent = '';
     if (data.pegRatio == null) {
       growthScore = 50;
-      growthContent = lang === 'en' ? 'Growth data not available for this asset in accessed sources.' : 'Datos de crecimiento no disponibles para este activo en las fuentes consultadas.';
+      growthContent = t.templates.growth_not_avail;
     } else {
       growthScore = data.pegRatio < 1.2 ? 75 : 50;
-      growthContent = lang === 'en' 
-        ? `PEG Ratio of ${data.pegRatio?.toFixed(2)}. Reflects the structural ability to grow above the market.`
-        : `Ratio PEG de ${data.pegRatio?.toFixed(2)}. Refleja la capacidad estructural de crecer por encima del mercado.`;
+      growthContent = this.fillTemplate(t.templates.growth_lt_peg, {
+        peg: data.pegRatio.toFixed(2)
+      });
     }
     sections.growth = { title: t.sections.growth, content: growthContent };
     scores.push({ val: growthScore, weight: 0.2 });
@@ -225,9 +233,9 @@ export class FundamentalAnalysisService {
     }
     sections.valuation = { 
       title: t.sections.valuation, 
-      content: lang === 'en'
-        ? `Dividend yield of ${((data.dividendYield || 0) * 100).toFixed(2)}%. Key factor in total return over the long term.`
-        : `Rentabilidad por dividendo del ${((data.dividendYield || 0) * 100).toFixed(2)}%. Factor clave en el retorno total a largo plazo.` 
+      content: this.fillTemplate(t.templates.valuation_div, {
+        yield: ((data.dividendYield || 0) * 100).toFixed(2)
+      })
     };
     scores.push({ val: incomeScore, weight: 0.2 });
 
@@ -244,64 +252,60 @@ export class FundamentalAnalysisService {
     const scores: { val: number; weight: number }[] = [];
     const t = i18n[lang].fundamental;
 
-    // 1. Market Positioning
+    // 1. Market Positioning (Valuation)
     let posScore = 50;
-    let posContent = '';
-    if (lang === 'en') {
-      posContent = `Market capitalization of ${this.formatLargeNumber(data.marketCap)}. `;
-      if (data.circulatingSupply && data.maxSupply) {
-        const completion = data.circulatingSupply / data.maxSupply;
-        posContent += `Issuance completed at ${(completion * 100).toFixed(2)}% of the total maximum predicted (${this.formatLargeNumber(data.maxSupply)} units). `;
-        posScore = completion > 0.9 ? 85 : 60;
-      } else if (data.circulatingSupply) {
-        posContent += `Current circulating supply of ${this.formatLargeNumber(data.circulatingSupply)}. There is no maximum limit defined in the protocol, implying a monitoring factor on asset inflation.`;
-        posScore = 45;
-      } else {
-        posContent += 'Circulating supply data not available. Market size indicates project relevance in the DeFi/Crypto ecosystem.';
-      }
+    let posContent = this.fillTemplate(t.templates.valuation_crypto_issuance, {
+      cap: this.formatLargeNumber(data.marketCap)
+    });
+    
+    if (data.circulatingSupply && data.maxSupply) {
+      const completion = data.circulatingSupply / data.maxSupply;
+      posContent += ' ' + this.fillTemplate(t.templates.issuance_complete, {
+        pct: (completion * 100).toFixed(2),
+        max: this.formatLargeNumber(data.maxSupply)
+      });
+      posScore = completion > 0.9 ? 85 : 60;
+    } else if (data.circulatingSupply) {
+      posContent += ' ' + this.fillTemplate(t.templates.issuance_circulating, {
+        circ: this.formatLargeNumber(data.circulatingSupply)
+      });
+      posScore = 45;
     } else {
-      posContent = `Capitalización de mercado de ${this.formatLargeNumber(data.marketCap)}. `;
-      if (data.circulatingSupply && data.maxSupply) {
-        const completion = data.circulatingSupply / data.maxSupply;
-        posContent += `Emisión completada al ${(completion * 100).toFixed(2)}% del total máximo previsto (${this.formatLargeNumber(data.maxSupply)} unidades). `;
-        posScore = completion > 0.9 ? 85 : 60;
-      } else if (data.circulatingSupply) {
-        posContent += `Oferta circulante actual de ${this.formatLargeNumber(data.circulatingSupply)}. No existe un límite máximo definido en protocolo, lo que implica un factor de vigilancia sobre la inflación del activo.`;
-        posScore = 45;
-      } else {
-        posContent += 'Datos de suministro circulante no disponibles. El tamaño del mercado indica la relevancia del proyecto en el ecosistema DeFi/Crypto.';
-      }
+      posContent += ' ' + t.templates.issuance_not_avail;
     }
+    
     sections.valuation = { title: t.sections.valuation, content: posContent };
     scores.push({ val: posScore, weight: 0.25 });
 
-    // 2. Activity and Liquidity
+    // 2. Activity and Liquidity (Profitability)
     let liqScore = 50;
-    let liqContent = '';
-    if (lang === 'en') {
-      liqContent = `24h trading volume of ${this.formatLargeNumber(data.volume24h)}. `;
-      if (data.volume24h && data.marketCap) {
-        const liqRatio = data.volume24h / data.marketCap;
-        liqScore = liqRatio > 0.05 ? 80 : liqRatio > 0.01 ? 60 : 40;
-        liqContent += `Represents ${(liqRatio * 100).toFixed(2)}% of its total capitalization. ${liqRatio > 0.05 ? 'High liquidity and turnover, ideal for active operations.' : 'Moderate activity level.'}`;
-      } else {
-        liqContent += 'Transacted volume is a vital indicator of protocol validity and user adoption.';
-      }
+    let liqContent = this.fillTemplate(t.templates.profitability_crypto_liq, {
+      vol: this.formatLargeNumber(data.volume24h),
+      pct: (data.volume24h && data.marketCap ? (data.volume24h / data.marketCap) * 100 : 0).toFixed(2),
+      note: ''
+    });
+    
+    if (data.volume24h && data.marketCap) {
+      const liqRatio = data.volume24h / data.marketCap;
+      liqScore = liqRatio > 0.05 ? 80 : liqRatio > 0.01 ? 60 : 40;
+      const note = liqRatio > 0.05 ? t.templates.liq_high_note : t.templates.liq_mod_note;
+      liqContent = this.fillTemplate(t.templates.profitability_crypto_liq, {
+        vol: this.formatLargeNumber(data.volume24h),
+        pct: (liqRatio * 100).toFixed(2),
+        note
+      });
     } else {
-      liqContent = `Volumen de negociación en 24h de ${this.formatLargeNumber(data.volume24h)}. `;
-      if (data.volume24h && data.marketCap) {
-        const liqRatio = data.volume24h / data.marketCap;
-        liqScore = liqRatio > 0.05 ? 80 : liqRatio > 0.01 ? 60 : 40;
-        liqContent += `Representa un ${(liqRatio * 100).toFixed(2)}% de su capitalización total. ${liqRatio > 0.05 ? 'Alta liquidez y rotación, ideal para operativa activa.' : 'Nivel de actividad moderado.'}`;
-      } else {
-        liqContent += 'El volumen transaccionado es un indicador vital de la vigencia y adopción del protocolo por parte de los usuarios.';
-      }
+      liqContent = this.fillTemplate(t.templates.profitability_crypto_liq, {
+        vol: this.formatLargeNumber(data.volume24h),
+        pct: '0.00',
+        note: t.templates.liq_val_note
+      });
     }
     
     sections.profitability = { title: t.sections.profitability, content: liqContent };
     scores.push({ val: liqScore, weight: 0.25 });
 
-    // 3. Price Behavior & Cycle
+    // 3. Price Behavior & Cycle (Stability)
     let priceScore = 50;
     if (data.fiftyTwoWeekHigh != null && data.fiftyTwoWeekLow != null) {
       const rangeDist = data.fiftyTwoWeekHigh - data.fiftyTwoWeekLow;
@@ -309,41 +313,40 @@ export class FundamentalAnalysisService {
       const pos = rangeDist > 0 ? ((currentPrice - data.fiftyTwoWeekLow) / rangeDist) * 100 : 50;
       
       priceScore = pos < 25 ? 85 : pos > 75 ? 35 : 55;
-      if (lang === 'en') {
-        sections.stability = { 
-          title: t.sections.stability, 
-          content: `Trading at ${pos.toFixed(2)}% of the annual range (${this.formatLargeNumber(data.fiftyTwoWeekLow)} - ${this.formatLargeNumber(data.fiftyTwoWeekHigh)}). ${pos > 80 ? 'Near annual highs, suggesting caution due to potential movement exhaustion.' : pos < 20 ? 'Near annual lows, which could represent a historical accumulation zone.' : 'In neutral intermediate cycle zone.'}` 
-        };
-      } else {
-        sections.stability = { 
-          title: t.sections.stability, 
-          content: `Cotizando al ${pos.toFixed(2)}% del rango anual (${this.formatLargeNumber(data.fiftyTwoWeekLow)} - ${this.formatLargeNumber(data.fiftyTwoWeekHigh)}). ${pos > 80 ? 'Cerca de máximos anuales, sugiriendo cautela por posible agotamiento del movimiento.' : pos < 20 ? 'Cerca de mínimos anuales, lo que podría representar una zona de acumulación histórica.' : 'En zona neutral de ciclo intermedio.'}` 
-        };
-      }
+      const note = pos > 80 ? t.templates.pos_high_note : pos < 20 ? t.templates.pos_low_note : t.templates.pos_neutral_note;
+      
+      sections.stability = { 
+        title: t.sections.stability, 
+        content: this.fillTemplate(t.templates.stability_crypto_cycle, {
+          pos: pos.toFixed(2),
+          low: this.formatLargeNumber(data.fiftyTwoWeekLow),
+          high: this.formatLargeNumber(data.fiftyTwoWeekHigh),
+          note
+        })
+      };
     } else {
       sections.stability = { 
         title: t.sections.stability, 
-        content: lang === 'en' ? 'Insufficient historical range data to accurately determine current cycle phase.' : 'Datos de rango histórico insuficientes para determinar la fase del ciclo actual con precisión.' 
+        content: t.templates.stability_insufficient 
       };
     }
     scores.push({ val: priceScore, weight: 0.25 });
 
-    // 4. Recent Momentum
+    // 4. Recent Momentum (Overview)
     let changeScore = 50;
     if (data.fiftyTwoWeekChange != null && !isNaN(data.fiftyTwoWeekChange)) {
       changeScore = data.fiftyTwoWeekChange > 0 ? 75 : 30;
       sections.overview = { 
         title: t.sections.overview, 
-        content: lang === 'en'
-          ? `Period change of ${(data.fiftyTwoWeekChange * 100).toFixed(2)}%. This asset is analyzed under a ${range === '6mo' || range === '1y' ? 'short-term' : 'medium/long-term'} horizon.`
-          : `Cambio registrado en el periodo del ${(data.fiftyTwoWeekChange * 100).toFixed(2)}%. Este activo se analiza bajo el prisma de un horizonte de ${range === '6mo' || range === '1y' ? 'corto plazo' : 'medio/largo plazo'}.` 
+        content: this.fillTemplate(t.templates.overview_template, {
+          symbol: symbol,
+          range: (t.ranges as any)[range] || range
+        })
       };
     } else {
       sections.overview = { 
         title: t.sections.overview, 
-        content: lang === 'en'
-          ? `${symbol} analyzed based on market capitalization and available network metrics.`
-          : `${symbol} analizado en base a su capitalización de mercado y métricas de red disponibles.` 
+        content: this.fillTemplate(t.templates.overview_crypto_generic, { symbol }) 
       };
     }
     scores.push({ val: changeScore, weight: 0.25 });
@@ -353,9 +356,7 @@ export class FundamentalAnalysisService {
 
     sections.risks = { 
       title: t.sections.risks, 
-      content: lang === 'en'
-        ? 'Regulatory risks, custody risks (private keys), whale concentration, and high intrinsic volatility. Consideration of correlation with Bitcoin and general market sentiment is recommended.'
-        : 'Riesgos regulatorios, de custodia (claves privadas), de concentración de ballenas y de alta volatilidad intrínseca. Se recomienda considerar la correlación con Bitcoin y el sentimiento general del mercado.' 
+      content: t.templates.risks_crypto
     };
 
     return this.assembleAnalysis(symbol, 'crypto', outlook, totalScore, sections, lang, range, t.crypto_horizon);
@@ -368,53 +369,49 @@ export class FundamentalAnalysisService {
     const scores: { val: number; weight: number }[] = [];
     const t = i18n[lang].fundamental;
 
-    // 1. Historical Returns
+    // 1. Historical Returns (Profitability)
     let retScore = 50;
     if (data.fiveYearAverageReturn != null || data.threeYearAverageReturn != null) {
       const avg = (data.fiveYearAverageReturn || data.threeYearAverageReturn || 0);
       retScore = avg > 0.1 ? 85 : avg > 0.05 ? 65 : 40;
     }
-    if (lang === 'en') {
-      sections.profitability = { 
-        title: t.sections.profitability, 
-        content: `5-year average return: ${(data.fiveYearAverageReturn ? data.fiveYearAverageReturn * 100 : 0).toFixed(2)}% (YTD: ${(data.ytdReturn ? data.ytdReturn * 100 : 0).toFixed(2)}%). ${['5y', '10y'].includes(range) ? 'Long-term consistency is the determining factor.' : 'YTD performance marks the current fund momentum.'}` 
-      };
-    } else {
-      sections.profitability = { 
-        title: t.sections.profitability, 
-        content: `Retorno medio a 5 años: ${(data.fiveYearAverageReturn ? data.fiveYearAverageReturn * 100 : 0).toFixed(2)}% (YTD: ${(data.ytdReturn ? data.ytdReturn * 100 : 0).toFixed(2)}%). ${['5y', '10y'].includes(range) ? 'La consistencia a largo plazo es el factor determinante.' : 'El rendimiento YTD marca el momentum actual del fondo.'}` 
-      };
-    }
+    
+    sections.profitability = { 
+      title: t.sections.profitability, 
+      content: this.fillTemplate(t.templates.profitability_etf_return, {
+        return5: (data.fiveYearAverageReturn ? data.fiveYearAverageReturn * 100 : 0).toFixed(2),
+        ytd: (data.ytdReturn ? data.ytdReturn * 100 : 0).toFixed(2),
+        note: ['5y', '10y'].includes(range) ? t.templates.ret_long_note : t.templates.ret_short_note
+      })
+    };
     scores.push({ val: retScore, weight: 0.35 });
 
-    // 2. Cost and Efficiency
+    // 2. Cost and Efficiency (Growth)
     let costScore = 50;
     if (data.annualReportExpenseRatio != null) {
       costScore = data.annualReportExpenseRatio < 0.002 ? 90 : data.annualReportExpenseRatio < 0.005 ? 70 : 40;
     }
-    if (lang === 'en') {
-      sections.growth = { 
-        title: t.sections.growth, 
-        content: `AUM of ${this.formatLargeNumber(data.totalAssets || 0)}. TER (Total Expense Ratio): ${(data.annualReportExpenseRatio ? data.annualReportExpenseRatio * 100 : 0).toFixed(2)}%. ${data.annualReportExpenseRatio && data.annualReportExpenseRatio < 0.002 ? 'Very efficient expense ratio for the investor.' : 'Monitoring the impact of fees over the long term is recommended.'}` 
-      };
-    } else {
-      sections.growth = { 
-        title: t.sections.growth, 
-        content: `AUM de ${this.formatLargeNumber(data.totalAssets || 0)}. TER (Gastos totales): ${(data.annualReportExpenseRatio ? data.annualReportExpenseRatio * 100 : 0).toFixed(2)}%. ${data.annualReportExpenseRatio && data.annualReportExpenseRatio < 0.002 ? 'Ratio de gastos muy eficiente para el inversor.' : 'Se recomienda vigilar el impacto de las comisiones en el largo plazo.'}` 
-      };
-    }
+    sections.growth = { 
+      title: t.sections.growth, 
+      content: this.fillTemplate(t.templates.growth_etf_aum, {
+        aum: this.formatLargeNumber(data.totalAssets || 0),
+        ter: (data.annualReportExpenseRatio ? data.annualReportExpenseRatio * 100 : 0).toFixed(2),
+        note: data.annualReportExpenseRatio && data.annualReportExpenseRatio < 0.002 ? t.templates.ter_low_note : t.templates.ter_high_note
+      })
+    };
     scores.push({ val: costScore, weight: 0.25 });
 
-    // 3. Risk (Beta)
+    // 3. Risk (Stability/Beta)
     let riskScore = 50;
     if (data.beta3Year != null) {
       riskScore = data.beta3Year < 1.0 ? 75 : 45;
     }
     sections.stability = { 
-      title: t.sections.risks, // Stability section title mapped to Risks logic in ETF
-      content: lang === 'en'
-        ? `3-year Beta of ${data.beta3Year?.toFixed(2) || 'N/A'}. ${data.beta3Year && data.beta3Year < 1 ? 'Lower volatility than its benchmark.' : 'Asset with volatility higher than the market.'}`
-        : `Beta a 3 años de ${data.beta3Year?.toFixed(2) || 'N/A'}. ${data.beta3Year && data.beta3Year < 1 ? 'Menor volatilidad que su benchmark.' : 'Activo con volatilidad superior al mercado.'}` 
+      title: t.sections.risks, 
+      content: this.fillTemplate(t.templates.stability_etf_beta, {
+        beta: data.beta3Year?.toFixed(2) || 'N/A',
+        note: data.beta3Year && data.beta3Year < 1 ? t.templates.beta_low_note : t.templates.beta_high_note
+      })
     };
     scores.push({ val: riskScore, weight: 0.2 });
 
@@ -425,17 +422,14 @@ export class FundamentalAnalysisService {
     } else if (data.dividendYield != null) {
       divScore = data.dividendYield > 0.02 ? 80 : 55;
     }
-    if (lang === 'en') {
-      sections.valuation = { 
-        title: t.sections.valuation, 
-        content: `Weighted P/E: ${data.peRatio?.toFixed(2) || 'N/A'}. Dividend yield: ${(data.dividendYield ? data.dividendYield * 100 : 0).toFixed(2)}%. ${data.dividendYield && data.dividendYield > 0 ? 'Distribution ETF.' : 'Probably an accumulation fund.'}` 
-      };
-    } else {
-      sections.valuation = { 
-        title: t.sections.valuation, 
-        content: `P/E ponderado: ${data.peRatio?.toFixed(2) || 'N/A'}. Rentabilidad por dividendo: ${(data.dividendYield ? data.dividendYield * 100 : 0).toFixed(2)}%. ${data.dividendYield && data.dividendYield > 0 ? 'ETF de distribución.' : 'Probablemente de acumulación.'}` 
-      };
-    }
+    sections.valuation = { 
+      title: t.sections.valuation, 
+      content: this.fillTemplate(t.templates.valuation_etf_pe, {
+        pe: data.peRatio?.toFixed(2) || 'N/A',
+        yield: (data.dividendYield ? data.dividendYield * 100 : 0).toFixed(2),
+        note: data.dividendYield && data.dividendYield > 0 ? t.templates.div_dist : t.templates.div_acc
+      })
+    };
     scores.push({ val: divScore, weight: 0.2 });
 
     const totalScore = Math.round(scores.reduce((acc, s) => acc + (s.val * s.weight), 0));
@@ -443,16 +437,24 @@ export class FundamentalAnalysisService {
 
     sections.risks = { 
       title: t.sections.risks, 
-      content: lang === 'en'
-        ? 'Tracking error, counterparty risk (if synthetic), closure risk (low AUM), and sector concentration.'
-        : 'Tracking error, riesgo de contrapartida (si es sintético), riesgo de cierre (AUM bajo) y concentración sectorial.' 
+      content: t.templates.risks_etf
     };
 
-    const horizonNote = t.etf_horizon.replace('{family}', data.fundFamily || 'N/A');
+    const horizonNote = this.fillTemplate(t.etf_horizon, {
+      family: data.fundFamily || 'N/A'
+    });
     return this.assembleAnalysis(symbol, 'etf', outlook, totalScore, sections, lang, range, horizonNote);
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────
+
+  private fillTemplate(template: string, data: Record<string, any>): string {
+    let result = template;
+    for (const key in data) {
+      result = result.replace(new RegExp(`{${key}}`, 'g'), String(data[key]));
+    }
+    return result;
+  }
 
   private getCurrencySymbol(currency: string | null | undefined): string {
     if (currency === 'EUR') return '€';
@@ -485,19 +487,19 @@ export class FundamentalAnalysisService {
     const outlookLabel = t.outlooks[outlook];
     const rangeLabel = (t.ranges as any)[range] || range;
 
-    let summaryText = '';
-    if (lang === 'en') {
-      summaryText = `**Outlook for ${rangeLabel}: ${outlookLabel}** (score ${score}/100). In this horizon, the analysis has focused on the determining factors for success over ${rangeLabel}.`;
-    } else {
-      summaryText = `**Perspectiva a ${rangeLabel}: ${outlookLabel}** (puntuación ${score}/100). En este horizonte, el análisis se ha centrado en los factores determinantes para el éxito a ${rangeLabel}.`;
-    }
+    const summaryText = this.fillTemplate(t.templates.summary_template, {
+      range: rangeLabel,
+      outlook: outlookLabel,
+      score
+    });
 
     const finalSections: Record<string, AnalysisSection> = {
       overview: { 
         title: t.sections.overview, 
-        content: lang === 'en' 
-          ? `${symbol} analyzed under the lens of a ${rangeLabel} horizon.` 
-          : `${symbol} analizado bajo el prisma de un horizonte de ${rangeLabel}.` 
+        content: this.fillTemplate(t.templates.overview_template, {
+          symbol,
+          range: rangeLabel
+        })
       },
       ...sections,
       summary: { title: t.sections.summary, content: summaryText },

@@ -806,10 +806,25 @@ psycho: {
 
   // ── News Page ──
 news: {
-  title: 'Actualités financières',
-  subtitle: 'Dernières nouvelles des marchés financiers',
+  title: 'Actualités du marché',
+  subtitle: 'Restez informé des dernières actualités financières',
+  back: 'Retour',
   searchPlaceholder: 'Rechercher des actualités...',
-  noNews: 'Aucune actualité disponible.',
+  onlyToday: 'Aujourd\'hui seulement',
+  noNews: 'Aucune actualité disponible',
+  noNewsToday: 'Aucune actualité publiée aujourd\'hui. Essayez de désactiver le filtre.',
+  noResults: 'Essayez un autre terme de recherche.',
+  banner: {
+    source: 'Mis à jour en temps réel · Yahoo Finance',
+    title: 'Consultez les dernières actualités du marché !',
+    subtitle: 'Utilisez la barre de recherche pour filtrer par entreprise, secteur ou actif.',
+  },
+  time: {
+    ago: 'il y a',
+    min: 'min',
+    hour: 'h',
+    day: 'j'
+  }
 },
 
 // ── Technical Analysis (TechnicalAnalysisPanel) ──

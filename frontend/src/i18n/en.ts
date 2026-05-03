@@ -769,10 +769,25 @@ const en: Translations = {
 
   // ── News Page ──
   news: {
-    title: 'Financial News',
-    subtitle: 'Latest financial market news',
+    title: 'Market News',
+    subtitle: 'Stay informed with the latest financial news',
+    back: 'Back',
     searchPlaceholder: 'Search news...',
-    noNews: 'No news available.',
+    onlyToday: 'Today only',
+    noNews: 'No news available',
+    noNewsToday: 'No news published today. Try disabling the filter.',
+    noResults: 'Try a different search term.',
+    banner: {
+      source: 'Updated in real time · Yahoo Finance',
+      title: 'Check out the latest market news!',
+      subtitle: 'Use the search bar to filter by company, sector, or asset.',
+    },
+    time: {
+      ago: '',
+      min: 'min ago',
+      hour: 'h ago',
+      day: 'd ago'
+    }
   },
 
   // ── Technical Analysis (TechnicalAnalysisPanel) ──

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { RecommendationService } from '../services/recommendation.service';
-import { getLanguage, i18n } from '../utils/i18n';
+import { getLanguage, i18n, Language } from '../utils/i18n';
 import type { RecommendationRequest } from '../models/recommendation';
 
 const recommendationService = new RecommendationService();
@@ -10,7 +10,7 @@ const recommendationService = new RecommendationService();
  * Calculates Stop Loss, Take Profit, and risk management for a given asset and operation parameters.
  */
 export const calculateRecommendation = async (req: Request, res: Response): Promise<void> => {
-  const lang = getLanguage(req.headers['accept-language']);
+  const lang: Language = getLanguage(req.headers['accept-language'] as string);
   const t = i18n[lang].recommendation;
 
   try {

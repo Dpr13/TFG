@@ -229,7 +229,8 @@ export default function RecommendationPage() {
       };
 
       chatContextRef.current = iaPayload;
-        .then((iaRes) => {
+      iaService.analyze(iaPayload)
+        .then(iaRes => {
           setIaResumen(iaRes.resumen);
           setIaJustificacion(iaRes.justificacion);
           if (iaRes.resumenError) setIaResumenError(iaRes.resumenError);
@@ -529,11 +530,12 @@ export default function RecommendationPage() {
         contexto: chatContextRef.current,
         historial,
         mensaje: trimmed,
+        lang: language,
       });
       const assistantMsg: IAChatMessage = { role: 'assistant', content: res.respuesta };
       setChatMessages(prev => [...prev, assistantMsg]);
     } catch {
-      const errorMsg: IAChatMessage = { role: 'assistant', content: 'El servicio de IA no está disponible en este momento. Inténtalo de nuevo.' };
+      const errorMsg: IAChatMessage = { role: 'assistant', content: t.recommendation.iaUnavailable };
       setChatMessages(prev => [...prev, errorMsg]);
     } finally {
       setChatLoading(false);
