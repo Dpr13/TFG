@@ -105,7 +105,7 @@ export const iaService = {
   },
 
   // Contextual chat
-  chat: async (data: { contexto: any; historial: import('../types/recommendation').IAChatMessage[]; mensaje: string }): Promise<import('../types/recommendation').IAChatResponse> => {
+  chat: async (data: { contexto: any; historial: import('../types/recommendation').IAChatMessage[]; mensaje: string; lang?: string }): Promise<import('../types/recommendation').IAChatResponse> => {
     const response = await apiClient.post<import('../types/recommendation').IAChatResponse>('/ia/chat', data, {
       timeout: 30000,
     });

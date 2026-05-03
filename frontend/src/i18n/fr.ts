@@ -246,8 +246,8 @@ footer: {
 
 // ── Assets Page ──
 assets: {
-  title: 'Rechercher des actifs',
-  subtitle: 'Recherchez et analysez des actions, cryptomonnaies et plus',
+  title: 'Actifs Financiers',
+  subtitle: 'Explorez et analysez différents actifs disponibles',
   searchPlaceholder: 'Rechercher par nom ou symbole (ex. : AAPL, KO, NFLX)...',
   watchlist: 'Watchlist',
   recentSearches: 'Recherches',
@@ -258,6 +258,21 @@ assets: {
   stock: 'Action',
   crypto: 'Crypto',
   forex: 'Forex',
+  tabs: {
+    all: 'Tous',
+    watchlist: 'Suivi',
+  },
+  filters: {
+    allTypes: 'Tous les types',
+  },
+  search: 'Rechercher',
+  noResults: 'Aucun actif trouvé correspondant à votre recherche',
+  trySpecific: 'Essayez de rechercher un symbole spécifique (ex. : AAPL, NFLX, META) en appuyant sur Entrée ou le bouton "Rechercher"',
+  options: {
+    stock: 'Actions',
+    crypto: 'Cryptomonnaies',
+    forex: 'Forex',
+  },
 },
 
 assetDetail: {
@@ -352,6 +367,7 @@ riskAnalysis: {
   description: 'Calcule des indicateurs de risque avancés pour tout actif financier',
   period: 'Période :',
   interval: 'Intervalle :',
+  currentDataOnly: 'Données actuelles — indépendantes de la période sélectionnée',
   sixMonths: '6 mois',
   oneYear: '1 an',
   threeYears: '3 ans',
@@ -632,16 +648,41 @@ comparison: {
   },
   tables: {
     fundamental: {
-      title: 'Analyse fondamentale',
-      desc: 'Valorisation et rentabilité'
+      title: 'Analyse des risques fondamentaux',
+      desc: 'Métriques de valorisation et de rentabilité',
+      marketCap: 'Capitalisation Boursière',
+      peRatio: 'Ratio P/E',
+      roe: 'ROE',
+      netMargin: 'Marge Nette',
+      dividend: 'Dividende',
+      eps: 'EPS',
+      priceBook: 'Cours/Valeur Comptable',
+      debtEquity: 'Endettement/Capitaux Propres',
     },
     technical: {
-      title: 'Analyse technique',
-      desc: 'Signaux de prix et momentum'
+      title: 'Analyse des risques techniques',
+      desc: 'Signaux et momentum sur la période sélectionnée',
+      periodChange: 'Variation de la Période',
+      rsi: 'RSI (14)',
+      trend: 'Tendance',
+      overSMA50: 'Au-dessus SMA50',
+      overSMA200: 'Au-dessus SMA200',
+      macd: 'MACD',
+      technicalScore: 'Score Technique',
+      bullish: 'Haussier',
+      bearish: 'Baissier',
+      yes: 'Oui',
+      no: 'Non',
     },
     risk: {
-      title: 'Analyse quantitative',
-      desc: 'Volatilité et risque'
+      title: 'Analyse des risques quantitatifs',
+      desc: 'Volatilité, drawdown et métriques de risque/rendement',
+      volatilityAnnual: 'Volatilité Annuelle',
+      annualizedReturn: 'Rendement Annualisé',
+      sharpeRatio: 'Ratio de Sharpe',
+      var95: 'VaR 95%',
+      maxDrawdown: 'Drawdown Maximal',
+      beta: 'Bêta',
     },
     metricHeader: 'Métrique'
   }
@@ -765,22 +806,40 @@ psycho: {
 
   // ── News Page ──
 news: {
-  title: 'Actualités financières',
-  subtitle: 'Dernières nouvelles des marchés financiers',
+  title: 'Actualités du marché',
+  subtitle: 'Restez informé des dernières actualités financières',
+  back: 'Retour',
   searchPlaceholder: 'Rechercher des actualités...',
-  noNews: 'Aucune actualité disponible.',
+  onlyToday: 'Aujourd\'hui seulement',
+  noNews: 'Aucune actualité disponible',
+  noNewsToday: 'Aucune actualité publiée aujourd\'hui. Essayez de désactiver le filtre.',
+  noResults: 'Essayez un autre terme de recherche.',
+  banner: {
+    source: 'Mis à jour en temps réel · Yahoo Finance',
+    title: 'Consultez les dernières actualités du marché !',
+    subtitle: 'Utilisez la barre de recherche pour filtrer par entreprise, secteur ou actif.',
+  },
+  time: {
+    ago: 'il y a',
+    min: 'min',
+    hour: 'h',
+    day: 'j'
+  }
 },
 
 // ── Technical Analysis (TechnicalAnalysisPanel) ──
 technicalAnalysis: {
   title: 'Analyse technique du risque',
-  generating: 'Génération en cours...',
+  generating: 'Analyse technique en cours de génération...',
+  noData: 'Données techniques non disponibles pour cet actif.',
   disclaimer: "Signal automatique informatif; ne constitue pas un conseil en investissement.",
+  signalDisclaimer: "Ce signal est purement informatif et est généré automatiquement à partir d\'indicateurs techniques. Il ne constitue pas un conseil financier ou une recommandation d\'investissement.",
   regenerateSummary: "Régénérer le résumé IA",
   generateSummary: "Générer le résumé IA",
   aiSummary: 'Résumé IA',
   overlays: 'Superpositions :',
   export: 'Exporter',
+  exportPNG: 'Exporter PNG',
   dataLimitWarning: "Les données pour l\'intervalle {interval} sur Yahoo Finance sont limitées à {days} jours historiques.",
   historicalDataLimit: 'jours historiques',
   analysisError: "Erreur lors de l\'analyse de l\'actif",
@@ -801,6 +860,12 @@ technicalAnalysis: {
     obv: 'Volume / OBV',
   },
   sr: {
+    title: 'Niveaux de support et de résistance',
+    supports: 'Supports',
+    resistances: 'Résistances',
+    noSupports: 'Aucun support clair détecté',
+    noResistances: 'Aucune résistance claire détectée',
+    strength: 'Force :',
     resistance: 'Résistance',
     support: 'Support',
   },

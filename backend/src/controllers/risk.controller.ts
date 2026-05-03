@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { RiskService } from '../services/risk.service';
 import { InsufficientDataError } from '../models/risk';
-import { i18n, getLanguage } from '../utils/i18n';
+import { i18n, getLanguage, Language } from '../utils/i18n';
 
 // Create a single instance of RiskService
 const riskService = new RiskService();
@@ -13,7 +13,7 @@ const riskService = new RiskService();
 export const getRiskMetrics = async (req: Request, res: Response) => {
   const { symbol } = req.params;
   const { range } = req.query;
-  const lang = getLanguage(req.headers['accept-language']);
+  const lang: Language = getLanguage(req.headers['accept-language'] as string);
   const t = i18n[lang].risk;
 
   if (!symbol || typeof symbol !== 'string') {

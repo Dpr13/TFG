@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { ComparisonService } from '../services/comparison.service';
 import { generarVeredictoComparativa } from '../services/ia.service';
-import { i18n, getLanguage } from '../utils/i18n';
+import { i18n, getLanguage, Language } from '../utils/i18n';
 
 const comparisonService = new ComparisonService();
 
@@ -12,7 +12,7 @@ const comparisonService = new ComparisonService();
 export const compararActivos = async (req: Request, res: Response): Promise<void> => {
   try {
     const { tickers, horizonte = '1y' } = req.body;
-    const lang = getLanguage(req.headers['accept-language']);
+    const lang: Language = getLanguage(req.headers['accept-language'] as string);
     const t = i18n[lang];
 
     if (!Array.isArray(tickers) || tickers.length < 2 || tickers.length > 3) {
@@ -43,8 +43,8 @@ export const compararActivos = async (req: Request, res: Response): Promise<void
  */
 export const veredictoComparativa = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { resultados, horizonte = '1y' } = req.body;
-    const lang = getLanguage(req.headers['accept-language']);
+    const { resultados, horizonte = '1y', lang: payloadLang } = req.body;
+    const lang: Language = (payloadLang as Language) || getLanguage(req.headers['accept-language'] as string);
     const t = i18n[lang];
 
     if (!Array.isArray(resultados) || resultados.length < 2) {
@@ -60,7 +60,7 @@ export const veredictoComparativa = async (req: Request, res: Response): Promise
       res.status(500).json(resultado);
     }
   } catch (error) {
-    const lang = getLanguage(req.headers['accept-language']);
+    const lang: Language = getLanguage(req.headers['accept-language'] as string);
     res.status(500).json({ veredicto: null, ok: false, error: i18n[lang].comparison.errors.aiUnavailable });
   }
 };

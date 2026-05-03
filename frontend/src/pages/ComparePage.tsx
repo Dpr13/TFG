@@ -239,7 +239,7 @@ function ComparisonTable({ title, description, icon: Icon, rows, tickers }: {
 // ── Main Page ───────────────────────────────────────────────────────────────
 
 export default function ComparePage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [searchParams] = useSearchParams();
   const { watchlist } = useWatchlist();
 
@@ -321,9 +321,10 @@ export default function ComparePage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept-Language': language,
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ resultados, horizonte }),
+        body: JSON.stringify({ resultados, horizonte, lang: language }),
       });
 
       const data = await res.json();
@@ -380,42 +381,42 @@ export default function ComparePage() {
 
     return [
       {
-        label: 'Market Cap',
+        label: t.comparison.tables.fundamental.marketCap,
         values: f.map(fd => formatLargeNumber(fd?.market_cap)),
         winners: pickWinner(f.map(fd => fd?.market_cap ?? null), true),
       },
       {
-        label: 'P/E Ratio',
+        label: t.comparison.tables.fundamental.peRatio,
         values: f.map(fd => fd?.pe_ratio != null && fd.pe_ratio > 0 ? fmt(fd.pe_ratio) : fd?.pe_ratio != null ? fmt(fd.pe_ratio) : 'N/D'),
         winners: pickWinner(f.map(fd => fd?.pe_ratio != null && fd.pe_ratio > 0 ? fd.pe_ratio : null), false),
       },
       {
-        label: 'ROE',
+        label: t.comparison.tables.fundamental.roe,
         values: f.map(fd => fmtPct(fd?.roe)),
         winners: pickWinner(f.map(fd => fd?.roe ?? null), true),
       },
       {
-        label: 'Margen Neto',
+        label: t.comparison.tables.fundamental.netMargin,
         values: f.map(fd => fmtPct(fd?.margen_neto)),
         winners: pickWinner(f.map(fd => fd?.margen_neto ?? null), true),
       },
       {
-        label: 'Dividendo',
+        label: t.comparison.tables.fundamental.dividend,
         values: f.map(fd => fmtPct(fd?.dividendo)),
         winners: pickWinner(f.map(fd => fd?.dividendo ?? null), true),
       },
       {
-        label: 'EPS',
+        label: t.comparison.tables.fundamental.eps,
         values: f.map(fd => fmt(fd?.eps)),
         winners: pickWinner(f.map(fd => fd?.eps ?? null), true),
       },
       {
-        label: 'Price/Book',
+        label: t.comparison.tables.fundamental.priceBook,
         values: f.map(fd => fmt(fd?.precio_book)),
         winners: pickWinner(f.map(fd => fd?.precio_book != null && fd.precio_book > 0 ? fd.precio_book : null), false),
       },
       {
-        label: 'Deuda/Equity',
+        label: t.comparison.tables.fundamental.debtEquity,
         values: f.map(fd => fmt(fd?.deuda_equity)),
         winners: pickWinner(f.map(fd => fd?.deuda_equity ?? null), false),
       },
@@ -424,43 +425,43 @@ export default function ComparePage() {
 
   function buildTechnicalRows(): TableRow[] {
     if (validResults.length < 2) return [];
-    const t = validResults.map(r => r.tecnico);
+    const t_data = validResults.map(r => r.tecnico);
 
     return [
       {
-        label: 'Cambio en el período',
-        values: t.map(td => fmtPct(td?.cambio_periodo_pct)),
-        winners: pickWinner(t.map(td => td?.cambio_periodo_pct ?? null), true),
+        label: t.comparison.tables.technical.periodChange,
+        values: t_data.map(td => fmtPct(td?.cambio_periodo_pct)),
+        winners: pickWinner(t_data.map(td => td?.cambio_periodo_pct ?? null), true),
       },
       {
-        label: 'RSI (14)',
-        values: t.map(td => fmt(td?.rsi)),
-        winners: rsiWinner(t.map(td => td?.rsi ?? null)),
+        label: t.comparison.tables.technical.rsi,
+        values: t_data.map(td => fmt(td?.rsi)),
+        winners: rsiWinner(t_data.map(td => td?.rsi ?? null)),
       },
       {
-        label: 'Tendencia',
-        values: t.map(td => td?.tendencia ? td.tendencia.charAt(0).toUpperCase() + td.tendencia.slice(1) : 'N/D'),
-        winners: trendWinner(t.map(td => td?.tendencia)),
+        label: t.comparison.tables.technical.trend,
+        values: t_data.map(td => td?.tendencia ? td.tendencia.charAt(0).toUpperCase() + td.tendencia.slice(1) : 'N/D'),
+        winners: trendWinner(t_data.map(td => td?.tendencia)),
       },
       {
-        label: 'Sobre SMA50',
-        values: t.map(td => td?.sobre_sma50 != null ? (td.sobre_sma50 ? 'Sí' : 'No') : 'N/D'),
-        winners: boolWinner(t.map(td => td?.sobre_sma50)),
+        label: t.comparison.tables.technical.overSMA50,
+        values: t_data.map(td => td?.sobre_sma50 != null ? (td.sobre_sma50 ? t.comparison.tables.technical.yes : t.comparison.tables.technical.no) : 'N/D'),
+        winners: boolWinner(t_data.map(td => td?.sobre_sma50)),
       },
       {
-        label: 'Sobre SMA200',
-        values: t.map(td => td?.sobre_sma200 != null ? (td.sobre_sma200 ? 'Sí' : 'No') : 'N/D'),
-        winners: boolWinner(t.map(td => td?.sobre_sma200)),
+        label: t.comparison.tables.technical.overSMA200,
+        values: t_data.map(td => td?.sobre_sma200 != null ? (td.sobre_sma200 ? t.comparison.tables.technical.yes : t.comparison.tables.technical.no) : 'N/D'),
+        winners: boolWinner(t_data.map(td => td?.sobre_sma200)),
       },
       {
-        label: 'MACD',
-        values: t.map(td => td?.macd_alcista != null ? (td.macd_alcista ? 'Alcista' : 'Bajista') : 'N/D'),
-        winners: boolWinner(t.map(td => td?.macd_alcista)),
+        label: t.comparison.tables.technical.macd,
+        values: t_data.map(td => td?.macd_alcista != null ? (td.macd_alcista ? t.comparison.tables.technical.bullish : t.comparison.tables.technical.bearish) : 'N/D'),
+        winners: boolWinner(t_data.map(td => td?.macd_alcista)),
       },
       {
-        label: 'Puntuación técnica',
-        values: t.map(td => td?.puntuacion_tecnica != null ? `${td.puntuacion_tecnica}/100` : 'N/D'),
-        winners: pickWinner(t.map(td => td?.puntuacion_tecnica ?? null), true),
+        label: t.comparison.tables.technical.technicalScore,
+        values: t_data.map(td => td?.puntuacion_tecnica != null ? `${td.puntuacion_tecnica}/100` : 'N/D'),
+        winners: pickWinner(t_data.map(td => td?.puntuacion_tecnica ?? null), true),
       },
     ];
   }
@@ -471,32 +472,32 @@ export default function ComparePage() {
 
     return [
       {
-        label: 'Volatilidad anual',
+        label: t.comparison.tables.risk.volatilityAnnual,
         values: r.map(rk => fmtPct(rk?.volatilidad_anual)),
         winners: pickWinner(r.map(rk => rk?.volatilidad_anual ?? null), false),
       },
       {
-        label: 'Retorno anualizado',
+        label: t.comparison.tables.risk.annualizedReturn,
         values: r.map(rk => fmtPct(rk?.retorno_anualizado)),
         winners: pickWinner(r.map(rk => rk?.retorno_anualizado ?? null), true),
       },
       {
-        label: 'Sharpe Ratio',
+        label: t.comparison.tables.risk.sharpeRatio,
         values: r.map(rk => fmt(rk?.sharpe_ratio)),
         winners: pickWinner(r.map(rk => rk?.sharpe_ratio ?? null), true),
       },
       {
-        label: 'VaR 95%',
+        label: t.comparison.tables.risk.var95,
         values: r.map(rk => fmtPct(rk?.var_95)),
         winners: pickWinner(r.map(rk => rk?.var_95 ?? null), true), // less negative = better = higher
       },
       {
-        label: 'Max Drawdown',
+        label: t.comparison.tables.risk.maxDrawdown,
         values: r.map(rk => fmtPct(rk?.max_drawdown)),
         winners: pickWinner(r.map(rk => rk?.max_drawdown ?? null), true), // less negative = better = higher
       },
       {
-        label: 'Beta',
+        label: t.comparison.tables.risk.beta,
         values: r.map(rk => fmt(rk?.beta)),
         winners: r.map(() => 'neutral' as WinResult), // Beta shown without coloring
       },

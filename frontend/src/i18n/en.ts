@@ -246,9 +246,9 @@ const en: Translations = {
 
   // ── Assets Page ──
   assets: {
-    title: 'Search Assets',
-    subtitle: 'Search and analyze stocks, cryptocurrencies and more',
-    searchPlaceholder: 'Search by name or symbol (e.g.: AAPL, KO, NFLX)...',
+    title: 'Financial Assets',
+    subtitle: 'Explore and analyze different available assets',
+    searchPlaceholder: 'Search by name or symbol (e.g: AAPL, KO, NFLX)...',
     watchlist: 'Watchlist',
     recentSearches: 'Search',
     noWatchlistItems: 'Your watchlist is empty.',
@@ -258,6 +258,21 @@ const en: Translations = {
     stock: 'Stock',
     crypto: 'Crypto',
     forex: 'Forex',
+    tabs: {
+      all: 'All',
+      watchlist: 'Watchlist',
+    },
+    filters: {
+      allTypes: 'All Types',
+    },
+    search: 'Search',
+    noResults: 'No assets found matching your search',
+    trySpecific: 'Try searching for a specific symbol (e.g: AAPL, NFLX, META) by pressing Enter or the "Search" button',
+    options: {
+      stock: 'Stocks',
+      crypto: 'Cryptocurrencies',
+      forex: 'Forex',
+    },
   },
 
   assetDetail: {
@@ -352,6 +367,7 @@ const en: Translations = {
     description: 'Calculate advanced risk metrics for any financial asset',
     period: 'Period:',
     interval: 'Interval:',
+    currentDataOnly: 'Current data — independent of the selected timeframe',
     sixMonths: '6 months',
     oneYear: '1 year',
     threeYears: '3 years',
@@ -596,15 +612,40 @@ const en: Translations = {
     tables: {
       fundamental: {
         title: 'Fundamental Risk Analysis',
-        desc: 'Valuation and business profitability metrics'
+        desc: 'Valuation and profitability metrics',
+        marketCap: 'Market Cap',
+        peRatio: 'P/E Ratio',
+        roe: 'ROE',
+        netMargin: 'Net Margin',
+        dividend: 'Dividend',
+        eps: 'EPS',
+        priceBook: 'Price/Book',
+        debtEquity: 'Debt/Equity',
       },
       technical: {
         title: 'Technical Risk Analysis',
-        desc: 'Price signals and momentum in the selected period'
+        desc: 'Price signals and momentum in selected period',
+        periodChange: 'Period Change',
+        rsi: 'RSI (14)',
+        trend: 'Trend',
+        overSMA50: 'Over SMA50',
+        overSMA200: 'Over SMA200',
+        macd: 'MACD',
+        technicalScore: 'Technical Score',
+        bullish: 'Bullish',
+        bearish: 'Bearish',
+        yes: 'Yes',
+        no: 'No',
       },
       risk: {
         title: 'Quantitative Risk Analysis',
-        desc: 'Volatility, drawdown, and risk/return metrics'
+        desc: 'Volatility, drawdown and risk/return metrics',
+        volatilityAnnual: 'Annual Volatility',
+        annualizedReturn: 'Annualized Return',
+        sharpeRatio: 'Sharpe Ratio',
+        var95: 'VaR 95%',
+        maxDrawdown: 'Max Drawdown',
+        beta: 'Beta',
       },
       metricHeader: 'Metric'
     }
@@ -728,22 +769,40 @@ const en: Translations = {
 
   // ── News Page ──
   news: {
-    title: 'Financial News',
-    subtitle: 'Latest financial market news',
+    title: 'Market News',
+    subtitle: 'Stay informed with the latest financial news',
+    back: 'Back',
     searchPlaceholder: 'Search news...',
-    noNews: 'No news available.',
+    onlyToday: 'Today only',
+    noNews: 'No news available',
+    noNewsToday: 'No news published today. Try disabling the filter.',
+    noResults: 'Try a different search term.',
+    banner: {
+      source: 'Updated in real time · Yahoo Finance',
+      title: 'Check out the latest market news!',
+      subtitle: 'Use the search bar to filter by company, sector, or asset.',
+    },
+    time: {
+      ago: '',
+      min: 'min ago',
+      hour: 'h ago',
+      day: 'd ago'
+    }
   },
 
   // ── Technical Analysis (TechnicalAnalysisPanel) ──
   technicalAnalysis: {
     title: 'Technical Risk Analysis',
-    generating: 'Generating...',
+    generating: 'Generating technical analysis...',
+    noData: 'Technical data not available for this asset.',
     disclaimer: 'Informational and automatic signal; does not constitute investment advice.',
+    signalDisclaimer: 'This signal is purely informational and is generated automatically from technical indicators. It does not constitute financial advice or investment recommendation.',
     regenerateSummary: 'Regenerate AI summary',
     generateSummary: 'Generate AI summary',
     aiSummary: 'AI Summary',
     overlays: 'Overlays:',
     export: 'Export',
+    exportPNG: 'Export PNG',
     dataLimitWarning: 'Data for {interval} interval on Yahoo Finance has a limit of {days} historical days.',
     historicalDataLimit: 'historical days',
     analysisError: 'Error analyzing the asset',
@@ -764,6 +823,12 @@ const en: Translations = {
       obv: 'Volume / OBV',
     },
     sr: {
+      title: 'Support and Resistance Levels',
+      supports: 'Supports',
+      resistances: 'Resistances',
+      noSupports: 'No clear supports detected',
+      noResistances: 'No clear resistances detected',
+      strength: 'Strength:',
       resistance: 'Resistance',
       support: 'Support',
     },

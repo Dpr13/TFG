@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { TechnicalAnalysisService } from '../services/technicalAnalysis.service';
-import { getLanguage } from '../utils/i18n';
+import { getLanguage, Language } from '../utils/i18n';
 
 const analysisService = new TechnicalAnalysisService();
 
@@ -16,9 +16,9 @@ export const getTechnicalAnalysis = async (req: Request, res: Response) => {
     return;
   }
 
-  const { range, interval } = req.query;
+  const { range, interval, lang: queryLang } = req.query;
   const selectedRange = (range as string) || '1y';
-  const lang = getLanguage(req.headers['accept-language'] as string);
+  const lang: Language = (queryLang as Language) || getLanguage(req.headers['accept-language'] as string);
 
   try {
     const analysis = await analysisService.analyze(symbol, selectedRange, interval as string, lang);

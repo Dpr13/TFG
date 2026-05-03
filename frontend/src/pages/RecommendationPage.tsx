@@ -15,7 +15,7 @@ const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d', '1wk', '1mo'] as const;
 
 export default function RecommendationPage() {
   const { darkMode } = useTheme();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [symbol, setSymbol] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -225,12 +225,12 @@ export default function RecommendationPage() {
           resistencia_cercana: resistenciaCercana,
         },
         datos_fundamentales: {},
+        lang: language,
       };
 
       chatContextRef.current = iaPayload;
-
       iaService.analyze(iaPayload)
-        .then((iaRes) => {
+        .then(iaRes => {
           setIaResumen(iaRes.resumen);
           setIaJustificacion(iaRes.justificacion);
           if (iaRes.resumenError) setIaResumenError(iaRes.resumenError);
@@ -530,11 +530,12 @@ export default function RecommendationPage() {
         contexto: chatContextRef.current,
         historial,
         mensaje: trimmed,
+        lang: language,
       });
       const assistantMsg: IAChatMessage = { role: 'assistant', content: res.respuesta };
       setChatMessages(prev => [...prev, assistantMsg]);
     } catch {
-      const errorMsg: IAChatMessage = { role: 'assistant', content: 'El servicio de IA no está disponible en este momento. Inténtalo de nuevo.' };
+      const errorMsg: IAChatMessage = { role: 'assistant', content: t.recommendation.iaUnavailable };
       setChatMessages(prev => [...prev, errorMsg]);
     } finally {
       setChatLoading(false);
