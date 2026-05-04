@@ -22,7 +22,6 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +56,7 @@ export default function LoginPage() {
       return;
     }
     try {
-      const result = await login({ email, password, remember });
+      const result = await login({ email, password });
       if (result.requiere_verificacion) {
         navigate('/verificar-email', {
           replace: true,
@@ -225,22 +224,7 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                {/* Remember me */}
-                <div className="flex items-center gap-2">
-                  <input
-                    id="remember"
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                    className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                  />
-                  <label
-                    htmlFor="remember"
-                    className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none"
-                  >
-                    {t.auth.rememberSession}
-                  </label>
-                </div>
+
 
                 {/* Error */}
                 {error && (

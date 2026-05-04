@@ -11,7 +11,7 @@ import type { RecommendationRequest, RecommendationResult, SLMethod, TPMethod, I
 declare const LightweightCharts: any;
 
 const QUICK_SYMBOLS = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA', 'BTC-USD', 'ETH-USD', 'SPY'];
-const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d', '1wk', '1mo'] as const;
+const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d', '1wk'] as const;
 
 export default function RecommendationPage() {
   const { darkMode } = useTheme();
