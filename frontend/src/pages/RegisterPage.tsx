@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Eye,
@@ -13,29 +13,9 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-
-const FEATURES = [
-  {
-    icon: Activity,
-    title: 'Datos en tiempo real',
-    desc: 'Precios y métricas desde Yahoo Finance sin coste',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Análisis cuantitativo',
-    desc: 'Volatilidad, Sharpe Ratio, VaR, Sortino y más',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Gestión de riesgo',
-    desc: 'Evalúa cualquier acción, cripto o divisa al instante',
-  },
-  {
-    icon: AlertTriangle,
-    title: 'Lista de seguimiento',
-    desc: 'Guarda y monitoriza tus activos favoritos',
-  },
-];
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSelector from '../components/LanguageSelector';
+import { mapBackendError } from '../utils/errorMapper';
 
 interface PasswordStrength {
   score: number; // 0-4
@@ -43,32 +23,9 @@ interface PasswordStrength {
   color: string;
 }
 
-function getPasswordStrength(password: string): PasswordStrength {
-  let score = 0;
-  if (password.length >= 8) score++;
-  if (/[A-Z]/.test(password)) score++;
-  if (/[0-9]/.test(password)) score++;
-  if (/[^A-Za-z0-9]/.test(password)) score++;
-
-  const levels: PasswordStrength[] = [
-    { score: 0, label: '', color: '' },
-    { score: 1, label: 'Débil', color: 'bg-red-500' },
-    { score: 2, label: 'Regular', color: 'bg-yellow-500' },
-    { score: 3, label: 'Buena', color: 'bg-blue-500' },
-    { score: 4, label: 'Fuerte', color: 'bg-green-500' },
-  ];
-  return levels[score];
-}
-
-const RULES = [
-  { label: 'Mínimo 8 caracteres', test: (p: string) => p.length >= 8 },
-  { label: 'Al menos una mayúscula', test: (p: string) => /[A-Z]/.test(p) },
-  { label: 'Al menos un número', test: (p: string) => /[0-9]/.test(p) },
-  { label: 'Al menos un símbolo', test: (p: string) => /[^A-Za-z0-9]/.test(p) },
-];
-
 export default function RegisterPage() {
-  const { register, isLoading } = useAuth();
+  const { register: registerUser, isLoading } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
@@ -79,7 +36,53 @@ export default function RegisterPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const strength = getPasswordStrength(password);
+  const FEATURES = useMemo(() => [
+    {
+      icon: Activity,
+      title: t.auth.feature1Title,
+      desc: t.auth.feature1Desc,
+    },
+    {
+      icon: TrendingUp,
+      title: t.auth.feature2Title,
+      desc: t.auth.feature2Desc,
+    },
+    {
+      icon: ShieldCheck,
+      title: t.auth.feature3Title,
+      desc: t.auth.feature3Desc,
+    },
+    {
+      icon: AlertTriangle,
+      title: t.auth.feature4Title,
+      desc: t.auth.feature4Desc,
+    },
+  ], [t]);
+
+  const RULES = useMemo(() => [
+    { label: t.register.req8Chars, test: (p: string) => p.length >= 8 },
+    { label: t.register.reqUpper, test: (p: string) => /[A-Z]/.test(p) },
+    { label: t.register.reqNumber, test: (p: string) => /[0-9]/.test(p) },
+    { label: t.register.reqSymbol, test: (p: string) => /[^A-Za-z0-9]/.test(p) },
+  ], [t]);
+
+  const strength = useMemo((): PasswordStrength => {
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+
+    const levels = [
+      { score: 0, label: '', color: '' },
+      { score: 1, label: t.register.strengthLevels.weak, color: 'bg-red-500' },
+      { score: 2, label: t.register.strengthLevels.fair, color: 'bg-yellow-500' },
+      { score: 3, label: t.register.strengthLevels.good, color: 'bg-blue-500' },
+      { score: 4, label: t.register.strengthLevels.strong, color: 'bg-green-500' },
+    ];
+    return levels[score];
+  }, [password, t]);
+
   const passwordsMatch = password.length > 0 && confirm.length > 0 && password === confirm;
 
   const handleSubmit = async (e: FormEvent) => {
@@ -87,24 +90,24 @@ export default function RegisterPage() {
     setError(null);
 
     if (!name.trim()) {
-      setError('El nombre no puede estar vacío.');
+      setError(t.common.error); // Or a specific one if added
       return;
     }
     
     // Validar todas las reglas de contraseña
     const failingRules = RULES.filter(r => !r.test(password));
     if (failingRules.length > 0) {
-      setError(`La contraseña no cumple con los requisitos de seguridad: mínimo 8 caracteres, una mayúscula, un número y un símbolo.`);
+      setError(t.register.passwordReqs);
       return;
     }
 
     if (password !== confirm) {
-      setError('Las contraseñas no coinciden.');
+      setError(t.register.passwordsNoMatch);
       return;
     }
 
     try {
-      const result = await register({ name: name.trim(), email, password });
+      const result = await registerUser({ name: name.trim(), email, password });
       navigate('/verificar-email', {
         replace: true,
         state: {
@@ -114,13 +117,17 @@ export default function RegisterPage() {
       });
     } catch (err: any) {
       console.error('Registration error:', err);
-      const backendError = err.response?.data?.error;
-      setError(backendError || 'Error al crear la cuenta. Inténtelo de nuevo.');
+      setError(mapBackendError(err, t));
     }
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative">
+      {/* Selector de idioma persistente en la esquina superior derecha */}
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageSelector />
+      </div>
+
       {/* ── Left panel ── */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary-900 via-primary-700 to-primary-500 flex-col justify-between p-12">
         {/* Decorative circles */}
@@ -134,8 +141,8 @@ export default function RegisterPage() {
             <img src="/Logo.png" alt="Logo" className="w-9 h-9 object-contain" />
           </div>
           <div>
-            <p className="text-white font-bold text-lg leading-tight">Análisis de Riesgo</p>
-            <p className="text-primary-200 text-xs">Plataforma Financiera · TFG</p>
+            <p className="text-white font-bold text-lg leading-tight">{t.auth.brandName}</p>
+            <p className="text-primary-200 text-xs">{t.auth.brandSubtitle}</p>
           </div>
         </div>
 
@@ -143,12 +150,11 @@ export default function RegisterPage() {
         <div className="relative z-10 space-y-6">
           <div>
             <h2 className="text-4xl font-extrabold text-white leading-tight">
-              Empieza a analizar<br />
-              <span className="text-primary-200">el mercado hoy</span>
+              {t.auth.headline1}<br />
+              <span className="text-primary-200">{t.auth.headline2}</span>
             </h2>
             <p className="mt-3 text-primary-100 text-base max-w-sm leading-relaxed">
-              Crea tu cuenta y accede a métricas cuantitativas de riesgo para cualquier activo
-              financiero del mundo.
+              {t.auth.headlineDesc}
             </p>
           </div>
 
@@ -181,7 +187,7 @@ export default function RegisterPage() {
           <div className="bg-primary-600 p-1 rounded-lg">
             <img src="/Logo.png" alt="Logo" className="w-7 h-7 object-contain" />
           </div>
-          <p className="font-bold text-gray-900 dark:text-white">Análisis de Riesgo Financiero</p>
+          <p className="font-bold text-gray-900 dark:text-white">{t.auth.brandName}</p>
         </div>
 
         <div className="flex-1 flex items-center justify-center px-6 py-10">
@@ -189,10 +195,10 @@ export default function RegisterPage() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
               <div className="mb-7">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Crear cuenta
+                  {t.register.title}
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-                  Regístrate para acceder a la plataforma
+                  {t.register.subtitle}
                 </p>
               </div>
 
@@ -204,7 +210,7 @@ export default function RegisterPage() {
                     htmlFor="name"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
                   >
-                    Nombre completo
+                    {t.register.name}
                   </label>
                   <input
                     id="name"
@@ -213,7 +219,7 @@ export default function RegisterPage() {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Tu nombre"
+                    placeholder={t.register.namePlaceholder}
                     className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600
                                bg-white dark:bg-gray-700 text-gray-900 dark:text-white
                                placeholder-gray-400 dark:placeholder-gray-500
@@ -228,7 +234,7 @@ export default function RegisterPage() {
                     htmlFor="email"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
                   >
-                    Correo electrónico
+                    {t.auth.email}
                   </label>
                   <input
                     id="email"
@@ -237,7 +243,7 @@ export default function RegisterPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="usuario@ejemplo.com"
+                    placeholder={t.register.emailPlaceholder}
                     className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600
                                bg-white dark:bg-gray-700 text-gray-900 dark:text-white
                                placeholder-gray-400 dark:placeholder-gray-500
@@ -252,7 +258,7 @@ export default function RegisterPage() {
                     htmlFor="password"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
                   >
-                    Contraseña
+                    {t.auth.password}
                   </label>
                   <div className="relative">
                     <input
@@ -293,7 +299,7 @@ export default function RegisterPage() {
                       </div>
                       {strength.label && (
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Fortaleza:{' '}
+                          {t.register.strength}:{' '}
                           <span className={`font-semibold ${
                             strength.score <= 1 ? 'text-red-500' :
                             strength.score === 2 ? 'text-yellow-500' :
@@ -328,7 +334,7 @@ export default function RegisterPage() {
                     htmlFor="confirm"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
                   >
-                    Confirmar contraseña
+                    {t.auth.confirmPassword}
                   </label>
                   <div className="relative">
                     <input
@@ -359,11 +365,11 @@ export default function RegisterPage() {
                     </button>
                   </div>
                   {confirm.length > 0 && !passwordsMatch && (
-                    <p className="mt-1 text-xs text-red-500">Las contraseñas no coinciden</p>
+                    <p className="mt-1 text-xs text-red-500">{t.register.confirmNoMatch}</p>
                   )}
                   {passwordsMatch && (
                     <p className="mt-1 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                      <Check className="w-3 h-3" /> Las contraseñas coinciden
+                      <Check className="w-3 h-3" /> {t.register.confirmMatch}
                     </p>
                   )}
                 </div>
@@ -387,12 +393,12 @@ export default function RegisterPage() {
                   {isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Creando cuenta...
+                      {t.register.creating}
                     </>
                   ) : (
                     <>
                       <UserPlus className="w-4 h-4" />
-                      Crear cuenta
+                      {t.register.submit}
                     </>
                   )}
                 </button>
@@ -401,19 +407,19 @@ export default function RegisterPage() {
               {/* Link to login */}
               <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                  ¿Ya tienes cuenta?{' '}
+                  {t.auth.hasAccount}{' '}
                   <Link
                     to="/login"
                     className="text-primary-600 dark:text-primary-400 font-semibold hover:underline"
                   >
-                    Inicia sesión
+                    {t.auth.login}
                   </Link>
                 </p>
               </div>
             </div>
 
             <p className="text-center text-xs text-gray-400 dark:text-gray-600 mt-6">
-              Sistema de Análisis de Riesgo Financiero · TFG {new Date().getFullYear()}
+              {t.auth.systemFooter} {new Date().getFullYear()}
             </p>
           </div>
         </div>

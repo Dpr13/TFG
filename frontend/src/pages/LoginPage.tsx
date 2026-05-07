@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import LanguageSelector from '../components/LanguageSelector';
+import { mapBackendError } from '../utils/errorMapper';
 
 export default function LoginPage() {
   const { login, isLoading } = useAuth();
@@ -22,7 +24,6 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +58,7 @@ export default function LoginPage() {
       return;
     }
     try {
-      const result = await login({ email, password, remember });
+      const result = await login({ email, password });
       if (result.requiere_verificacion) {
         navigate('/verificar-email', {
           replace: true,
@@ -71,16 +72,20 @@ export default function LoginPage() {
       navigate(from, { replace: true });
     } catch (err: any) {
       console.error('Login error:', err);
-      const backendError = err.response?.data?.error;
-      setError(backendError || t.auth.serverError);
-      if (backendError === t.auth.wrongPassword) {
+      setError(mapBackendError(err, t));
+      if (err.response?.data?.error === 'Contraseña incorrecta. Por favor, inténtelo de nuevo.') {
         setPassword('');
       }
     }
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative">
+      {/* Language Selector */}
+      <div className="absolute top-6 right-6 z-50">
+        <LanguageSelector />
+      </div>
+
       {/* ── Left panel ── */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary-900 via-primary-700 to-primary-500 flex-col justify-between p-12">
         {/* Decorative circles */}
@@ -225,22 +230,7 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                {/* Remember me */}
-                <div className="flex items-center gap-2">
-                  <input
-                    id="remember"
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                    className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                  />
-                  <label
-                    htmlFor="remember"
-                    className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none"
-                  >
-                    {t.auth.rememberSession}
-                  </label>
-                </div>
+
 
                 {/* Error */}
                 {error && (

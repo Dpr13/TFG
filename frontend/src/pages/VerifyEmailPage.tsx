@@ -8,10 +8,14 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { authService } from '../services/auth.service';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSelector from '../components/LanguageSelector';
+import { mapBackendError } from '../utils/errorMapper';
 
 const OTP_LENGTH = 6;
 
 export default function VerifyEmailPage() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -90,11 +94,10 @@ export default function VerifyEmailPage() {
 
     try {
       await authService.verificarEmail(email, codigo);
-      setSuccess('Email verificado correctamente. Redirigiendo al login...');
+      setSuccess(t.verifyEmail.success);
       setTimeout(() => navigate('/login', { replace: true }), 2000);
     } catch (err: any) {
-      const backendError = err.response?.data?.error;
-      setError(backendError || 'Error al verificar. Inténtalo de nuevo.');
+      setError(mapBackendError(err, t));
       setDigits(Array(OTP_LENGTH).fill(''));
       inputsRef.current[0]?.focus();
     } finally {
@@ -110,16 +113,20 @@ export default function VerifyEmailPage() {
     try {
       await authService.reenviarCodigo(email);
       setResendCooldown(60);
-      setSuccess('Código reenviado. Revisa tu bandeja de entrada.');
+      setSuccess(t.verifyEmail.resendSuccess);
       setTimeout(() => setSuccess(null), 4000);
     } catch (err: any) {
-      const backendError = err.response?.data?.error;
-      setError(backendError || 'No se pudo reenviar el código.');
+      setError(mapBackendError(err, t));
     }
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative">
+      {/* Selector de idioma persistente en la esquina superior derecha */}
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageSelector />
+      </div>
+
       {/* ── Left panel ── */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary-900 via-primary-700 to-primary-500 flex-col justify-between p-12">
         {/* Decorative circles */}
@@ -133,8 +140,8 @@ export default function VerifyEmailPage() {
             <img src="/Logo.png" alt="Logo" className="w-9 h-9 object-contain" />
           </div>
           <div>
-            <p className="text-white font-bold text-lg leading-tight">Análisis de Riesgo</p>
-            <p className="text-primary-200 text-xs">Plataforma Financiera · TFG</p>
+            <p className="text-white font-bold text-lg leading-tight">{t.auth.brandName}</p>
+            <p className="text-primary-200 text-xs">{t.auth.brandSubtitle}</p>
           </div>
         </div>
 
@@ -142,12 +149,16 @@ export default function VerifyEmailPage() {
         <div className="relative z-10 space-y-6">
           <div>
             <h2 className="text-4xl font-extrabold text-white leading-tight">
-              Un paso más para<br />
-              <span className="text-primary-200">tu seguridad</span>
+              {t.verifyEmail.subtitle.split('seguridad')[0]}<br />
+              <span className="text-primary-200">
+                {t.verifyEmail.subtitle.includes('seguridad') ? 'tu seguridad' : 
+                 t.verifyEmail.subtitle.includes('security') ? 'your security' :
+                 t.verifyEmail.subtitle.includes('Sicherheit') ? 'Ihre Sicherheit' :
+                 t.verifyEmail.subtitle.includes('sécurité') ? 'votre sécurité' : 'tu seguridad'}
+              </span>
             </h2>
             <p className="mt-3 text-primary-100 text-base max-w-sm leading-relaxed">
-              La verificación por email protege tu cuenta y asegura que solo tú puedas
-              acceder a tus análisis financieros.
+              {t.verifyEmail.desc}
             </p>
           </div>
 
@@ -157,8 +168,8 @@ export default function VerifyEmailPage() {
                 <ShieldCheck className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-white font-semibold text-sm">Seguridad reforzada</p>
-                <p className="text-primary-200 text-xs">Protección adicional contra accesos no autorizados</p>
+                <p className="text-white font-semibold text-sm">{t.verifyEmail.securityFeature}</p>
+                <p className="text-primary-200 text-xs">{t.verifyEmail.securityFeatureDesc}</p>
               </div>
             </li>
             <li className="flex items-start gap-3">
@@ -166,8 +177,8 @@ export default function VerifyEmailPage() {
                 <Mail className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-white font-semibold text-sm">Verificación instantánea</p>
-                <p className="text-primary-200 text-xs">Introduce el código que hemos enviado a tu email</p>
+                <p className="text-white font-semibold text-sm">{t.verifyEmail.instantFeature}</p>
+                <p className="text-primary-200 text-xs">{t.verifyEmail.instantFeatureDesc}</p>
               </div>
             </li>
           </ul>
@@ -175,7 +186,7 @@ export default function VerifyEmailPage() {
 
         <div className="relative z-10">
           <p className="text-primary-200 text-xs italic">
-            "An investment in knowledge pays the best interest." — Benjamin Franklin
+            {t.verifyEmail.quote}
           </p>
         </div>
       </div>
@@ -187,7 +198,7 @@ export default function VerifyEmailPage() {
           <div className="bg-primary-600 p-1 rounded-lg">
             <img src="/Logo.png" alt="Logo" className="w-7 h-7 object-contain" />
           </div>
-          <p className="font-bold text-gray-900 dark:text-white">Análisis de Riesgo Financiero</p>
+          <p className="font-bold text-gray-900 dark:text-white">{t.auth.brandName} {t.auth.brandSubtitle}</p>
         </div>
 
         <div className="flex-1 flex items-center justify-center px-6 py-12">
@@ -203,10 +214,10 @@ export default function VerifyEmailPage() {
 
               <div className="mb-6 text-center">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Verifica tu correo
+                  {t.verifyEmail.cardTitle}
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
-                  Hemos enviado un código de 6 dígitos a
+                  {t.verifyEmail.cardDesc}
                 </p>
                 <p className="text-gray-700 dark:text-gray-200 font-semibold text-sm mt-1">
                   {emailEnmascarado}
@@ -235,7 +246,7 @@ export default function VerifyEmailPage() {
                           ? 'border-primary-400 dark:border-primary-500'
                           : 'border-gray-300 dark:border-gray-600'
                         }`}
-                      aria-label={`Dígito ${i + 1}`}
+                      aria-label={t.verifyEmail.digitAriaLabel.replace('{{index}}', (i + 1).toString())}
                     />
                   ))}
                 </div>
@@ -267,12 +278,12 @@ export default function VerifyEmailPage() {
                   {isVerifying ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Verificando...
+                      {t.verifyEmail.verifying}
                     </>
                   ) : (
                     <>
                       <ShieldCheck className="w-4 h-4" />
-                      Verificar
+                      {t.verifyEmail.verify}
                     </>
                   )}
                 </button>
@@ -280,10 +291,10 @@ export default function VerifyEmailPage() {
                 {/* Resend */}
                 <div className="text-center">
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    ¿No recibiste el código?{' '}
+                    {t.verifyEmail.noCode}{' '}
                     {resendCooldown > 0 ? (
                       <span className="text-gray-400 dark:text-gray-500">
-                        Reenviar en {resendCooldown}s
+                        {t.verifyEmail.resendIn.replace('{{seconds}}', resendCooldown.toString())}
                       </span>
                     ) : (
                       <button
@@ -292,7 +303,7 @@ export default function VerifyEmailPage() {
                         className="text-primary-600 dark:text-primary-400 font-semibold hover:underline inline-flex items-center gap-1"
                       >
                         <RefreshCw className="w-3 h-3" />
-                        Reenviar código
+                        {t.verifyEmail.resendAction}
                       </button>
                     )}
                   </p>
@@ -302,19 +313,19 @@ export default function VerifyEmailPage() {
               {/* Back to register */}
               <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                  ¿Usaste otro email?{' '}
+                  {t.verifyEmail.otherEmail}{' '}
                   <Link
                     to="/register"
                     className="text-primary-600 dark:text-primary-400 font-semibold hover:underline"
                   >
-                    Volver al registro
+                    {t.verifyEmail.backToRegister}
                   </Link>
                 </p>
               </div>
             </div>
 
             <p className="text-center text-xs text-gray-400 dark:text-gray-600 mt-6">
-              Sistema de Análisis de Riesgo Financiero · TFG {new Date().getFullYear()}
+              {t.auth.brandName} {t.auth.brandSubtitle} · TFG {new Date().getFullYear()}
             </p>
           </div>
         </div>

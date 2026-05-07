@@ -10,8 +10,12 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { authService } from '../services/auth.service';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSelector from '../components/LanguageSelector';
+import { mapBackendError } from '../utils/errorMapper';
 
 export default function ResetPasswordPage() {
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token');
@@ -25,21 +29,21 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     if (!token) {
-      setError('El enlace de recuperación es inválido o no contiene un token.');
+      setError(t.resetPwd.invalidToken);
     }
-  }, [token]);
+  }, [token, t]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!token) return;
 
     if (password !== confirmPassword) {
-      setError('Las contraseñas no coinciden.');
+      setError(t.register.passwordsNoMatch);
       return;
     }
 
     if (password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres.');
+      setError(t.register.req8Chars);
       return;
     }
 
@@ -54,7 +58,7 @@ export default function ResetPasswordPage() {
       }, 3000);
     } catch (err: any) {
       console.error('Reset password error:', err);
-      setError(err.response?.data?.error || 'Ocurrió un error al restablecer tu contraseña. El enlace puede haber expirado.');
+      setError(mapBackendError(err, t));
     } finally {
       setIsLoading(false);
     }
@@ -62,21 +66,24 @@ export default function ResetPasswordPage() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 px-6 lg:px-8 relative">
+        <div className="absolute top-4 right-4 z-50">
+          <LanguageSelector />
+        </div>
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white dark:bg-gray-800 py-8 px-10 shadow-xl rounded-2xl border border-gray-200 dark:border-gray-700 text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 mb-6">
               <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">¡Contraseña restablecida!</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t.resetPwd.successTitle}</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-8">
-              Tu contraseña ha sido actualizada correctamente. Serás redirigido al inicio de sesión en unos segundos...
+              {t.resetPwd.successDesc}
             </p>
             <Link
               to="/login"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors w-full"
             >
-              Ir al inicio de sesión ahora
+              {t.resetPwd.successButton}
             </Link>
           </div>
         </div>
@@ -85,16 +92,19 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 px-6 lg:px-8 relative">
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageSelector />
+      </div>
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center mb-6">
           <img src="/Logo.png" alt="Logo" className="w-16 h-16 object-contain" />
         </div>
         <h2 className="text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-          Nueva contraseña
+          {t.resetPwd.title}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-          Crea una contraseña segura para tu cuenta
+          {t.resetPwd.newPasswordDesc}
         </p>
       </div>
 
@@ -110,14 +120,14 @@ export default function ResetPasswordPage() {
                 to="/forgot-password"
                 className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium transition-colors"
               >
-                Solicitar nuevo enlace
+                {t.resetPwd.requestNewLink}
               </Link>
             </div>
           ) : (
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
-                <label htmlFor="password" title="Requisitos: mín. 8 caracteres, una mayúscula, un número y un símbolo" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
-                  Nueva contraseña
+                <label htmlFor="password" title={t.resetPwd.newPasswordReqs} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+                  {t.resetPwd.newPassword}
                   <ShieldCheck className="w-3.5 h-3.5 text-primary-500" />
                 </label>
                 <div className="relative">
@@ -145,8 +155,8 @@ export default function ResetPasswordPage() {
               </div>
 
               <div>
-                <label htmlFor="confirm-password" title="Debe coincidir con la nueva contraseña" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
-                  Confirmar contraseña
+                <label htmlFor="confirm-password" title={t.resetPwd.confirmPasswordDesc} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+                  {t.auth.confirmPassword}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -182,7 +192,7 @@ export default function ResetPasswordPage() {
                 {isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  'Restablecer contraseña'
+                  t.resetPwd.submit
                 )}
               </button>
             </form>
