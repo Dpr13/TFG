@@ -3,37 +3,23 @@ import { strategyService, botStrategyService } from '../services';
 import type { Strategy, CreateStrategyDTO, StrategyPerformance, Operation } from '../types';
 import type { BotAlgorithm, BotStrategy, CreateBotStrategyDTO, BotStrategyParams } from '../services';
 import { Trash2, Plus, Edit2, ChevronDown, ChevronUp, Bot, BookOpen, Info } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Legend,
 } from 'recharts';
 
-// ─── Plantillas por defecto ───────────────────────────────────────────────────
+// ─── Static data (no i18n needed) ────────────────────────────────────────────
 
-const TEMPLATES: Omit<BotStrategy, 'id' | 'userId' | 'createdAt' | 'updatedAt'>[] = [
-  {
-    name: 'Momentum — Doble Media Móvil',
-    algorithm: 'momentum',
-    description: 'Compra cuando la media rápida cruza por encima de la lenta y vende cuando la cruza por debajo. Funciona bien en mercados con tendencia clara.',
-    params: { fastWindow: 5, slowWindow: 20, thresholdPct: 0.001 },
-  },
-  {
-    name: 'Mean Reversion — Bandas de Bollinger',
-    algorithm: 'mean-reversion',
-    description: 'Compra cuando el precio cae por debajo de la banda inferior (sobrevendido) y vende cuando vuelve a la media. Funciona bien en mercados laterales.',
-    params: { window: 20, k: 2 },
-  },
-];
-
-const PARAM_META: Record<string, { label: string; description: string; min: number; max: number; step: number; defaultValue: number }> = {
-  fastWindow:    { label: 'Ventana rápida',       description: 'Periodos de la media móvil rápida',               min: 2,   max: 50,   step: 1,     defaultValue: 5     },
-  slowWindow:    { label: 'Ventana lenta',         description: 'Periodos de la media móvil lenta',                min: 5,   max: 200,  step: 1,     defaultValue: 20    },
-  thresholdPct:  { label: 'Umbral (%)',            description: 'Diferencia mínima entre medias para señal',       min: 0,   max: 0.05, step: 0.001, defaultValue: 0.001 },
-  window:        { label: 'Ventana BB',            description: 'Periodos para calcular media y desviación típica',min: 5,   max: 100,  step: 1,     defaultValue: 20    },
-  k:             { label: 'Multiplicador (k)',      description: 'Amplitud de las bandas (k × desviación típica)',  min: 0.5, max: 5,    step: 0.1,   defaultValue: 2     },
-  rsiPeriod:     { label: 'Período RSI',           description: 'Número de periodos para el cálculo del RSI',     min: 2,   max: 50,   step: 1,     defaultValue: 14    },
-  rsiOverbought: { label: 'Umbral sobrecompra',    description: 'RSI por encima de este valor → señal de venta',  min: 50,  max: 100,  step: 1,     defaultValue: 70    },
-  rsiOversold:   { label: 'Umbral sobreventa',     description: 'RSI por debajo de este valor → señal de compra', min: 0,   max: 50,   step: 1,     defaultValue: 30    },
+const PARAM_RANGES: Record<string, { min: number; max: number; step: number; defaultValue: number }> = {
+  fastWindow:    { min: 2,   max: 50,   step: 1,     defaultValue: 5     },
+  slowWindow:    { min: 5,   max: 200,  step: 1,     defaultValue: 20    },
+  thresholdPct:  { min: 0,   max: 0.05, step: 0.001, defaultValue: 0.001 },
+  window:        { min: 5,   max: 100,  step: 1,     defaultValue: 20    },
+  k:             { min: 0.5, max: 5,    step: 0.1,   defaultValue: 2     },
+  rsiPeriod:     { min: 2,   max: 50,   step: 1,     defaultValue: 14    },
+  rsiOverbought: { min: 50,  max: 100,  step: 1,     defaultValue: 70    },
+  rsiOversold:   { min: 0,   max: 50,   step: 1,     defaultValue: 30    },
 };
 
 const ALGO_DEFAULTS: Record<BotAlgorithm, BotStrategyParams> = {
@@ -42,14 +28,14 @@ const ALGO_DEFAULTS: Record<BotAlgorithm, BotStrategyParams> = {
   'rsi':            { rsiPeriod: 14, rsiOverbought: 70, rsiOversold: 30 },
 };
 
-// ─── Bot Strategy Form ────────────────────────────────────────────────────────
-
 const EMPTY_FORM: CreateBotStrategyDTO = {
   name: '',
   algorithm: 'momentum',
   description: '',
   params: { ...ALGO_DEFAULTS['momentum'] },
 };
+
+// ─── Bot Strategy Form ────────────────────────────────────────────────────────
 
 function BotStrategyForm({
   initial,
@@ -62,6 +48,17 @@ function BotStrategyForm({
   onSave: (dto: CreateBotStrategyDTO) => Promise<void>;
   onCancel: () => void;
 }) {
+  const { t } = useLanguage();
+  const paramLabels = t.strategies.paramLabels as Record<string, string>;
+  const paramDescriptions = t.strategies.paramDescriptions as Record<string, string>;
+
+  const paramMeta = Object.fromEntries(
+    Object.entries(PARAM_RANGES).map(([key, ranges]) => [
+      key,
+      { ...ranges, label: paramLabels[key] ?? key, description: paramDescriptions[key] ?? '' },
+    ])
+  );
+
   const [form, setForm] = useState<CreateBotStrategyDTO>(
     initial
       ? { name: initial.name, algorithm: initial.algorithm, description: initial.description ?? '', params: { ...initial.params } }
@@ -72,7 +69,7 @@ function BotStrategyForm({
   const [showParamPicker, setShowParamPicker] = useState(false);
 
   const activeParamKeys = Object.keys(form.params).filter(k => form.params[k] !== undefined);
-  const availableParamKeys = Object.keys(PARAM_META).filter(k => form.params[k] === undefined);
+  const availableParamKeys = Object.keys(paramMeta).filter(k => form.params[k] === undefined);
 
   const handleAlgoChange = (algo: BotAlgorithm) => {
     setForm(f => ({ ...f, algorithm: algo, params: { ...ALGO_DEFAULTS[algo] } }));
@@ -80,7 +77,7 @@ function BotStrategyForm({
   };
 
   const addParam = (key: string) => {
-    setForm(f => ({ ...f, params: { ...f.params, [key]: PARAM_META[key].defaultValue } }));
+    setForm(f => ({ ...f, params: { ...f.params, [key]: paramMeta[key].defaultValue } }));
     setShowParamPicker(false);
   };
 
@@ -92,41 +89,41 @@ function BotStrategyForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) { setError('El nombre es obligatorio'); return; }
+    if (!form.name.trim()) { setError(t.strategies.nameRequired); return; }
     setLoading(true);
     setError(null);
     try {
       await onSave(form);
     } catch {
-      setError('Error al guardar la estrategia');
+      setError(t.strategies.saveError);
     } finally {
       setLoading(false);
     }
   };
 
+  const algos = [
+    { id: 'momentum',       label: t.strategies.algoMomentum, sub: t.strategies.algoMomentumSub, disabled: false },
+    { id: 'mean-reversion', label: t.strategies.algoMeanRev,  sub: t.strategies.algoMeanRevSub,  disabled: false },
+    { id: 'rsi',            label: t.strategies.algoRsi,      sub: t.strategies.algoRsiSub,      disabled: true  },
+  ] as const;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Nombre */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.strategies.nameLabel}</label>
         <input
           type="text"
           value={form.name}
           onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-          placeholder="Mi estrategia momentum agresiva"
+          placeholder={t.strategies.namePlaceholder}
           className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 outline-none"
         />
       </div>
 
-      {/* Algoritmo */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Algoritmo base</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.strategies.algorithmLabel}</label>
         <div className="grid grid-cols-3 gap-2">
-          {([
-            { id: 'momentum',       label: 'Momentum',      sub: 'Doble Media Móvil',    disabled: false },
-            { id: 'mean-reversion', label: 'Mean Rev.',     sub: 'Bandas de Bollinger',  disabled: false },
-            { id: 'rsi',            label: 'RSI',           sub: 'Próximamente',         disabled: true  },
-          ] as const).map(algo => (
+          {algos.map(algo => (
             <button
               key={algo.id}
               type="button"
@@ -147,15 +144,14 @@ function BotStrategyForm({
         </div>
       </div>
 
-      {/* Parámetros activos */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Parámetros</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{t.strategies.paramsLabel}</label>
         <div className="space-y-3">
           {activeParamKeys.length === 0 && (
-            <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-3">Sin parámetros. Añade al menos uno.</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-3">{t.strategies.noParams}</p>
           )}
           {activeParamKeys.map(key => {
-            const meta = PARAM_META[key];
+            const meta = paramMeta[key];
             if (!meta) return null;
             const val = form.params[key] ?? meta.defaultValue;
             return (
@@ -168,7 +164,7 @@ function BotStrategyForm({
                       type="button"
                       onClick={() => removeParam(key)}
                       className="text-gray-300 hover:text-red-400 dark:text-gray-600 dark:hover:text-red-400 transition-colors text-base leading-none"
-                      title="Quitar parámetro"
+                      title={t.strategies.removeParam}
                     >✕</button>
                   </div>
                 </div>
@@ -191,7 +187,6 @@ function BotStrategyForm({
           })}
         </div>
 
-        {/* Añadir parámetro */}
         {availableParamKeys.length > 0 && (
           <div className="mt-3 relative">
             <button
@@ -199,7 +194,7 @@ function BotStrategyForm({
               onClick={() => setShowParamPicker(v => !v)}
               className="flex items-center gap-1.5 text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium"
             >
-              <Plus className="w-3.5 h-3.5" /> Añadir parámetro
+              <Plus className="w-3.5 h-3.5" /> {t.strategies.addParam}
             </button>
             {showParamPicker && (
               <div className="absolute z-10 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg p-2 flex flex-col gap-1 min-w-48">
@@ -210,8 +205,8 @@ function BotStrategyForm({
                     onClick={() => addParam(key)}
                     className="text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
                   >
-                    <span className="font-medium">{PARAM_META[key].label}</span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">({PARAM_META[key].defaultValue})</span>
+                    <span className="font-medium">{paramMeta[key].label}</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">({paramMeta[key].defaultValue})</span>
                   </button>
                 ))}
               </div>
@@ -220,13 +215,12 @@ function BotStrategyForm({
         )}
       </div>
 
-      {/* Descripción */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descripción (opcional)</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.strategies.descriptionOptional}</label>
         <textarea
           value={form.description}
           onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-          placeholder="Notas sobre cuándo usar esta estrategia..."
+          placeholder={t.strategies.descriptionPlaceholder}
           rows={2}
           className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 outline-none resize-none"
         />
@@ -240,14 +234,14 @@ function BotStrategyForm({
           disabled={loading}
           className="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors"
         >
-          {loading ? 'Guardando…' : initial ? 'Actualizar' : 'Crear estrategia'}
+          {loading ? t.strategies.saving : initial ? t.strategies.updateBtn : t.strategies.createBtn}
         </button>
         <button
           type="button"
           onClick={onCancel}
           className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-xl text-sm font-medium border border-gray-200 dark:border-gray-600 transition-colors"
         >
-          Cancelar
+          {t.strategies.cancelBtn}
         </button>
       </div>
     </form>
@@ -257,6 +251,14 @@ function BotStrategyForm({
 // ─── Tab: Estrategias para Bots ───────────────────────────────────────────────
 
 function BotStrategiesTab() {
+  const { t } = useLanguage();
+  const paramLabels = t.strategies.paramLabels as Record<string, string>;
+
+  const templates = [
+    { algorithm: 'momentum' as BotAlgorithm, name: t.strategies.templateMomentumName, description: t.strategies.templateMomentumDesc, params: ALGO_DEFAULTS['momentum'] },
+    { algorithm: 'mean-reversion' as BotAlgorithm, name: t.strategies.templateMeanRevName, description: t.strategies.templateMeanRevDesc, params: ALGO_DEFAULTS['mean-reversion'] },
+  ];
+
   const [strategies, setStrategies] = useState<BotStrategy[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -285,7 +287,7 @@ function BotStrategiesTab() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar esta estrategia?')) return;
+    if (!confirm(t.strategies.deleteConfirm)) return;
     await botStrategyService.delete(id);
     await load();
   };
@@ -293,15 +295,14 @@ function BotStrategiesTab() {
   const startEdit = (s: BotStrategy) => { setEditing(s); setPendingTemplate(null); setShowForm(true); };
   const cancelForm = () => { setShowForm(false); setEditing(null); setPendingTemplate(null); };
 
-  const cloneTemplate = (t: typeof TEMPLATES[0]) => {
+  const cloneTemplate = (tmpl: typeof templates[0]) => {
     setEditing(null);
-    setPendingTemplate({ name: t.name, algorithm: t.algorithm, description: t.description ?? '', params: { ...t.params } });
+    setPendingTemplate({ name: tmpl.name, algorithm: tmpl.algorithm, description: tmpl.description ?? '', params: { ...tmpl.params } });
     setShowForm(true);
   };
 
   return (
     <div className="space-y-6">
-      {/* Templates */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <button
           onClick={() => setShowTemplates(v => !v)}
@@ -309,32 +310,32 @@ function BotStrategiesTab() {
         >
           <div className="flex items-center gap-2">
             <Info className="w-4 h-4 text-blue-500" />
-            <span className="font-semibold text-gray-900 dark:text-white text-sm">Plantillas de referencia</span>
-            <span className="text-xs text-gray-400 dark:text-gray-500">(parámetros por defecto)</span>
+            <span className="font-semibold text-gray-900 dark:text-white text-sm">{t.strategies.templates}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{t.strategies.templatesDefault}</span>
           </div>
           {showTemplates ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
         </button>
         {showTemplates && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-6 pb-6">
-            {TEMPLATES.map(t => (
-              <div key={t.algorithm} className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+            {templates.map(tmpl => (
+              <div key={tmpl.algorithm} className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">{t.algorithm}</span>
-                    <h4 className="font-semibold text-gray-900 dark:text-white text-sm mt-0.5">{t.name}</h4>
+                    <span className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">{tmpl.algorithm}</span>
+                    <h4 className="font-semibold text-gray-900 dark:text-white text-sm mt-0.5">{tmpl.name}</h4>
                   </div>
                   <button
-                    onClick={() => cloneTemplate(t)}
+                    onClick={() => cloneTemplate(tmpl)}
                     className="text-xs text-primary-600 dark:text-primary-400 hover:underline flex-shrink-0 ml-2"
                   >
-                    + Crear basada en esta
+                    {t.strategies.createFromTemplate}
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{t.description}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{tmpl.description}</p>
                 <div className="flex flex-wrap gap-2">
-                  {Object.entries(t.params).map(([k, v]) => (
+                  {Object.entries(tmpl.params).map(([k, v]) => (
                     <span key={k} className="inline-flex items-center gap-1 text-xs bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded-lg px-2 py-1">
-                      <span className="text-gray-500 dark:text-gray-400">{PARAM_META[k]?.label ?? k}:</span>
+                      <span className="text-gray-500 dark:text-gray-400">{paramLabels[k] ?? k}:</span>
                       <span className="font-mono font-bold text-gray-900 dark:text-white">{v}</span>
                     </span>
                   ))}
@@ -345,11 +346,10 @@ function BotStrategiesTab() {
         )}
       </div>
 
-      {/* Form */}
       {showForm && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-base font-bold text-gray-900 dark:text-white mb-5">
-            {editing ? 'Editar estrategia' : 'Nueva estrategia para bots'}
+            {editing ? t.strategies.editTitle : t.strategies.newBotStrategyTitle}
           </h3>
           <BotStrategyForm
             initial={editing ?? undefined}
@@ -360,16 +360,15 @@ function BotStrategiesTab() {
         </div>
       )}
 
-      {/* Lista de estrategias del usuario */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-900 dark:text-white">Mis estrategias</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-white">{t.strategies.myStrategies}</h3>
           {!showForm && (
             <button
               onClick={() => { setEditing(null); setShowForm(true); }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold transition-colors"
             >
-              <Plus className="w-4 h-4" /> Nueva
+              <Plus className="w-4 h-4" /> {t.strategies.newBtn}
             </button>
           )}
         </div>
@@ -381,8 +380,8 @@ function BotStrategiesTab() {
         ) : strategies.length === 0 ? (
           <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-300 dark:border-gray-600">
             <Bot className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Sin estrategias personalizadas</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Crea una basada en las plantillas de arriba</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{t.strategies.noCustomStrategies}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t.strategies.createFromTemplatesHint}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -408,7 +407,7 @@ function BotStrategiesTab() {
                     <div className="flex flex-wrap gap-2 mt-2">
                       {Object.entries(s.params).map(([k, v]) => (
                         <span key={k} className="inline-flex items-center gap-1 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-0.5">
-                          <span className="text-gray-500 dark:text-gray-400">{PARAM_META[k]?.label ?? k}:</span>
+                          <span className="text-gray-500 dark:text-gray-400">{paramLabels[k] ?? k}:</span>
                           <span className="font-mono font-bold text-gray-900 dark:text-white">{v}</span>
                         </span>
                       ))}
@@ -435,6 +434,7 @@ function BotStrategiesTab() {
 // ─── Tab: Estrategias Manuales ────────────────────────────────────────────────
 
 function ManualStrategiesTab() {
+  const { t } = useLanguage();
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [performances, setPerformances] = useState<Record<string, StrategyPerformance>>({});
   const [strategyOps, setStrategyOps] = useState<Record<string, Operation[]>>({});
@@ -457,7 +457,7 @@ function ManualStrategiesTab() {
         data.map(s => strategyService.getStrategyPerformance(s.id).then(p => [s.id, p] as const))
       );
       setPerformances(Object.fromEntries(perfEntries));
-    } catch { setError('Error al cargar las estrategias'); }
+    } catch { setError(t.strategies.loadError); }
     finally { setLoading(false); }
   };
 
@@ -471,14 +471,14 @@ function ManualStrategiesTab() {
       setFormData({ name: '', description: '', color: '#3b82f6' });
       setShowForm(false);
       await fetchStrategies();
-    } catch { setError(editingId ? 'Error al actualizar' : 'Error al crear'); }
+    } catch { setError(editingId ? t.strategies.updateError : t.strategies.createError2); }
     finally { setLoading(false); }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar esta estrategia?')) return;
+    if (!confirm(t.strategies.deleteConfirm)) return;
     try { await strategyService.deleteStrategy(id); await fetchStrategies(); }
-    catch { setError('Error al eliminar'); }
+    catch { setError(t.strategies.deleteError); }
   };
 
   const toggleChart = async (strategyId: string) => {
@@ -510,23 +510,25 @@ function ManualStrategiesTab() {
 
       {showForm && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">{editingId ? 'Editar estrategia' : 'Nueva estrategia manual'}</h3>
+          <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">
+            {editingId ? t.strategies.editTitle : t.strategies.newManualTitle}
+          </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.strategies.nameLabel}</label>
               <input type="text" required value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-                placeholder="Ej: Scalping en apertura" />
+                placeholder={t.strategies.namePlaceholderManual} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descripción</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.strategies.description}</label>
               <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-                placeholder="Describe tu estrategia..." rows={3} />
+                placeholder={t.strategies.descriptionPlaceholderManual} rows={3} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.strategies.color}</label>
               <div className="flex items-center gap-3">
                 <input type="color" value={formData.color} onChange={e => setFormData({ ...formData, color: e.target.value })} className="w-12 h-10 rounded cursor-pointer" />
                 <span className="text-sm text-gray-600 dark:text-gray-400">{formData.color}</span>
@@ -534,11 +536,11 @@ function ManualStrategiesTab() {
             </div>
             <div className="flex gap-3">
               <button type="submit" disabled={loading} className="flex-1 bg-primary-600 text-white py-2 rounded-xl hover:bg-primary-700 disabled:opacity-50 text-sm font-semibold">
-                {loading ? 'Guardando…' : editingId ? 'Actualizar' : 'Crear'}
+                {loading ? t.strategies.saving : editingId ? t.strategies.updateBtn : t.strategies.createBtn}
               </button>
               <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setFormData({ name: '', description: '', color: '#3b82f6' }); }}
                 className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 text-sm border border-gray-200 dark:border-gray-600">
-                Cancelar
+                {t.strategies.cancelBtn}
               </button>
             </div>
           </form>
@@ -548,7 +550,7 @@ function ManualStrategiesTab() {
       {!showForm && (
         <div className="flex justify-end">
           <button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-xl hover:bg-primary-700 text-sm font-semibold">
-            <Plus className="w-4 h-4" /> Nueva estrategia
+            <Plus className="w-4 h-4" /> {t.strategies.newStrategy}
           </button>
         </div>
       )}
@@ -556,9 +558,9 @@ function ManualStrategiesTab() {
       {strategies.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 p-12 text-center">
           <BookOpen className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-          <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Sin estrategias manuales</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{t.strategies.noManual}</p>
           <button onClick={() => setShowForm(true)} className="mt-3 inline-flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-xl hover:bg-primary-700 text-sm font-semibold">
-            <Plus className="w-4 h-4" /> Crear primera estrategia
+            <Plus className="w-4 h-4" /> {t.strategies.createFirst2}
           </button>
         </div>
       ) : (
@@ -585,15 +587,15 @@ function ManualStrategiesTab() {
                       <div className="grid grid-cols-3 gap-2 mb-2">
                         <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
                           <p className={`text-sm font-bold ${p.totalPnL >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>€{p.totalPnL.toFixed(2)}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">PnL total</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{t.strategies.pnlTotal}</p>
                         </div>
                         <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
                           <p className={`text-sm font-bold ${p.winRate >= 50 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{p.winRate.toFixed(1)}%</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Win rate</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{t.strategies.winRate}</p>
                         </div>
                         <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
                           <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{p.totalOperations}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Operaciones</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{t.strategies.operationsLabel}</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2 mb-3">
@@ -601,29 +603,31 @@ function ManualStrategiesTab() {
                           <p className={`text-sm font-bold ${p.maxDrawdown === 0 ? 'text-gray-500 dark:text-gray-400' : 'text-red-600 dark:text-red-400'}`}>
                             {p.maxDrawdown === 0 ? '—' : `€${p.maxDrawdown.toFixed(2)}`}
                           </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Max Drawdown</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{t.strategies.maxDrawdown}</p>
                         </div>
                         <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
                           <p className={`text-sm font-bold ${p.profitFactor >= 1 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                             {pfDisplay}
                           </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Profit Factor</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{t.strategies.profitFactor}</p>
                         </div>
                       </div>
                     </>
                   );
                 })()}
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400 dark:text-gray-500">Creada {new Date(strategy.createdAt).toLocaleDateString('es-ES')}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{t.strategies.createdOn} {new Date(strategy.createdAt).toLocaleDateString()}</span>
                   {(performances[strategy.id]?.totalOperations ?? 0) > 0 && (
                     <button onClick={() => toggleChart(strategy.id)} className="flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:underline">
-                      {expandedCharts.has(strategy.id) ? <><ChevronUp className="w-3 h-3" /> Ocultar</> : <><ChevronDown className="w-3 h-3" /> Ver evolución</>}
+                      {expandedCharts.has(strategy.id)
+                        ? <><ChevronUp className="w-3 h-3" /> {t.strategies.hideChart}</>
+                        : <><ChevronDown className="w-3 h-3" /> {t.strategies.showChart}</>}
                     </button>
                   )}
                 </div>
                 {expandedCharts.has(strategy.id) && (() => {
                   const ops = strategyOps[strategy.id];
-                  if (!ops || ops.length === 0) return <p className="text-xs text-gray-400 mt-3 text-center">Cargando...</p>;
+                  if (!ops || ops.length === 0) return <p className="text-xs text-gray-400 mt-3 text-center">{t.strategies.loadingChart}</p>;
                   const sorted = [...ops].sort((a, b) => a.date.localeCompare(b.date));
                   let cum = 0;
                   const data = sorted.map(op => { cum += op.pnl; return { date: op.date.slice(5), pnL: parseFloat(cum.toFixed(2)) }; });
@@ -647,10 +651,10 @@ function ManualStrategiesTab() {
 
           {strategies.length >= 2 && Object.keys(performances).length >= 2 && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-base font-bold text-gray-900 dark:text-white mb-5">Comparativa entre estrategias</h3>
+              <h3 className="text-base font-bold text-gray-900 dark:text-white mb-5">{t.strategies.comparison}</h3>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">PnL Total (€)</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">{t.strategies.pnlTotalEur}</p>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={strategies.filter(s => performances[s.id]).map(s => ({ name: s.name.length > 12 ? s.name.slice(0, 12) + '…' : s.name, PnL: parseFloat((performances[s.id]?.totalPnL ?? 0).toFixed(2)) }))}>
                       <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} />
@@ -659,7 +663,7 @@ function ManualStrategiesTab() {
                   </ResponsiveContainer>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Win Rate (%)</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">{t.strategies.winRatePct}</p>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={strategies.filter(s => performances[s.id]).map(s => ({ name: s.name.length > 12 ? s.name.slice(0, 12) + '…' : s.name, 'Win Rate': parseFloat((performances[s.id]?.winRate ?? 0).toFixed(1)) }))}>
                       <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
@@ -671,12 +675,12 @@ function ManualStrategiesTab() {
               <div className="mt-5 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead><tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="text-left py-2 text-gray-600 dark:text-gray-400">Estrategia</th>
-                    <th className="text-right py-2 text-gray-600 dark:text-gray-400">Ops</th>
-                    <th className="text-right py-2 text-gray-600 dark:text-gray-400">PnL Total</th>
-                    <th className="text-right py-2 text-gray-600 dark:text-gray-400">Win Rate</th>
-                    <th className="text-right py-2 text-gray-600 dark:text-gray-400">Mejor</th>
-                    <th className="text-right py-2 text-gray-600 dark:text-gray-400">Peor</th>
+                    <th className="text-left py-2 text-gray-600 dark:text-gray-400">{t.strategies.colStrategy}</th>
+                    <th className="text-right py-2 text-gray-600 dark:text-gray-400">{t.strategies.colOps}</th>
+                    <th className="text-right py-2 text-gray-600 dark:text-gray-400">{t.strategies.colPnlTotal}</th>
+                    <th className="text-right py-2 text-gray-600 dark:text-gray-400">{t.strategies.colWinRate}</th>
+                    <th className="text-right py-2 text-gray-600 dark:text-gray-400">{t.strategies.colBest}</th>
+                    <th className="text-right py-2 text-gray-600 dark:text-gray-400">{t.strategies.colWorst}</th>
                   </tr></thead>
                   <tbody>
                     {strategies.filter(s => performances[s.id]).map(s => {
@@ -706,14 +710,14 @@ function ManualStrategiesTab() {
 // ─── Page principal ───────────────────────────────────────────────────────────
 
 export default function StrategiesPage() {
+  const { t } = useLanguage();
   const [tab, setTab] = useState<'manual' | 'bots'>('manual');
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Estrategias</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">{t.strategies.pageTitle}</h1>
 
-        {/* Tabs */}
         <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 mb-6 w-fit">
           <button
             onClick={() => setTab('manual')}
@@ -723,7 +727,7 @@ export default function StrategiesPage() {
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
             }`}
           >
-            <BookOpen className="w-4 h-4" /> Manuales
+            <BookOpen className="w-4 h-4" /> {t.strategies.tabManual}
           </button>
           <button
             onClick={() => setTab('bots')}
@@ -733,7 +737,7 @@ export default function StrategiesPage() {
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
             }`}
           >
-            <Bot className="w-4 h-4" /> Para Bots
+            <Bot className="w-4 h-4" /> {t.strategies.tabBots}
           </button>
         </div>
 
