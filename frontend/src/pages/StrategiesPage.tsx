@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { strategyService, botStrategyService } from '../services';
 import type { Strategy, CreateStrategyDTO, StrategyPerformance, Operation } from '../types';
-import type { BotStrategy, CreateBotStrategyDTO, BotStrategyParams } from '../services';
+import type { BotAlgorithm, BotStrategy, CreateBotStrategyDTO, BotStrategyParams } from '../services';
 import { Trash2, Plus, Edit2, ChevronDown, ChevronUp, Bot, BookOpen, Info } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -25,17 +25,21 @@ const TEMPLATES: Omit<BotStrategy, 'id' | 'userId' | 'createdAt' | 'updatedAt'>[
   },
 ];
 
-const PARAM_META: Record<string, { label: string; description: string; min: number; max: number; step: number }> = {
-  fastWindow:   { label: 'Ventana rápida',         description: 'Periodos de la media móvil rápida',              min: 2,    max: 50,   step: 1     },
-  slowWindow:   { label: 'Ventana lenta',           description: 'Periodos de la media móvil lenta',               min: 5,    max: 200,  step: 1     },
-  thresholdPct: { label: 'Umbral (%)',              description: 'Diferencia mínima entre medias para señal',      min: 0,    max: 0.05, step: 0.001 },
-  window:       { label: 'Ventana',                 description: 'Periodos para calcular media y desviación',      min: 5,    max: 100,  step: 1     },
-  k:            { label: 'Multiplicador (k)',        description: 'Amplitud de las bandas (k × desviación típica)', min: 0.5,  max: 5,    step: 0.1   },
+const PARAM_META: Record<string, { label: string; description: string; min: number; max: number; step: number; defaultValue: number }> = {
+  fastWindow:    { label: 'Ventana rápida',       description: 'Periodos de la media móvil rápida',               min: 2,   max: 50,   step: 1,     defaultValue: 5     },
+  slowWindow:    { label: 'Ventana lenta',         description: 'Periodos de la media móvil lenta',                min: 5,   max: 200,  step: 1,     defaultValue: 20    },
+  thresholdPct:  { label: 'Umbral (%)',            description: 'Diferencia mínima entre medias para señal',       min: 0,   max: 0.05, step: 0.001, defaultValue: 0.001 },
+  window:        { label: 'Ventana BB',            description: 'Periodos para calcular media y desviación típica',min: 5,   max: 100,  step: 1,     defaultValue: 20    },
+  k:             { label: 'Multiplicador (k)',      description: 'Amplitud de las bandas (k × desviación típica)',  min: 0.5, max: 5,    step: 0.1,   defaultValue: 2     },
+  rsiPeriod:     { label: 'Período RSI',           description: 'Número de periodos para el cálculo del RSI',     min: 2,   max: 50,   step: 1,     defaultValue: 14    },
+  rsiOverbought: { label: 'Umbral sobrecompra',    description: 'RSI por encima de este valor → señal de venta',  min: 50,  max: 100,  step: 1,     defaultValue: 70    },
+  rsiOversold:   { label: 'Umbral sobreventa',     description: 'RSI por debajo de este valor → señal de compra', min: 0,   max: 50,   step: 1,     defaultValue: 30    },
 };
 
-const ALGO_PARAMS: Record<string, (keyof BotStrategyParams)[]> = {
-  'momentum':       ['fastWindow', 'slowWindow', 'thresholdPct'],
-  'mean-reversion': ['window', 'k'],
+const ALGO_DEFAULTS: Record<BotAlgorithm, BotStrategyParams> = {
+  'momentum':       { fastWindow: 5, slowWindow: 20, thresholdPct: 0.001 },
+  'mean-reversion': { window: 20, k: 2 },
+  'rsi':            { rsiPeriod: 14, rsiOverbought: 70, rsiOversold: 30 },
 };
 
 // ─── Bot Strategy Form ────────────────────────────────────────────────────────
@@ -44,31 +48,46 @@ const EMPTY_FORM: CreateBotStrategyDTO = {
   name: '',
   algorithm: 'momentum',
   description: '',
-  params: { fastWindow: 5, slowWindow: 20, thresholdPct: 0.001 },
+  params: { ...ALGO_DEFAULTS['momentum'] },
 };
 
 function BotStrategyForm({
   initial,
+  initialDto,
   onSave,
   onCancel,
 }: {
   initial?: BotStrategy;
+  initialDto?: CreateBotStrategyDTO;
   onSave: (dto: CreateBotStrategyDTO) => Promise<void>;
   onCancel: () => void;
 }) {
   const [form, setForm] = useState<CreateBotStrategyDTO>(
     initial
       ? { name: initial.name, algorithm: initial.algorithm, description: initial.description ?? '', params: { ...initial.params } }
-      : EMPTY_FORM
+      : initialDto ?? EMPTY_FORM
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showParamPicker, setShowParamPicker] = useState(false);
 
-  const handleAlgoChange = (algo: 'momentum' | 'mean-reversion') => {
-    const defaults = algo === 'momentum'
-      ? { fastWindow: 5, slowWindow: 20, thresholdPct: 0.001 }
-      : { window: 20, k: 2 };
-    setForm(f => ({ ...f, algorithm: algo, params: defaults }));
+  const activeParamKeys = Object.keys(form.params).filter(k => form.params[k] !== undefined);
+  const availableParamKeys = Object.keys(PARAM_META).filter(k => form.params[k] === undefined);
+
+  const handleAlgoChange = (algo: BotAlgorithm) => {
+    setForm(f => ({ ...f, algorithm: algo, params: { ...ALGO_DEFAULTS[algo] } }));
+    setShowParamPicker(false);
+  };
+
+  const addParam = (key: string) => {
+    setForm(f => ({ ...f, params: { ...f.params, [key]: PARAM_META[key].defaultValue } }));
+    setShowParamPicker(false);
+  };
+
+  const removeParam = (key: string) => {
+    const next = { ...form.params };
+    delete next[key];
+    setForm(f => ({ ...f, params: next }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,8 +103,6 @@ function BotStrategyForm({
       setLoading(false);
     }
   };
-
-  const paramKeys = ALGO_PARAMS[form.algorithm];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -104,37 +121,56 @@ function BotStrategyForm({
       {/* Algoritmo */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Algoritmo base</label>
-        <div className="grid grid-cols-2 gap-3">
-          {(['momentum', 'mean-reversion'] as const).map(algo => (
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { id: 'momentum',       label: 'Momentum',      sub: 'Doble Media Móvil',    disabled: false },
+            { id: 'mean-reversion', label: 'Mean Rev.',     sub: 'Bandas de Bollinger',  disabled: false },
+            { id: 'rsi',            label: 'RSI',           sub: 'Próximamente',         disabled: true  },
+          ] as const).map(algo => (
             <button
-              key={algo}
+              key={algo.id}
               type="button"
-              onClick={() => handleAlgoChange(algo)}
-              className={`px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all text-left ${
-                form.algorithm === algo
-                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                  : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
+              disabled={algo.disabled}
+              onClick={() => handleAlgoChange(algo.id as BotAlgorithm)}
+              className={`px-3 py-3 rounded-xl border-2 text-sm font-medium transition-all text-left ${
+                algo.disabled
+                  ? 'border-gray-100 dark:border-gray-700 text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                  : form.algorithm === algo.id
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                    : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
               }`}
             >
-              <div className="font-semibold">{algo === 'momentum' ? 'Momentum' : 'Mean Reversion'}</div>
-              <div className="text-xs opacity-70 mt-0.5">{algo === 'momentum' ? 'Doble Media Móvil' : 'Bandas de Bollinger'}</div>
+              <div className="font-semibold">{algo.label}</div>
+              <div className="text-xs opacity-70 mt-0.5">{algo.sub}</div>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Parámetros */}
+      {/* Parámetros activos */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Parámetros</label>
-        <div className="space-y-4">
-          {paramKeys.map(key => {
+        <div className="space-y-3">
+          {activeParamKeys.length === 0 && (
+            <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-3">Sin parámetros. Añade al menos uno.</p>
+          )}
+          {activeParamKeys.map(key => {
             const meta = PARAM_META[key];
-            const val = (form.params as any)[key] ?? meta.min;
+            if (!meta) return null;
+            const val = form.params[key] ?? meta.defaultValue;
             return (
               <div key={key} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{meta.label}</span>
-                  <span className="text-sm font-mono font-bold text-primary-600 dark:text-primary-400">{val}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-mono font-bold text-primary-600 dark:text-primary-400">{val}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeParam(key)}
+                      className="text-gray-300 hover:text-red-400 dark:text-gray-600 dark:hover:text-red-400 transition-colors text-base leading-none"
+                      title="Quitar parámetro"
+                    >✕</button>
+                  </div>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{meta.description}</p>
                 <input
@@ -154,6 +190,34 @@ function BotStrategyForm({
             );
           })}
         </div>
+
+        {/* Añadir parámetro */}
+        {availableParamKeys.length > 0 && (
+          <div className="mt-3 relative">
+            <button
+              type="button"
+              onClick={() => setShowParamPicker(v => !v)}
+              className="flex items-center gap-1.5 text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium"
+            >
+              <Plus className="w-3.5 h-3.5" /> Añadir parámetro
+            </button>
+            {showParamPicker && (
+              <div className="absolute z-10 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg p-2 flex flex-col gap-1 min-w-48">
+                {availableParamKeys.map(key => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => addParam(key)}
+                    className="text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <span className="font-medium">{PARAM_META[key].label}</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">({PARAM_META[key].defaultValue})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Descripción */}
@@ -197,6 +261,7 @@ function BotStrategiesTab() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<BotStrategy | null>(null);
+  const [pendingTemplate, setPendingTemplate] = useState<CreateBotStrategyDTO | null>(null);
   const [showTemplates, setShowTemplates] = useState(true);
 
   useEffect(() => { load(); }, []);
@@ -215,6 +280,7 @@ function BotStrategiesTab() {
     }
     setShowForm(false);
     setEditing(null);
+    setPendingTemplate(null);
     await load();
   };
 
@@ -224,11 +290,12 @@ function BotStrategiesTab() {
     await load();
   };
 
-  const startEdit = (s: BotStrategy) => { setEditing(s); setShowForm(true); };
-  const cancelForm = () => { setShowForm(false); setEditing(null); };
+  const startEdit = (s: BotStrategy) => { setEditing(s); setPendingTemplate(null); setShowForm(true); };
+  const cancelForm = () => { setShowForm(false); setEditing(null); setPendingTemplate(null); };
 
-  const cloneTemplate = (_t: typeof TEMPLATES[0]) => {
+  const cloneTemplate = (t: typeof TEMPLATES[0]) => {
     setEditing(null);
+    setPendingTemplate({ name: t.name, algorithm: t.algorithm, description: t.description ?? '', params: { ...t.params } });
     setShowForm(true);
   };
 
@@ -286,6 +353,7 @@ function BotStrategiesTab() {
           </h3>
           <BotStrategyForm
             initial={editing ?? undefined}
+            initialDto={pendingTemplate ?? undefined}
             onSave={handleSave}
             onCancel={cancelForm}
           />
@@ -327,7 +395,9 @@ function BotStrategiesTab() {
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                         s.algorithm === 'momentum'
                           ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
-                          : 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300'
+                          : s.algorithm === 'rsi'
+                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
+                            : 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300'
                       }`}>
                         {s.algorithm}
                       </span>
@@ -509,21 +579,38 @@ function ManualStrategiesTab() {
                 {strategy.description && <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{strategy.description}</p>}
                 {performances[strategy.id] && (() => {
                   const p = performances[strategy.id];
+                  const pfDisplay = p.profitFactor >= 9999 ? '∞' : p.profitFactor.toFixed(2);
                   return (
-                    <div className="grid grid-cols-3 gap-2 mb-3">
-                      <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <p className={`text-sm font-bold ${p.totalPnL >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>€{p.totalPnL.toFixed(2)}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">PnL total</p>
+                    <>
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <p className={`text-sm font-bold ${p.totalPnL >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>€{p.totalPnL.toFixed(2)}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">PnL total</p>
+                        </div>
+                        <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <p className={`text-sm font-bold ${p.winRate >= 50 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{p.winRate.toFixed(1)}%</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Win rate</p>
+                        </div>
+                        <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{p.totalOperations}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Operaciones</p>
+                        </div>
                       </div>
-                      <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <p className={`text-sm font-bold ${p.winRate >= 50 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{p.winRate.toFixed(1)}%</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Win rate</p>
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <p className={`text-sm font-bold ${p.maxDrawdown === 0 ? 'text-gray-500 dark:text-gray-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {p.maxDrawdown === 0 ? '—' : `€${p.maxDrawdown.toFixed(2)}`}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Max Drawdown</p>
+                        </div>
+                        <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <p className={`text-sm font-bold ${p.profitFactor >= 1 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {pfDisplay}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Profit Factor</p>
+                        </div>
                       </div>
-                      <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{p.totalOperations}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Operaciones</p>
-                      </div>
-                    </div>
+                    </>
                   );
                 })()}
                 <div className="flex items-center justify-between">

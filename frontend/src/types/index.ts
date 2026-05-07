@@ -235,6 +235,8 @@ export interface StrategyPerformance {
   bestTrade: number;
   worstTrade: number;
   totalInvested: number;
+  maxDrawdown: number;
+  profitFactor: number;
 }
 
 export interface NewsArticle {

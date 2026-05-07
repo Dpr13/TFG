@@ -327,7 +327,7 @@ export interface Bot {
   userId: string;
   name: string;
   symbol: string;
-  strategy: 'momentum' | 'mean-reversion';
+  strategy: BotAlgorithm;
   status: 'running' | 'stopped';
   initialCapital: number;
   currentCapital: number;
@@ -363,10 +363,12 @@ export interface BotMetrics {
 export interface CreateBotDTO {
   name: string;
   symbol: string;
-  strategy: 'momentum' | 'mean-reversion';
+  strategy: BotAlgorithm;
   initialCapital?: number;
   params?: BotStrategyParams;
 }
+
+export type BotAlgorithm = 'momentum' | 'mean-reversion' | 'rsi';
 
 export interface BotStrategyParams {
   fastWindow?: number;
@@ -374,6 +376,9 @@ export interface BotStrategyParams {
   thresholdPct?: number;
   window?: number;
   k?: number;
+  rsiPeriod?: number;
+  rsiOverbought?: number;
+  rsiOversold?: number;
   [key: string]: number | undefined;
 }
 
@@ -381,7 +386,7 @@ export interface BotStrategy {
   id: string;
   userId: string;
   name: string;
-  algorithm: 'momentum' | 'mean-reversion';
+  algorithm: BotAlgorithm;
   description?: string;
   params: BotStrategyParams;
   createdAt: string;
@@ -390,7 +395,7 @@ export interface BotStrategy {
 
 export interface CreateBotStrategyDTO {
   name: string;
-  algorithm: 'momentum' | 'mean-reversion';
+  algorithm: BotAlgorithm;
   description?: string;
   params: BotStrategyParams;
 }
