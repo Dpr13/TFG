@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import LanguageSelector from '../components/LanguageSelector';
+import { mapBackendError } from '../utils/errorMapper';
 
 export default function LoginPage() {
   const { login, isLoading } = useAuth();
@@ -70,16 +72,20 @@ export default function LoginPage() {
       navigate(from, { replace: true });
     } catch (err: any) {
       console.error('Login error:', err);
-      const backendError = err.response?.data?.error;
-      setError(backendError || t.auth.serverError);
-      if (backendError === t.auth.wrongPassword) {
+      setError(mapBackendError(err, t));
+      if (err.response?.data?.error === 'Contraseña incorrecta. Por favor, inténtelo de nuevo.') {
         setPassword('');
       }
     }
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative">
+      {/* Language Selector */}
+      <div className="absolute top-6 right-6 z-50">
+        <LanguageSelector />
+      </div>
+
       {/* ── Left panel ── */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary-900 via-primary-700 to-primary-500 flex-col justify-between p-12">
         {/* Decorative circles */}

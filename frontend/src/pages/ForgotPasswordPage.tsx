@@ -8,8 +8,12 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { authService } from '../services/auth.service';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSelector from '../components/LanguageSelector';
+import { mapBackendError } from '../utils/errorMapper';
 
 export default function ForgotPasswordPage() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -27,7 +31,7 @@ export default function ForgotPasswordPage() {
       setIsSubmitted(true);
     } catch (err: any) {
       console.error('Forgot password error:', err);
-      setError(err.response?.data?.error || 'Ocurrió un error al procesar tu solicitud.');
+      setError(mapBackendError(err, t));
     } finally {
       setIsLoading(false);
     }
@@ -35,21 +39,24 @@ export default function ForgotPasswordPage() {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 px-6 lg:px-8 relative">
+        <div className="absolute top-4 right-4 z-50">
+          <LanguageSelector />
+        </div>
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white dark:bg-gray-800 py-8 px-10 shadow-xl rounded-2xl border border-gray-200 dark:border-gray-700 text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 mb-6">
               <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Revisa tu correo</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t.forgotPwd.checkEmail}</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-8">
-              Si existe una cuenta asociada a <strong>{email}</strong>, recibirás un enlace para restablecer tu contraseña en unos instantes.
+              {t.forgotPwd.checkEmailDesc.replace('{{email}}', email)}
             </p>
             <Link
               to="/login"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors w-full"
             >
-              Volver al inicio de sesión
+              {t.forgotPwd.backToLogin}
             </Link>
           </div>
         </div>
@@ -58,16 +65,19 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 px-6 lg:px-8 relative">
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageSelector />
+      </div>
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center mb-6">
           <img src="/Logo.png" alt="Logo" className="w-16 h-16 object-contain" />
         </div>
         <h2 className="text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-          Recuperar contraseña
+          {t.forgotPwd.title}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-          Introduce tu correo y te enviaremos las instrucciones
+          {t.forgotPwd.subtitle}
         </p>
       </div>
 
@@ -76,7 +86,7 @@ export default function ForgotPasswordPage() {
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                Correo electrónico
+                {t.auth.email}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -91,7 +101,7 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all sm:text-sm"
-                  placeholder="tu@email.com"
+                  placeholder={t.register.emailPlaceholder}
                 />
               </div>
             </div>
@@ -113,7 +123,7 @@ export default function ForgotPasswordPage() {
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                'Enviar enlace de recuperación'
+                t.forgotPwd.send
               )}
             </button>
 
@@ -123,7 +133,7 @@ export default function ForgotPasswordPage() {
                 className="flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Volver al inicio de sesión
+                {t.forgotPwd.backToLogin}
               </Link>
             </div>
           </form>
