@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { assetService } from '@services/index';
 import { useTheme } from '@/context/ThemeContext';
+import { useLanguage } from '@/context/LanguageContext';
 import AnalysisSummaryCard, { AnalysisVariant } from '@components/AnalysisSummaryCard';
 import type { TechnicalAnalysisResult, TechnicalSignalClass, SignalBreakdown } from '../types';
 
@@ -67,6 +68,7 @@ interface TechnicalAnalysisPanelProps {
 
 export default function TechnicalAnalysisPanel({ symbol, selectedRange }: TechnicalAnalysisPanelProps) {
   const { darkMode } = useTheme();
+  const { t } = useLanguage();
   const [data, setData] = useState<TechnicalAnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +90,16 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
   const macdChartRef = useRef<HTMLDivElement>(null);
   const chartsContainerRef = useRef<HTMLDivElement>(null);
   const chartsRef = useRef<any[]>([]);
+
+  const getSafeChartWidth = useCallback((el: HTMLElement | null) => {
+    const elWidth = el?.getBoundingClientRect?.().width ?? 0;
+    const containerWidth = chartsContainerRef.current?.getBoundingClientRect?.().width ?? 0;
+    const viewportWidth = document.documentElement?.clientWidth || window.innerWidth || 0;
+    const fallbackWidth = viewportWidth > 0 ? viewportWidth - 32 : 0;
+
+    const width = Math.max(1, Math.floor(elWidth || containerWidth || fallbackWidth || 0));
+    return viewportWidth > 0 ? Math.min(width, viewportWidth) : width;
+  }, []);
 
   // Calculate precision based on first price
   const firstPrice = data?.candles?.[0]?.close || 0;
@@ -121,6 +133,10 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     chartsRef.current.forEach(c => { try { c.remove(); } catch {} });
     chartsRef.current = [];
 
+    const isMobile = window.innerWidth < 768;
+    const mainHeight = isMobile ? 250 : 420;
+    const subHeight = isMobile ? 80 : 120;
+
     const chartTheme = darkMode ? {
       layout: { background: { color: '#1f2937' }, textColor: '#9ca3af' },
       grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
@@ -145,10 +161,12 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     // ── Main Chart ──
     if (mainChartRef.current) {
       mainChartRef.current.innerHTML = '';
+      const containerWidth = getSafeChartWidth(mainChartRef.current);
+      
       const chart = LightweightCharts.createChart(mainChartRef.current, {
         ...chartTheme,
-        width: mainChartRef.current.clientWidth,
-        height: 420,
+        width: containerWidth,
+        height: mainHeight,
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
       });
       chartsRef.current.push(chart);
@@ -262,10 +280,12 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     // ── Volume Chart with formatted OBV ──
     if (volumeChartRef.current && data.hasVolume) {
       volumeChartRef.current.innerHTML = '';
+      const containerWidth = getSafeChartWidth(volumeChartRef.current);
+      
       const chart = LightweightCharts.createChart(volumeChartRef.current, {
         ...chartTheme,
-        width: volumeChartRef.current.clientWidth,
-        height: 120,
+        width: containerWidth,
+        height: subHeight,
         rightPriceScale: { borderColor: darkMode ? '#4b5563' : '#e5e7eb' },
       });
       chartsRef.current.push(chart);
@@ -306,10 +326,12 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     // ── RSI Chart ──
     if (rsiChartRef.current && showRSI && data.rsi.length > 0) {
       rsiChartRef.current.innerHTML = '';
+      const containerWidth = getSafeChartWidth(rsiChartRef.current);
+      
       const chart = LightweightCharts.createChart(rsiChartRef.current, {
         ...chartTheme,
-        width: rsiChartRef.current.clientWidth,
-        height: 120,
+        width: containerWidth,
+        height: subHeight,
       });
       chartsRef.current.push(chart);
 
@@ -327,10 +349,12 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     // ── MACD Chart ──
     if (macdChartRef.current && showMACD && data.macd.macdLine.length > 0) {
       macdChartRef.current.innerHTML = '';
+      const containerWidth = getSafeChartWidth(macdChartRef.current);
+      
       const chart = LightweightCharts.createChart(macdChartRef.current, {
         ...chartTheme,
-        width: macdChartRef.current.clientWidth,
-        height: 120,
+        width: containerWidth,
+        height: subHeight,
       });
       chartsRef.current.push(chart);
 
@@ -364,7 +388,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
         });
       });
     }
-  }, [data, showSMA20, showSMA50, showSMA200, showEMA20, showEMA50, showBollinger, showRSI, showMACD, darkMode]);
+  }, [data, showSMA20, showSMA50, showSMA200, showEMA20, showEMA50, showBollinger, showRSI, showMACD, darkMode, getSafeChartWidth]);
 
   useEffect(() => {
     buildCharts();
@@ -376,16 +400,30 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
 
   // Resize handler
   useEffect(() => {
+    let resizeTimeout: ReturnType<typeof setTimeout>;
     const handleResize = () => {
-      chartsRef.current.forEach((chart, idx) => {
-        const refs = [mainChartRef, volumeChartRef, rsiChartRef, macdChartRef];
-        const ref = refs[idx];
-        if (ref?.current) chart.applyOptions({ width: ref.current.clientWidth });
-      });
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        chartsRef.current.forEach((chart, idx) => {
+          const refs = [mainChartRef, volumeChartRef, rsiChartRef, macdChartRef];
+          const ref = refs[idx];
+          if (ref?.current) {
+            const containerWidth = getSafeChartWidth(ref.current);
+            try {
+              chart.applyOptions({ width: containerWidth });
+            } catch (e) {
+              console.warn('Failed to resize chart', e);
+            }
+          }
+        });
+      }, 100);
     };
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimeout);
+    };
+  }, [getSafeChartWidth]);
 
   // ── Export PNG ─────────────────────────────────────────────────────────
   const exportPNG = () => {
@@ -422,7 +460,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
     return (
       <div className="flex items-center justify-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
         <Loader2 className="w-6 h-6 animate-spin text-primary-500 mr-3" />
-        <span className="text-gray-500 dark:text-gray-400">Generando análisis técnico...</span>
+        <span className="text-gray-500 dark:text-gray-400">{t.technicalAnalysis.generating}</span>
       </div>
     );
   }
@@ -439,7 +477,7 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
   if (!data) {
     return (
       <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-        <p className="text-gray-500 dark:text-gray-400">Datos técnicos no disponibles para este activo.</p>
+        <p className="text-gray-500 dark:text-gray-400">{t.technicalAnalysis.noData}</p>
       </div>
     );
   }
@@ -463,13 +501,12 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
 
       {/* Legal disclaimer */}
       <p className="text-xs text-gray-500 dark:text-gray-500 leading-relaxed px-1">
-        Esta señal es puramente informativa y se genera de forma automática a partir de indicadores técnicos.
-        No constituye asesoramiento financiero ni recomendación de inversión.
+        {t.technicalAnalysis.signalDisclaimer}
       </p>
 
       {/* ── Controls bar ── */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-wrap items-center gap-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-4 p-4 min-w-max md:min-w-0">
           {/* MA checkboxes */}
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider mr-1">Medias:</span>
@@ -539,36 +576,36 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
       </div>
 
       {/* ── Charts area ── */}
-      <div ref={chartsContainerRef} className="space-y-1">
+      <div ref={chartsContainerRef} className="space-y-1 min-w-0 overflow-hidden">
         {/* Main candlestick chart */}
-        <div className="bg-white dark:bg-gray-800 rounded-t-xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
-          <div ref={mainChartRef} />
+        <div className="bg-white dark:bg-gray-800 rounded-t-xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm transition-colors min-w-0">
+          <div ref={mainChartRef} className="w-full" style={{ minHeight: '250px' }} />
         </div>
 
         {/* Volume chart */}
         {data.hasVolume && (
-          <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
-            <div ref={volumeChartRef} />
+          <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors min-w-0">
+            <div ref={volumeChartRef} className="w-full" style={{ minHeight: '80px' }} />
           </div>
         )}
 
         {/* RSI chart */}
         {showRSI && data.rsi.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
+          <div className="bg-white dark:bg-gray-800 overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors min-w-0">
             <div className="px-3 pt-1.5 pb-0">
               <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">RSI (14)</span>
             </div>
-            <div ref={rsiChartRef} />
+            <div ref={rsiChartRef} className="w-full" style={{ minHeight: '80px' }} />
           </div>
         )}
 
         {/* MACD chart */}
         {showMACD && data.macd.macdLine.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-b-xl overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors">
+          <div className="bg-white dark:bg-gray-800 rounded-b-xl overflow-hidden border-x border-b border-gray-100 dark:border-gray-700 shadow-sm transition-colors min-w-0">
             <div className="px-3 pt-1.5 pb-0">
               <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500">MACD (12, 26, 9)</span>
             </div>
-            <div ref={macdChartRef} />
+            <div ref={macdChartRef} className="w-full" style={{ minHeight: '80px' }} />
           </div>
         )}
       </div>
@@ -577,21 +614,21 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
       {(data.supports.length > 0 || data.resistances.length > 0) && (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border border-gray-200 dark:border-gray-700">
           <h4 className="font-semibold text-gray-900 dark:text-white mb-3 text-sm">
-            Niveles de Soporte y Resistencia
+            {t.technicalAnalysis.sr.title}
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Supports */}
             <div>
-              <p className="text-xs font-bold text-green-500 uppercase tracking-wider mb-2">Soportes</p>
+              <p className="text-xs font-bold text-green-500 uppercase tracking-wider mb-2">{t.technicalAnalysis.sr.supports}</p>
               {data.supports.length === 0 ? (
-                <p className="text-xs text-gray-500">No se detectaron soportes claros</p>
+                <p className="text-xs text-gray-500">{t.technicalAnalysis.sr.noSupports}</p>
               ) : (
                 <div className="space-y-1.5">
                   {data.supports.map((s, i) => (
                     <div key={i} className="flex items-center justify-between bg-green-50 dark:bg-green-900/10 rounded-lg px-3 py-2 border border-green-100 dark:border-transparent">
                       <span className="text-sm font-mono font-semibold text-green-600 dark:text-green-400">${s.price.toFixed(2)}</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">{s.date.split('T')[0]}</span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">Fuerza: {s.strength}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">{t.technicalAnalysis.sr.strength} {s.strength}</span>
                     </div>
                   ))}
                 </div>
@@ -599,16 +636,16 @@ export default function TechnicalAnalysisPanel({ symbol, selectedRange }: Techni
             </div>
             {/* Resistances */}
             <div>
-              <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">Resistencias</p>
+              <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">{t.technicalAnalysis.sr.resistances}</p>
               {data.resistances.length === 0 ? (
-                <p className="text-xs text-gray-500">No se detectaron resistencias claras</p>
+                <p className="text-xs text-gray-500">{t.technicalAnalysis.sr.noResistances}</p>
               ) : (
                 <div className="space-y-1.5">
                   {data.resistances.map((r, i) => (
                     <div key={i} className="flex items-center justify-between bg-red-50 dark:bg-red-900/10 rounded-lg px-3 py-2 border border-red-100 dark:border-transparent">
                       <span className="text-sm font-mono font-semibold text-red-600 dark:text-red-400">${r.price.toFixed(2)}</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">{r.date.split('T')[0]}</span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">Fuerza: {r.strength}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">{t.technicalAnalysis.sr.strength} {r.strength}</span>
                     </div>
                   ))}
                 </div>

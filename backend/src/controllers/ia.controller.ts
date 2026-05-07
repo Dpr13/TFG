@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { construirContexto, generarAnalisisIA, chatIA, generarResumenTecnico } from '../services/ia.service';
+import { getLanguage, Language } from '../utils/i18n';
 
 /**
  * POST /api/ia/analyze
@@ -10,13 +11,17 @@ export const analyzeIA = async (req: Request, res: Response): Promise<void> => {
     const {
       ticker, direccion, intervalo, horizonte, precio_entrada, sl, metodo_sl,
       tps, tps_detalle, risk_management,
-      datos_tecnicos, datos_fundamentales,
+      datos_tecnicos, datos_fundamentales, lang: payloadLang,
     } = req.body;
+    const lang: Language = (payloadLang as Language) || getLanguage(req.headers['accept-language'] as string);
 
     if (!ticker || !precio_entrada) {
       res.status(400).json({ error: 'Faltan datos obligatorios (ticker, precio_entrada).' });
       return;
     }
+
+    // Use lang from payload first, then from header
+
 
     const ctx = construirContexto({
       ticker,
@@ -31,6 +36,7 @@ export const analyzeIA = async (req: Request, res: Response): Promise<void> => {
       risk_management: risk_management || undefined,
       datos_tecnicos: datos_tecnicos || {},
       datos_fundamentales: datos_fundamentales || {},
+      lang,
     });
 
     const resultado = await generarAnalisisIA(ctx);
@@ -52,12 +58,16 @@ export const analyzeIA = async (req: Request, res: Response): Promise<void> => {
  */
 export const chatIAEndpoint = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { contexto, historial, mensaje } = req.body;
+    const { contexto, historial, mensaje, lang: payloadLang } = req.body;
+    const lang: Language = (payloadLang as Language) || getLanguage(req.headers['accept-language'] as string);
 
     if (!mensaje || !contexto) {
       res.status(400).json({ respuesta: 'Faltan datos obligatorios.', ok: false });
       return;
     }
+
+    // Use lang from payload first, then from header
+
 
     const ctx = construirContexto({
       ticker: contexto.ticker,
@@ -68,6 +78,7 @@ export const chatIAEndpoint = async (req: Request, res: Response): Promise<void>
       tps: contexto.tps || [],
       datos_tecnicos: contexto.datos_tecnicos || {},
       datos_fundamentales: contexto.datos_fundamentales || {},
+      lang,
     });
 
     const resultado = await chatIA(ctx, historial || [], mensaje);
@@ -94,11 +105,15 @@ export const resumenTecnicoIA = async (req: Request, res: Response): Promise<voi
       return;
     }
 
+    const { lang: payloadLang } = req.body;
+    const lang: Language = (payloadLang as Language) || getLanguage(req.headers['accept-language'] as string);
+
     const resultado = await generarResumenTecnico({
       ticker: data.ticker,
       intervalo: data.intervalo || '1d',
       horizonte: data.horizonte || '1y',
       datos_tecnicos: data.datos_tecnicos || {},
+      lang,
     });
     
     if (resultado.ok) {

@@ -31,6 +31,7 @@ export interface RiskMetrics {
   };
   interval?: string;
   range?: string;
+  explanation?: string;
 }
 
 export interface StockFinancialData {

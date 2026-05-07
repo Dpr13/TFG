@@ -1,4 +1,5 @@
 import { TechnicalAnalysisService } from './technicalAnalysis.service';
+import { i18n, Language } from '../utils/i18n';
 import type {
   RecommendationRequest,
   RecommendationResult,
@@ -22,15 +23,16 @@ const INTERVAL_RANGE_MAP: Record<string, string> = {
 
 export class RecommendationService {
 
-  async calculate(req: RecommendationRequest): Promise<RecommendationResult> {
+  async calculate(req: RecommendationRequest, lang: Language = 'es'): Promise<RecommendationResult> {
     const range = req.range || INTERVAL_RANGE_MAP[req.interval] || '1y';
+    const t = i18n[lang].recommendation;
 
     // 1) Get full technical analysis (OHLCV + indicators)
-    const analysis = await technicalService.analyze(req.symbol, range, req.interval);
+    const analysis = await technicalService.analyze(req.symbol, range, req.interval, lang);
 
     const candles = analysis.candles;
     if (candles.length === 0) {
-      throw new Error('No se encontraron datos para el activo seleccionado.');
+      throw new Error(t.errors.noData);
     }
 
     const entryPrice = candles[candles.length - 1].close;
@@ -47,17 +49,17 @@ export class RecommendationService {
       sl = req.direction === 'LONG'
         ? entryPrice * (1 - pct)
         : entryPrice * (1 + pct);
-      slMethodLabel = '% Fijo';
+      slMethodLabel = t.labels.fixedPct;
     } else if (req.slMethod === 'DYNAMIC_ATR') {
       const atrValue = analysis.atr && analysis.atr.length > 0 ? analysis.atr[analysis.atr.length - 1].value : 0;
       if (atrValue === 0) {
-        throw new Error('No se pudo obtener el ATR para el cálculo dinámico.');
+        throw new Error(t.errors.failedATR);
       }
       sl = req.direction === 'LONG'
         ? entryPrice - (atrValue * 1.5)
         : entryPrice + (atrValue * 1.5);
-      slMethodLabel = 'ATR Dinámico';
-      detectedSLLevel = `Stop Loss a 1.5x ATR ($${atrValue.toFixed(4)})`;
+      slMethodLabel = t.labels.dynamicATR;
+      detectedSLLevel = t.labels.atrDetected.replace('${atr}', atrValue.toFixed(4));
     } else {
       // SUPPORT_RESISTANCE
       if (req.direction === 'LONG') {
@@ -67,9 +69,9 @@ export class RecommendationService {
           .sort((a, b) => b.price - a.price);
         if (supportBelow.length > 0) {
           sl = supportBelow[0].price;
-          detectedSLLevel = `Soporte detectado en $${sl.toFixed(2)}`;
+          detectedSLLevel = t.labels.supportDetected.replace('${price}', sl.toFixed(2));
         } else {
-          throw new Error('No se detectaron soportes por debajo del precio actual. Usa el método de porcentaje fijo.');
+          throw new Error(t.errors.noSupport);
         }
       } else {
         // SHORT: find closest resistance ABOVE entry price
@@ -78,30 +80,30 @@ export class RecommendationService {
           .sort((a, b) => a.price - b.price);
         if (resistanceAbove.length > 0) {
           sl = resistanceAbove[0].price;
-          detectedSLLevel = `Resistencia detectada en $${sl.toFixed(2)}`;
+          detectedSLLevel = t.labels.resistanceDetected.replace('${price}', sl.toFixed(2));
         } else {
-          throw new Error('No se detectaron resistencias por encima del precio actual. Usa el método de porcentaje fijo.');
+          throw new Error(t.errors.noResistance);
         }
       }
-      slMethodLabel = req.direction === 'LONG' ? 'Soporte' : 'Resistencia';
+      slMethodLabel = req.direction === 'LONG' ? t.labels.support : t.labels.resistance;
     }
 
     // 3) Validate SL
     if (req.direction === 'LONG' && sl >= entryPrice) {
-      throw new Error('El stop loss debe estar por debajo del precio de entrada para una posición larga.');
+      throw new Error(t.errors.slAboveLong);
     }
     if (req.direction === 'SHORT' && sl <= entryPrice) {
-      throw new Error('El stop loss debe estar por encima del precio de entrada para una posición corta.');
+      throw new Error(t.errors.slBelowShort);
     }
 
     const slDistanceAbs = Math.abs(entryPrice - sl);
     const slDistancePct = (slDistanceAbs / entryPrice) * 100;
 
     if (slDistancePct < 0.1) {
-      warnings.push('Stop loss muy ajustado. Alta probabilidad de activación por ruido de mercado.');
+      warnings.push(t.warnings.tightSL);
     }
     if (slDistancePct > 15) {
-      warnings.push('Stop loss muy amplio. El tamaño de posición resultante será muy pequeño.');
+      warnings.push(t.warnings.wideSL);
     }
 
     // 4) Calculate Take Profit(s)
@@ -127,7 +129,7 @@ export class RecommendationService {
           distancePct: tpDistPct,
           distanceAbs: tpDistAbs,
           realRatio,
-          label: `R/B 1:${ratio}`,
+          label: t.labels.riskReward.replace('{ratio}', ratio.toString()),
           potentialProfit: 0, // Calculated below
         });
       }
@@ -142,9 +144,9 @@ export class RecommendationService {
             .sort((a, b) => a.price - b.price);
           if (resistanceAbove.length > 0) {
             tpPrice = resistanceAbove[0].price;
-            label = `Resistencia`;
+            label = t.labels.resistance;
           } else {
-             warnings.push('No hay resistencias por encima para usar como TP. Usa otro método adicional.');
+             warnings.push(t.warnings.noResisTP);
           }
         } else {
           const supportBelow = analysis.supports
@@ -152,9 +154,9 @@ export class RecommendationService {
             .sort((a, b) => b.price - a.price);
           if (supportBelow.length > 0) {
             tpPrice = supportBelow[0].price;
-            label = `Soporte`;
+            label = t.labels.support;
           } else {
-             warnings.push('No hay soportes por debajo para usar como TP. Usa otro método adicional.');
+             warnings.push(t.warnings.noSupportTP);
           }
         }
 
@@ -183,10 +185,10 @@ export class RecommendationService {
 
           if (req.direction === 'LONG') {
             tpPrice = boll.upper[boll.upper.length - 1].value;
-            label = `Bollinger Superior`;
+            label = t.labels.bollingerUpper;
           } else {
             tpPrice = boll.lower[boll.lower.length - 1].value;
-            label = `Bollinger Inferior`;
+            label = t.labels.bollingerLower;
           }
 
           const tpDistAbs = Math.abs(tpPrice - entryPrice);
@@ -203,7 +205,7 @@ export class RecommendationService {
             potentialProfit: 0,
           });
         } else {
-            warnings.push('No hay datos suficientes de Bollinger para este cálculo de TP.');
+            warnings.push(t.warnings.noATRTP);
         }
       }
     }
@@ -211,11 +213,11 @@ export class RecommendationService {
     // Validate TPs and add warning if any TP is negative distance or reverse side
     let validTps = tps.filter(tp => {
       if (req.direction === 'LONG' && tp.price <= entryPrice) {
-        warnings.push(`El TP (${tp.label}) está por debajo del precio de entrada para larga. Se descarta.`);
+        warnings.push(t.warnings.tpBelowLong.replace('{label}', tp.label));
         return false;
       }
       if (req.direction === 'SHORT' && tp.price >= entryPrice) {
-        warnings.push(`El TP (${tp.label}) está por encima del precio de entrada para corta. Se descarta.`);
+        warnings.push(t.warnings.tpAboveShort.replace('{label}', tp.label));
         return false;
       }
       return true;
@@ -226,20 +228,20 @@ export class RecommendationService {
       validTps.sort((a, b) => a.distanceAbs - b.distanceAbs);
       validTps = [validTps[0]]; // Pick the closest and most conservative
     } else if (validTps.length === 0) {
-      warnings.push('No hay niveles de TP válidos que cumplan con la dirección de la operación.');
+      warnings.push(t.warnings.noValidTP);
     }
     
     // Additional validations
     if (validTps.length > 0 && validTps[0].realRatio > 0 && validTps[0].realRatio < 1.5) {
-      warnings.push('Operación de baja calidad: El ratio Riesgo/Beneficio del objetivo es menor a 1.5.');
+      warnings.push(t.warnings.lowQuality);
     }
 
     const atrValue = analysis.atr && analysis.atr.length > 0 ? analysis.atr[analysis.atr.length - 1].value : 0;
     if (atrValue > 0 && slDistanceAbs < 0.5 * atrValue) {
-      warnings.push('El Stop Loss está demasiado ajustado (< 0.5x ATR). Alta probabilidad de activación prematura.');
+      warnings.push(t.warnings.veryTightSL);
     }
     if (atrValue > 0 && atrValue < entryPrice * 0.005) {
-      warnings.push('La volatilidad actual (ATR) es muy baja. El mercado podría estar en un rango lateral.');
+      warnings.push(t.warnings.lowVol);
     }
 
     // 5) Risk Management
@@ -254,7 +256,7 @@ export class RecommendationService {
     const positionValue = positionSize * entryPrice;
 
     if (positionValue > capital) {
-      warnings.push('El tamaño de posición supera el capital disponible. Considera reducir el riesgo o aumentar el stop loss.');
+      warnings.push(t.warnings.insufficientCapital);
     }
 
     // Calculate potential profit for each TP
@@ -294,10 +296,10 @@ export class RecommendationService {
 
     confidence = Math.max(0, Math.min(100, Math.round(confidence)));
 
-    let reasoning = `Confianza calculada (${confidence}%). `;
-    if (confidence >= 70) reasoning += "Existe buena confluencia entre la tendencia técnica y la dirección elegida de la operación, apoyada por una volatilidad adecuada.";
-    else if (confidence < 40) reasoning += "Precaución: El panorama técnico entra en conflicto fuerte con la dirección elegida, o la volatilidad actual del mercado no justifica el riesgo.";
-    else reasoning += "El panorama técnico es mixto o neutral para esta dirección; se recomienda gestión estricta del nivel de Stop Loss.";
+    let reasoning = t.reasoning.base.replace('{confidence}', confidence.toString());
+    if (confidence >= 70) reasoning += t.reasoning.high;
+    else if (confidence < 40) reasoning += t.reasoning.low;
+    else reasoning += t.reasoning.mixed;
 
     return {
       symbol: req.symbol.toUpperCase(),

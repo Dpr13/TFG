@@ -12,24 +12,13 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useWatchlist } from '@hooks/useWatchlist';
 import { useFetch } from '@hooks/useFetch';
 import { newsService, operationService, strategyService } from '@services/index';
 import type { Operation, Strategy, NewsArticle } from '../types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `hace ${mins} min`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `hace ${hours} h`;
-  const days = Math.floor(hours / 24);
-  return `hace ${days} d`;
-}
-
-// ── Mini Components ──────────────────────────────────────────────────────────
 
 function MiniSparkline() {
   return (
@@ -84,29 +73,11 @@ function MiniDonutChart({ value, total, color = 'blue' }: { value: number; total
   );
 }
 
-function MiniBarChart() {
-  const bars = [60, 45, 50, 75, 65, 80, 55];
-  const days = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
-  
-  return (
-    <div className="flex items-end justify-between h-full gap-1 px-2">
-      {bars.map((height, i) => (
-        <div key={i} className="flex flex-col items-center gap-1 flex-1">
-          <div
-            className="w-full bg-blue-600 dark:bg-blue-500 rounded-t"
-            style={{ height: `${height}%` }}
-          />
-          <span className="text-[8px] text-gray-500 dark:text-gray-400">{days[i]}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { watchlist } = useWatchlist();
 
   const { data: operations, loading: loadingOperations } = useFetch<Operation[]>(
@@ -134,10 +105,10 @@ export default function HomePage() {
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
-    if (h < 13) return 'Buenos días';
-    if (h < 20) return 'Buenas tardes';
-    return 'Buenas noches';
-  }, []);
+    if (h < 13) return t.home.goodMorning;
+    if (h < 20) return t.home.goodAfternoon;
+    return t.home.goodEvening;
+  }, [t]);
 
   // Contar tipos de activos en watchlist
   const watchlistStats = useMemo(() => {
@@ -148,6 +119,33 @@ export default function HomePage() {
     return stats;
   }, [watchlist]);
 
+  function timeAgo(iso: string): string {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return t.home.agoMin.replace('{n}', String(mins));
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return t.home.agoHours.replace('{n}', String(hours));
+    const days = Math.floor(hours / 24);
+    return t.home.agoDays.replace('{n}', String(days));
+  }
+
+  function MiniBarChart() {
+    const bars = [60, 45, 50, 75, 65, 80, 55];
+    return (
+      <div className="flex items-end justify-between h-full gap-1 px-2">
+        {bars.map((height, i) => (
+          <div key={i} className="flex flex-col items-center gap-1 flex-1">
+            <div
+              className="w-full bg-blue-600 dark:bg-blue-500 rounded-t"
+              style={{ height: `${height}%` }}
+            />
+            <span className="text-[8px] text-gray-500 dark:text-gray-400">{t.home.days[i]}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-[1400px]">
 
@@ -157,7 +155,7 @@ export default function HomePage() {
           ¡{greeting} {firstName}!
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Aquí tienes el resumen del mercado de hoy.
+          {t.home.marketSummary}
         </p>
       </div>
 
@@ -168,7 +166,7 @@ export default function HomePage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-start justify-between mb-3">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Operaciones registradas</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t.home.registeredOps}</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
                 {loadingOperations ? '...' : operations?.length ?? 0}
               </p>
@@ -185,7 +183,7 @@ export default function HomePage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-start justify-between mb-3">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Estrategias</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t.home.strategies}</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
                 {loadingStrategies ? '...' : strategies?.length ?? 0}
               </p>
@@ -208,7 +206,7 @@ export default function HomePage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-start justify-between mb-3">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">En seguimiento</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t.home.tracking}</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
                 {watchlist.length}
               </p>
@@ -239,9 +237,9 @@ export default function HomePage() {
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
           
           <div className="relative z-10">
-            <h3 className="text-xl font-bold mb-2">Analizar riesgo</h3>
+            <h3 className="text-xl font-bold mb-2">{t.home.analyzeRisk}</h3>
             <p className="text-blue-100 text-sm mb-6">
-              Evalúa el riesgo de tus inversiones y toma decisiones informadas
+              {t.home.analyzeRiskDesc}
             </p>
             
             <div className="flex flex-col gap-3">
@@ -252,7 +250,7 @@ export default function HomePage() {
                          border border-white/30"
               >
                 <Briefcase className="w-4 h-4" />
-                Ver activos
+                {t.home.viewAssets}
               </Link>
               <Link
                 to="/analisis"
@@ -260,7 +258,7 @@ export default function HomePage() {
                          hover:bg-blue-50 rounded-lg font-medium transition-all shadow-lg"
               >
                 <TrendingUp className="w-4 h-4" />
-                Analizar riesgo
+                {t.home.analyzeRisk}
               </Link>
             </div>
           </div>
@@ -268,7 +266,7 @@ export default function HomePage() {
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-gray-500 dark:text-gray-400">En seguimiento</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t.home.tracking}</p>
             <div className="w-12 h-12">
               <MiniDonutChart value={watchlist.length} total={10} color="purple" />
             </div>
@@ -283,7 +281,7 @@ export default function HomePage() {
               <span className="font-semibold text-gray-900 dark:text-white">{watchlistStats.crypto}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Otros</span>
+              <span className="text-gray-600 dark:text-gray-400">{t.home.others}</span>
               <span className="font-semibold text-gray-900 dark:text-white">{watchlistStats.forex}</span>
             </div>
           </div>
@@ -291,7 +289,7 @@ export default function HomePage() {
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Actividad semanal</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t.home.weeklyActivity}</p>
             <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <BarChart3 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             </div>
@@ -308,14 +306,14 @@ export default function HomePage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
-              <h3 className="font-bold text-gray-900 dark:text-white">Seguimiento</h3>
+              <h3 className="font-bold text-gray-900 dark:text-white">{t.home.followUp}</h3>
             </div>
             <Link
               to="/assets"
               state={{ tab: 'watchlist' }}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-medium"
             >
-              Gestionar <ArrowRight className="w-4 h-4" />
+              {t.home.manage} <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -353,9 +351,8 @@ export default function HomePage() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            {/*<Newspaper className="w-5 h-5 text-gray-700 dark:text-gray-300" />*/}
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-              Noticias del mercado
+              {t.home.marketNews}
             </h3>
           </div>
           <div className="flex items-center gap-3">
@@ -364,7 +361,7 @@ export default function HomePage() {
               to="/news"
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium flex items-center gap-1"
             >
-              Ver más <ArrowRight className="w-3.5 h-3.5" />
+              {t.home.viewMore} <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
@@ -414,13 +411,13 @@ export default function HomePage() {
                     {/* Tickers */}
                     {article.relatedTickers && article.relatedTickers.length > 0 && (
                       <div className="flex flex-wrap gap-1">
-                        {article.relatedTickers.slice(0, 3).map((t) => (
+                        {article.relatedTickers.slice(0, 3).map((ticker) => (
                           <span
-                            key={t}
+                            key={ticker}
                             className="px-2 py-0.5 text-xs font-semibold rounded bg-blue-50 text-blue-700
                                      dark:bg-blue-900/20 dark:text-blue-400"
                           >
-                            {t}
+                            {ticker}
                           </span>
                         ))}
                       </div>

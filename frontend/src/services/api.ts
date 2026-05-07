@@ -8,9 +8,14 @@ const apiClient = axios.create({
   timeout: 10000,
 });
 
-// Añadir JWT token a todas las peticiones excepto login y register
+// Añadir JWT token y locale a todas las peticiones excepto login y register
 apiClient.interceptors.request.use((config) => {
   const isAuthEndpoint = config.url?.includes('/users/login') || config.url?.includes('/users/register') || config.url?.includes('/users/verificar-email') || config.url?.includes('/users/reenviar-codigo');
+  
+  // Añadir idioma
+  const lang = localStorage.getItem('language') || 'es';
+  config.headers['Accept-Language'] = lang;
+
   if (!isAuthEndpoint) {
     const token =
       localStorage.getItem('tfg_auth_token') ||

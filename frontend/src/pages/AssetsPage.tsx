@@ -7,6 +7,7 @@ import { assetService } from '@services/index';
 import type { Asset } from '../types';
 import AssetDetailModal from '../components/AssetDetailModal';
 import SymbolAutocomplete from '../components/SymbolAutocomplete';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function AssetsPage() {
   const location = useLocation();
@@ -19,6 +20,7 @@ export default function AssetsPage() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [activeView, setActiveView] = useState<'all' | 'watchlist'>(initialTab);
   const { watchlist, isFavorite, toggleFavorite } = useWatchlist();
+  const { t } = useLanguage();
 
   const { data: assets, loading, error } = useFetch<Asset[]>(
     () => assetService.getAssets(),
@@ -103,10 +105,10 @@ export default function AssetsPage() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Activos Financieros
+            {t.assets.title}
           </h2>
           <p className="text-gray-600 dark:text-gray-400">
-            Explora y analiza diferentes activos disponibles
+            {t.assets.subtitle}
           </p>
         </div>
         {/* Tabs vista */}
@@ -119,7 +121,7 @@ export default function AssetsPage() {
                 : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
-            Todos
+            {t.assets.tabs.all}
           </button>
           <button
             onClick={() => setActiveView('watchlist')}
@@ -130,7 +132,7 @@ export default function AssetsPage() {
             }`}
           >
             <Star className="w-4 h-4" fill={activeView === 'watchlist' ? 'currentColor' : 'none'} />
-            Seguimiento
+            {t.assets.tabs.watchlist}
             {watchlist.length > 0 && (
               <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
                 activeView === 'watchlist'
@@ -160,36 +162,36 @@ export default function AssetsPage() {
                   handleSearchSymbol(symbol);
                 }
               }}
-              placeholder="Buscar por nombre o símbolo (ej: AAPL, KO, NFLX)..."
+              placeholder={t.assets.searchPlaceholder}
               className="flex-1"
               showSearchIcon
-              inputClassName="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              inputClassName="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
             <button
               onClick={() => handleSearchSymbol()}
               disabled={searching || !searchQuery.trim()}
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 
-                       disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 
+                       disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 flex-shrink-0"
             >
               {searching ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-4 sm:w-5 h-4 sm:h-5 animate-spin" />
               ) : (
-                <Plus className="w-5 h-5" />
+                <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
               )}
-              Buscar
+              <span className="hidden sm:inline">{t.assets.search}</span>
             </button>
           </div>
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg 
+            className="px-3 sm:px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg 
                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white
                      focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           >
-            <option value="">Todos los tipos</option>
-            <option value="stock">Acciones</option>
-            <option value="crypto">Criptomonedas</option>
-            <option value="forex">Forex</option>
+            <option value="">{t.assets.filters.allTypes}</option>
+            <option value="stock">{t.assets.options.stock}</option>
+            <option value="crypto">{t.assets.options.crypto}</option>
+            <option value="forex">{t.assets.options.forex}</option>
           </select>
         </div>
         {searchError && (
@@ -280,11 +282,11 @@ export default function AssetsPage() {
           ) : (
             <>
               <p className="text-gray-600 dark:text-gray-400 mb-2">
-                No se encontraron activos que coincidan con tu búsqueda
+                {t.assets.noResults}
               </p>
               {searchQuery && (
                 <p className="text-sm text-gray-500 dark:text-gray-500">
-                  Intenta buscar un símbolo específico (ej: AAPL, NFLX, META) presionando Enter o el botón "Buscar"
+                  {t.assets.trySpecific}
                 </p>
               )}
             </>

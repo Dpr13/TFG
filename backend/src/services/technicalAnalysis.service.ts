@@ -10,6 +10,7 @@ import {
   SignalBreakdown,
   TechnicalAnalysisResult,
 } from '../models/technicalAnalysis';
+import { i18n, Language } from '../utils/i18n';
 
 const yahooFinance: any = new (yahooFinanceDefault as any)({ suppressNotices: ['yahooSurvey'] });
 
@@ -29,7 +30,7 @@ export class TechnicalAnalysisService {
 
   // ── Public API ──────────────────────────────────────────────────────────
 
-  async analyze(symbol: string, range: string = '1y', customInterval?: string): Promise<TechnicalAnalysisResult> {
+  async analyze(symbol: string, range: string = '1y', customInterval?: string, lang: Language = 'es'): Promise<TechnicalAnalysisResult> {
     const config = RANGE_CONFIG[range] || RANGE_CONFIG['1y'];
     const activeInterval = customInterval || config.interval;
     const candles = await this.fetchOHLCV(symbol, config.period, activeInterval);
@@ -80,7 +81,7 @@ export class TechnicalAnalysisService {
     const { supports, resistances } = this.calcSupportResistance(highs, lows, closes, dates, window);
 
     // Signal
-    const signal = this.calcSignal(closes, sma20, sma50, sma200, rsi, macd, bollinger, obv, hasVolume);
+    const signal = this.calcSignal(closes, sma20, sma50, sma200, rsi, macd, bollinger, obv, hasVolume, lang);
 
     return {
       symbol: symbol.toUpperCase(),
@@ -440,12 +441,14 @@ export class TechnicalAnalysisService {
     macd: MACDData,
     bollinger: BollingerBandsData,
     obv: IndicatorPoint[],
-    hasVolume: boolean
+    hasVolume: boolean,
+    lang: Language = 'es'
   ): TechnicalSignal {
     const breakdown: SignalBreakdown[] = [];
     const lastClose = closes[closes.length - 1];
     let totalScore = 0;
     let totalMax = 0;
+    const t = i18n[lang];
 
     // ── Moving Averages (30 pts) ──
     if (sma50.length > 0 || sma200.length > 0) {
@@ -455,24 +458,24 @@ export class TechnicalAnalysisService {
 
       if (sma200.length > 0) {
         const lastSMA200 = sma200[sma200.length - 1].value;
-        if (lastClose > lastSMA200) { maScore += 10; details.push('Precio > SMA200'); }
-        else details.push('Precio < SMA200');
+        if (lastClose > lastSMA200) { maScore += 10; details.push(t.details.price_gt_sma200); }
+        else details.push(t.details.price_lt_sma200);
       }
 
       if (sma50.length > 0) {
         const lastSMA50 = sma50[sma50.length - 1].value;
-        if (lastClose > lastSMA50) { maScore += 10; details.push('Precio > SMA50'); }
-        else details.push('Precio < SMA50');
+        if (lastClose > lastSMA50) { maScore += 10; details.push(t.details.price_gt_sma50); }
+        else details.push(t.details.price_lt_sma50);
       }
 
       if (sma50.length > 0 && sma200.length > 0) {
         const lastSMA50 = sma50[sma50.length - 1].value;
         const lastSMA200 = sma200[sma200.length - 1].value;
-        if (lastSMA50 > lastSMA200) { maScore += 10; details.push('SMA50 > SMA200 (Golden Cross)'); }
-        else details.push('SMA50 < SMA200 (Death Cross)');
+        if (lastSMA50 > lastSMA200) { maScore += 10; details.push(t.details.golden_cross); }
+        else details.push(t.details.death_cross);
       }
 
-      breakdown.push({ name: 'Medias Móviles', score: maScore, maxScore: maMax, detail: details.join('. ') });
+      breakdown.push({ name: t.indicators.movingAverages || 'Medias Móviles', score: maScore, maxScore: maMax, detail: details.join('. ') });
       totalScore += maScore;
       totalMax += maMax;
     }
@@ -482,11 +485,12 @@ export class TechnicalAnalysisService {
       const lastRSI = rsi[rsi.length - 1].value;
       let rsiScore = 0;
       let rsiDetail = '';
-      if (lastRSI >= 50 && lastRSI <= 70) { rsiScore = 20; rsiDetail = `RSI ${lastRSI.toFixed(1)}: momentum alcista sin sobrecompra`; }
-      else if (lastRSI >= 40 && lastRSI < 50) { rsiScore = 10; rsiDetail = `RSI ${lastRSI.toFixed(1)}: neutro-alcista`; }
-      else if (lastRSI >= 30 && lastRSI < 40) { rsiScore = 5; rsiDetail = `RSI ${lastRSI.toFixed(1)}: debilitamiento`; }
-      else if (lastRSI > 70) { rsiScore = 5; rsiDetail = `RSI ${lastRSI.toFixed(1)}: sobrecompra`; }
-      else { rsiScore = 0; rsiDetail = `RSI ${lastRSI.toFixed(1)}: sobrevendido`; }
+
+      if (lastRSI >= 50 && lastRSI <= 70) { rsiScore = 20; rsiDetail = `RSI ${lastRSI.toFixed(1)}: ${t.details.rsi_bullish}`; }
+      else if (lastRSI >= 40 && lastRSI < 50) { rsiScore = 10; rsiDetail = `RSI ${lastRSI.toFixed(1)}: ${t.details.rsi_neutral}`; }
+      else if (lastRSI >= 30 && lastRSI < 40) { rsiScore = 5; rsiDetail = `RSI ${lastRSI.toFixed(1)}: ${t.details.rsi_weak}`; }
+      else if (lastRSI > 70) { rsiScore = 5; rsiDetail = `RSI ${lastRSI.toFixed(1)}: ${t.details.rsi_overbought}`; }
+      else { rsiScore = 0; rsiDetail = `RSI ${lastRSI.toFixed(1)}: ${t.details.rsi_oversold}`; }
 
       breakdown.push({ name: 'RSI', score: rsiScore, maxScore: 20, detail: rsiDetail });
       totalScore += rsiScore;
@@ -501,14 +505,14 @@ export class TechnicalAnalysisService {
       const lastSignal = macd.signalLine[macd.signalLine.length - 1].value;
       const lastHist = macd.histogram[macd.histogram.length - 1].value;
 
-      if (lastMACD > lastSignal) { macdScore += 10; details.push('MACD > Signal'); }
-      else details.push('MACD < Signal');
+      if (lastMACD > lastSignal) { macdScore += 10; details.push(t.details.macd_gt_signal); }
+      else details.push(t.details.macd_lt_signal);
 
       if (macd.histogram.length >= 2) {
         const prevHist = macd.histogram[macd.histogram.length - 2].value;
-        if (lastHist > 0 && lastHist > prevHist) { macdScore += 10; details.push('Histograma positivo y creciente'); }
-        else if (lastHist > 0) { macdScore += 5; details.push('Histograma positivo pero decreciente'); }
-        else details.push('Histograma negativo');
+        if (lastHist > 0 && lastHist > prevHist) { macdScore += 10; details.push(t.details.hist_pos_inc); }
+        else if (lastHist > 0) { macdScore += 5; details.push(t.details.hist_pos_dec); }
+        else details.push(t.details.hist_neg);
       }
 
       breakdown.push({ name: 'MACD', score: macdScore, maxScore: 20, detail: details.join('. ') });
@@ -522,12 +526,13 @@ export class TechnicalAnalysisService {
       const lastLower = bollinger.lower[bollinger.lower.length - 1].value;
       let bbScore = 0;
       let bbDetail = '';
+      const t = i18n[lang];
 
-      if (lastClose > lastUpper) { bbScore = 0; bbDetail = 'Precio por encima de la banda superior (sobrecompra, señal bajista)'; }
-      else if (lastClose < lastLower) { bbScore = 15; bbDetail = 'Precio por debajo de la banda inferior (sobrevendido, oportunidad de compra)'; }
-      else { bbScore = 7; bbDetail = 'Precio dentro de las bandas (comportamiento neutral)'; }
+      if (lastClose > lastUpper) { bbScore = 0; bbDetail = t.details.bb_upper; }
+      else if (lastClose < lastLower) { bbScore = 15; bbDetail = t.details.bb_lower; }
+      else { bbScore = 7; bbDetail = t.details.bb_inside; }
 
-      breakdown.push({ name: 'Bandas de Bollinger', score: bbScore, maxScore: 15, detail: bbDetail });
+      breakdown.push({ name: t.indicators.bollinger, score: bbScore, maxScore: 15, detail: bbDetail });
       totalScore += bbScore;
       totalMax += 15;
     }
@@ -539,15 +544,16 @@ export class TechnicalAnalysisService {
       const obvAvg = obvSlice.reduce((a, b) => a + b.value, 0) / obvSlice.length;
       let obvScore = 0;
       let obvDetail = '';
+      const t = i18n[lang];
 
       const diff = lastOBV - obvAvg;
       const threshold = Math.abs(obvAvg) * 0.02 || 1; // 2% threshold for "lateral"
 
-      if (diff > threshold) { obvScore = 15; obvDetail = 'OBV en tendencia alcista (acumulación)'; }
-      else if (diff > -threshold) { obvScore = 7; obvDetail = 'OBV lateral'; }
-      else { obvScore = 0; obvDetail = 'OBV en tendencia bajista (distribución)'; }
+      if (diff > threshold) { obvScore = 15; obvDetail = t.details.obv_trend_up; }
+      else if (diff > -threshold) { obvScore = 7; obvDetail = t.details.obv_trend_side; }
+      else { obvScore = 0; obvDetail = t.details.obv_trend_down; }
 
-      breakdown.push({ name: 'Volumen / OBV', score: obvScore, maxScore: 15, detail: obvDetail });
+      breakdown.push({ name: t.indicators.obv, score: obvScore, maxScore: 15, detail: obvDetail });
       totalScore += obvScore;
       totalMax += 15;
     }
@@ -564,7 +570,7 @@ export class TechnicalAnalysisService {
     else classification = 'VENTA FUERTE';
 
     // ── Generate explanation ──
-    const explanation = this.generateExplanation(breakdown, normalizedScore, classification);
+    const explanation = this.generateExplanation(breakdown, normalizedScore, classification, lang);
 
     return {
       score: normalizedScore,
@@ -575,27 +581,34 @@ export class TechnicalAnalysisService {
     };
   }
 
-  private generateExplanation(breakdown: SignalBreakdown[], score: number, classification: TechnicalSignalClass): string {
+  private generateExplanation(breakdown: SignalBreakdown[], score: number, classification: TechnicalSignalClass, lang: Language): string {
     const sentences: string[] = [];
+    const t = i18n[lang];
 
     // Top contributor
     const sorted = [...breakdown].sort((a, b) => (b.score / b.maxScore) - (a.score / a.maxScore));
     if (sorted.length > 0) {
       const top = sorted[0];
       const pct = Math.round((top.score / top.maxScore) * 100);
-      sentences.push(`${top.name} es el indicador más favorable (${top.score}/${top.maxScore} pts, ${pct}%).`);
+      sentences.push(t.explanation.top_contributor
+        .replace('{name}', top.name)
+        .replace('{score}', top.score.toString())
+        .replace('{maxScore}', top.maxScore.toString())
+        .replace('{pct}', pct.toString()));
     }
 
     // Weakest
     const weakest = [...breakdown].sort((a, b) => (a.score / a.maxScore) - (b.score / b.maxScore));
     if (weakest.length > 1 && weakest[0].score / weakest[0].maxScore < 0.5) {
-      sentences.push(`${weakest[0].name} muestra debilidad: ${weakest[0].detail}.`);
+      sentences.push(t.explanation.weakness
+        .replace('{name}', weakest[0].name)
+        .replace('{detail}', weakest[0].detail));
     }
 
     // Overall
-    if (score >= 70) sentences.push('Los indicadores técnicos convergen en una señal positiva.');
-    else if (score >= 50) sentences.push('La señal técnica es mixta, se recomienda vigilar la evolución de los indicadores.');
-    else sentences.push('Los indicadores técnicos sugieren precaución en el corto plazo.');
+    if (score >= 70) sentences.push(t.explanation.converge_pos);
+    else if (score >= 50) sentences.push(t.explanation.mixed_signal);
+    else sentences.push(t.explanation.caution);
 
     return sentences.join(' ');
   }

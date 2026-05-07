@@ -11,6 +11,7 @@ function mapUserFromDb(row: any): User {
     passwordHash: row.password_hash,
     notificationsEnabled: row.notifications_enabled,
     darkMode: row.dark_mode,
+    language: row.language || 'es',
     emailVerified: row.email_verificado,
     verificationCode: row.codigo_verificacion,
     codeExpiration: row.codigo_expiracion,
@@ -75,6 +76,10 @@ export const userRepository = {
     if (dto.darkMode !== undefined) {
       fields.push(`dark_mode = $${paramCount++}`);
       values.push(dto.darkMode);
+    }
+    if (dto.language !== undefined) {
+      fields.push(`language = $${paramCount++}`);
+      values.push(dto.language);
     }
 
     if (fields.length === 0) {

@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, ExternalLink, Info } from 'lucide-react';
 import { newsService } from '../../services';
 import { NewsArticle } from '../../types';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function Sidebar() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'mercados' | 'activo'>('mercados');
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,10 +18,10 @@ export default function Sidebar() {
   const tiempoRelativo = (isoString: string) => {
     const timestamp = Math.floor(new Date(isoString).getTime() / 1000);
     const diff = Math.floor((Date.now() / 1000) - timestamp);
-    if (diff < 60) return 'ahora';
-    if (diff < 3600) return `hace ${Math.floor(diff / 60)}m`;
-    if (diff < 86400) return `hace ${Math.floor(diff / 3600)}h`;
-    return `hace ${Math.floor(diff / 86400)}d`;
+    if (diff < 60) return t.sidebar.now;
+    if (diff < 3600) return t.sidebar.agoM.replace('{n}', String(Math.floor(diff / 60)));
+    if (diff < 86400) return t.sidebar.agoH.replace('{n}', String(Math.floor(diff / 3600)));
+    return t.sidebar.agoD.replace('{n}', String(Math.floor(diff / 86400)));
   };
 
   const loadNews = useCallback(async (isSilent = false) => {
@@ -36,11 +38,11 @@ export default function Sidebar() {
       setLastUpdate(new Date());
     } catch (err) {
       console.error('Error al cargar noticias:', err);
-      setError('No se pudieron cargar las noticias. Inténtalo de nuevo.');
+      setError(t.sidebar.errorLoadingNews);
     } finally {
       if (!isSilent) setLoading(false);
     }
-  }, [activeTab, activeTicker]);
+  }, [activeTab, activeTicker, t.sidebar.errorLoadingNews]);
 
   // Carga inicial y por cambio de pestaña/ticker/refreshKey
   useEffect(() => {
@@ -74,13 +76,13 @@ export default function Sidebar() {
       <div className="p-4 border-b border-gray-100 dark:border-gray-700/50">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-gray-900 dark:text-white">Noticias</h2>
+            <h2 className="text-sm font-bold text-gray-900 dark:text-white">{t.sidebar.news}</h2>
           </div>
           <button
             onClick={() => setRefreshKey(k => k + 1)}
             disabled={loading}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors disabled:opacity-50"
-            title="Recargar noticias"
+            title={t.sidebar.reloadNews}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -95,7 +97,7 @@ export default function Sidebar() {
               : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
           >
-            Mercados
+            {t.sidebar.markets}
           </button>
           <button
             onClick={() => setActiveTab('activo')}
@@ -104,13 +106,13 @@ export default function Sidebar() {
               : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
           >
-            {activeTicker ? `Activo · ${activeTicker}` : 'Activo'}
+            {activeTicker ? `${t.sidebar.asset} · ${activeTicker}` : t.sidebar.asset}
           </button>
         </div>
 
         {/* Update timestamp */}
         <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-500 text-center">
-          Actualizado hace {Math.floor((Date.now() - lastUpdate.getTime()) / 60000)}m
+          {t.sidebar.updatedAgo.replace('{n}', String(Math.floor((Date.now() - lastUpdate.getTime()) / 60000)))}
         </p>
       </div>
 
@@ -132,20 +134,20 @@ export default function Sidebar() {
               onClick={() => setRefreshKey(k => k + 1)}
               className="text-xs font-bold text-primary-600 hover:text-primary-700"
             >
-              Reintentar
+              {t.common.retry}
             </button>
           </div>
         ) : activeTab === 'activo' && !activeTicker ? (
           <div className="p-8 text-center">
             <Info className="w-8 h-8 text-gray-300 mx-auto mb-2" />
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Analiza un activo para ver noticias relacionadas.
+              {t.sidebar.analyzeAssetForNews}
             </p>
           </div>
         ) : news.length === 0 ? (
           <div className="p-8 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              No hay noticias disponibles en este momento.
+              {t.sidebar.noNewsAvailable}
             </p>
           </div>
         ) : (
@@ -191,7 +193,7 @@ export default function Sidebar() {
       <div className="p-4 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50">
         <p className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
           <ExternalLink className="w-3 h-3" />
-          Fuente: Yahoo Finance
+          {t.sidebar.source}
         </p>
       </div>
     </aside>

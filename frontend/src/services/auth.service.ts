@@ -18,6 +18,7 @@ export interface AuthUser {
   email: string;
   notificationsEnabled: boolean;
   darkMode: boolean;
+  language: string;
   emailVerified: boolean;
   createdAt: string;
   updatedAt: string;
@@ -63,6 +64,7 @@ export interface UpdateProfileDTO {
   email?: string;
   notificationsEnabled?: boolean;
   darkMode?: boolean;
+  language?: string;
 }
 
 export interface ChangePasswordDTO {

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { authService, type AuthUser, type LoginCredentials, type RegisterCredentials, type RegisterResponse } from '../services/auth.service';
 import { useTheme } from './ThemeContext';
+import { useLanguage } from './LanguageContext';
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { setDarkMode } = useTheme();
+  const { setLanguage } = useLanguage();
   const [user, setUser] = useState<AuthUser | null>(() => authService.getStoredUser());
   const [isLoading, setIsLoading] = useState(false);
 
@@ -24,8 +26,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (user) {
       setDarkMode(user.darkMode);
+      if (user.language === 'en' || user.language === 'es') {
+        setLanguage(user.language);
+      }
     }
-  }, [user?.darkMode, setDarkMode]);
+  }, [user?.darkMode, user?.language, setDarkMode, setLanguage]);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
     setIsLoading(true);

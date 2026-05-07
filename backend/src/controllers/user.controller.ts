@@ -183,13 +183,14 @@ export const userController = {
         return res.status(401).json({ error: 'Usuario no autenticado' });
       }
 
-      const { name, email, notificationsEnabled, darkMode } = req.body;
+      const { name, email, notificationsEnabled, darkMode, language } = req.body;
       const updateData: any = {};
 
       if (name !== undefined) updateData.name = name;
       if (email !== undefined) updateData.email = email;
       if (notificationsEnabled !== undefined) updateData.notificationsEnabled = notificationsEnabled;
       if (darkMode !== undefined) updateData.darkMode = darkMode;
+      if (language !== undefined) updateData.language = language;
 
       const user = await userService.updateUser(userId, updateData);
       if (!user) {
