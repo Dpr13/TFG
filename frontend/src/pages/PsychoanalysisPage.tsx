@@ -251,19 +251,19 @@ export default function PsychoanalysisPage() {
             icon={generalStats.totalPnL > 0 ? <TrendingUp /> : <TrendingDown />}
           />
           <KPICard
-            title="Tasa de Ganancia"
+            title={t.psycho.kpiWinRate}
             value={`${generalStats.winRate.toFixed(1)}%`}
             color={generalStats.winRate > 50 ? 'green' : 'red'}
             icon={<Target />}
           />
           <KPICard
-            title="Total Operaciones"
+            title={t.psycho.kpiTotalOps}
             value={generalStats.totalOperations.toString()}
             color="blue"
             icon={<Zap />}
           />
           <KPICard
-            title="Mejor Día"
+            title={t.psycho.kpiBestDay}
             value={`€${generalStats.bestDay.pnl.toFixed(2)}`}
             color="green"
             icon={<TrendingUp />}
@@ -283,7 +283,7 @@ export default function PsychoanalysisPage() {
           {/* Día de la Semana */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              📊 Rentabilidad por Día de la Semana
+              📊 {t.psycho.chartDayOfWeek}
             </h2>
             <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? 250 : 300}>
               <BarChart data={temporalStats.dayOfWeek}>
@@ -303,10 +303,10 @@ export default function PsychoanalysisPage() {
             </ResponsiveContainer>
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded">
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                <strong>Mejor día:</strong> {temporalStats.bestDayOfWeek}
+                <strong>{t.psycho.bestDay}:</strong> {temporalStats.bestDayOfWeek}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                <strong>Peor día:</strong> {temporalStats.worstDayOfWeek}
+                <strong>{t.psycho.worstDay}:</strong> {temporalStats.worstDayOfWeek}
               </p>
             </div>
           </div>
@@ -314,7 +314,7 @@ export default function PsychoanalysisPage() {
           {/* Win Rate por Activo */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              🎯 Tasa de Ganancia por Activo
+              🎯 {t.psycho.chartWinRateByAsset}
             </h2>
             <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? 250 : 300}>
               <BarChart data={assetStats.slice(0, 6)}>
@@ -340,20 +340,20 @@ export default function PsychoanalysisPage() {
           {/* Rachas */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              🔥 Rachas
+              🔥 {t.psycho.streaks}
             </h3>
             <div className="space-y-3">
               <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded">
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {behaviorStats.longestWinStreak}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Racha ganadora más larga</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t.psycho.longestWinStreak}</p>
               </div>
               <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded">
                 <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                   {behaviorStats.longestLossStreak}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Racha perdedora más larga</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t.psycho.longestLossStreak}</p>
               </div>
             </div>
           </div>
@@ -361,20 +361,20 @@ export default function PsychoanalysisPage() {
           {/* Recuperación */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              💪 Recuperación
+              💪 {t.psycho.recovery}
             </h3>
             <div className="space-y-3">
               <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded">
                 <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                   {behaviorStats.recoveryAttempts}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Intentos de recuperación</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t.psycho.recoveryAttempts}</p>
               </div>
               <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded">
                 <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                   {behaviorStats.recoverySuccessRate}%
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Tasa de éxito</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t.psycho.recoverySuccessRate}</p>
               </div>
             </div>
           </div>
@@ -382,20 +382,20 @@ export default function PsychoanalysisPage() {
           {/* Operaciones Promedio */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              📈 Promedio de Operaciones
+              📈 {t.psycho.avgOps}
             </h3>
             <div className="space-y-3">
               <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded">
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {behaviorStats.opsAfterWin.toFixed(2)}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Ops después de ganancia</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t.psycho.opsAfterWin}</p>
               </div>
               <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded">
                 <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                   {behaviorStats.opsAfterLoss.toFixed(2)}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Ops después de pérdida</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t.psycho.opsAfterLoss}</p>
               </div>
             </div>
           </div>
@@ -406,12 +406,12 @@ export default function PsychoanalysisPage() {
           {/* Top Assets */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              ⭐ Mejores Activos
+              ⭐ {t.psycho.bestAssets}
             </h2>
             <div className="space-y-2">
               {topAssets.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                  Aún no hay activos con rentabilidad positiva.
+                  {t.psycho.noPositiveAssets}
                 </p>
               ) : topAssets.map((asset, idx) => (
                 <div
@@ -423,7 +423,9 @@ export default function PsychoanalysisPage() {
                       {idx + 1}. {asset.symbol}
                     </span>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {asset.operations} op - {asset.winRate.toFixed(1)}% ganancia
+                      {t.psycho.opsWinRate
+                        .replace('{ops}', asset.operations.toString())
+                        .replace('{rate}', asset.winRate.toFixed(1))}
                     </p>
                   </div>
                   <span
@@ -439,12 +441,12 @@ export default function PsychoanalysisPage() {
           {/* Peores Activos */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              ⚠️ Activos que Necesitan Atención
+              ⚠️ {t.psycho.attentionAssets}
             </h2>
             <div className="space-y-2">
               {worstAssets.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                  Solo hay un activo operado, ya aparece en la lista de mejores.
+                  {t.psycho.singleAsset}
                 </p>
               ) : worstAssets.map((asset, idx) => (
                 <div
@@ -456,7 +458,9 @@ export default function PsychoanalysisPage() {
                       {idx + 1}. {asset.symbol}
                     </span>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {asset.operations} op - {asset.winRate.toFixed(1)}% ganancia
+                      {t.psycho.opsWinRate
+                        .replace('{ops}', asset.operations.toString())
+                        .replace('{rate}', asset.winRate.toFixed(1))}
                     </p>
                   </div>
                   <span
@@ -475,7 +479,7 @@ export default function PsychoanalysisPage() {
         {alerts && alerts.length > 0 && (
           <div className="mt-8 rounded-lg p-6 border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              🚨 Alertas de Comportamiento Detectadas
+              🚨 {t.psycho.alertsTitle}
             </h2>
             <div className="space-y-3">
               {alerts.map((alert, idx) => {
@@ -485,17 +489,21 @@ export default function PsychoanalysisPage() {
                   low: 'bg-yellow-100 dark:bg-yellow-900/40 border-yellow-400 text-yellow-800 dark:text-yellow-300',
                 };
                 const typeLabel = {
-                  overtrading: '📈 Over-trading',
-                  revenge_trading: '😤 Revenge Trading',
-                  loss_spiral: '📉 Espiral de Pérdidas',
+                  overtrading: `📈 ${t.psycho.alertOvertrading}`,
+                  revenge_trading: `😤 ${t.psycho.alertRevengeTrading}`,
+                  loss_spiral: `📉 ${t.psycho.alertLossSpiral}`,
                 };
-                const severityLabel = { high: 'Alta', medium: 'Media', low: 'Baja' };
+                const severityLabel = {
+                  high: t.psycho.severityHigh,
+                  medium: t.psycho.severityMedium,
+                  low: t.psycho.severityLow,
+                };
                 return (
                   <div key={idx} className={`p-4 rounded-lg border ${severityStyles[alert.severity]}`}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-semibold text-sm">{typeLabel[alert.type]}</span>
                       <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white/50 dark:bg-black/20">
-                        Severidad: {severityLabel[alert.severity]}
+                        {t.psycho.severityLabel}: {severityLabel[alert.severity]}
                       </span>
                     </div>
                     <p className="text-sm">{alert.message}</p>
@@ -508,7 +516,7 @@ export default function PsychoanalysisPage() {
 
         <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-800">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            💡 Insights de Comportamiento
+            💡 {t.psycho.insightsTitle}
           </h2>
           {/* 
             EXPANSIÓN: Aquí iría generación automática de insights más compleja
@@ -535,18 +543,16 @@ export default function PsychoanalysisPage() {
             )}
 
             {behaviorStats.opsAfterLoss > behaviorStats.opsAfterWin ? (
-              <p>
-                {t.psycho.moreOpsAfterLoss}
-                sobre-trading emocional.
-              </p>
+              <p>{t.psycho.moreOpsAfterLoss}</p>
             ) : (
               <p>✅ {t.psycho.controlledBehavior}</p>
             )}
 
             {generalStats.bestAsset.symbol && (
               <p>
-                ⭐ Tu mejor activo es <strong>{generalStats.bestAsset.symbol}</strong> con €
-                {generalStats.bestAsset.pnl.toFixed(2)}.
+                ⭐ {t.psycho.bestAssetInsight
+                  .replace('{symbol}', generalStats.bestAsset.symbol)
+                  .replace('{amount}', generalStats.bestAsset.pnl.toFixed(2))}
               </p>
             )}
           </div>
