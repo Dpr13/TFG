@@ -394,6 +394,17 @@ const es = {
     operations: 'Operaciones',
     noOperations: 'No hay operaciones registradas para esta fecha.',
     addOperation: 'Añadir operación',
+    pageTitle: 'Calendario de Operaciones',
+    loading: 'Cargando calendario...',
+    errorLoading: 'Error al cargar los datos',
+    strategy: 'Estrategia:',
+    allStrategies: 'Todas',
+    clearFilter: 'Limpiar',
+    weekdays: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+    legendProfit: 'Día rentable',
+    legendLoss: 'Día con pérdidas',
+    legendNoOps: 'Sin operaciones',
+    opsCount: '{n} op',
   },
 
   // ── Compare Page ──

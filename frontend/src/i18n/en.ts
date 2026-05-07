@@ -395,6 +395,17 @@ const en: Translations = {
     operations: 'Operations',
     noOperations: 'No operations recorded for this date.',
     addOperation: 'Add operation',
+    pageTitle: 'Operations Calendar',
+    loading: 'Loading calendar...',
+    errorLoading: 'Error loading data',
+    strategy: 'Strategy:',
+    allStrategies: 'All',
+    clearFilter: 'Clear',
+    weekdays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    legendProfit: 'Profitable day',
+    legendLoss: 'Loss day',
+    legendNoOps: 'No operations',
+    opsCount: '{n} op',
   },
 
   // ── Compare Page ──

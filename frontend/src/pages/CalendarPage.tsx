@@ -3,6 +3,7 @@ import { operationService, strategyService } from '../services';
 import type { Operation, DailyStats, Strategy } from '../types';
 import DailyOperationsModal from '../components/DailyOperationsModal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 // ============================================================================
 // CALENDAR PAGE
@@ -22,7 +23,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 // - Sincronización con calendarios externos (Google, Outlook)
 // ============================================================================
 
+const localeMap: Record<string, string> = { es: 'es-ES', en: 'en-US', de: 'de-DE', fr: 'fr-FR' };
+
 export default function CalendarPage() {
+  const { t, language } = useLanguage();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [operations, setOperations] = useState<Operation[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<Map<string, DailyStats>>(new Map());
@@ -102,7 +106,7 @@ export default function CalendarPage() {
       const opsData = await operationService.getOperationsByDateRange(startDate, endDate);
       setOperations(opsData);
     } catch (err) {
-      setError('Error al cargar los datos');
+      setError(t.calendar.errorLoading);
       console.error(err);
     } finally {
       setLoading(false);
@@ -168,7 +172,7 @@ export default function CalendarPage() {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
   };
 
-  const monthName = currentDate.toLocaleDateString('es-ES', {
+  const monthName = currentDate.toLocaleDateString(localeMap[language] ?? language, {
     month: 'long',
     year: 'numeric',
   });
@@ -194,7 +198,7 @@ export default function CalendarPage() {
           <div className="inline-block animate-spin">
             <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full"></div>
           </div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando calendario...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">{t.calendar.loading}</p>
         </div>
       </div>
     );
@@ -204,7 +208,7 @@ export default function CalendarPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
-          Calendario de Operaciones
+          {t.calendar.pageTitle}
         </h1>
 
         {error && (
@@ -240,14 +244,14 @@ export default function CalendarPage() {
           {strategies.length > 0 && (
             <div className="flex items-center gap-2 mb-6">
               <label className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                Estrategia:
+                {t.calendar.strategy}
               </label>
               <select
                 value={selectedStrategyId}
                 onChange={(e) => setSelectedStrategyId(e.target.value)}
                 className="px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
-                <option value="">Todas</option>
+                <option value="">{t.calendar.allStrategies}</option>
                 {strategies.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
@@ -257,7 +261,7 @@ export default function CalendarPage() {
                   onClick={() => setSelectedStrategyId('')}
                   className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline"
                 >
-                  Limpiar
+                  {t.calendar.clearFilter}
                 </button>
               )}
             </div>
@@ -265,7 +269,7 @@ export default function CalendarPage() {
 
           {/* Weekday Headers */}
           <div className="grid grid-cols-7 gap-2 mb-2">
-            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab', 'Dom'].map((day) => (
+            {t.calendar.weekdays.map((day) => (
               <div
                 key={day}
                 className="text-center font-semibold text-gray-600 dark:text-gray-400 py-2"
@@ -320,7 +324,7 @@ export default function CalendarPage() {
                           €{stats.totalPnL.toFixed(0)}
                         </div>
                         <div className="text-gray-500 dark:text-gray-400">
-                          {stats.operationCount} op
+                          {t.calendar.opsCount.replace('{n}', stats.operationCount.toString())}
                         </div>
                       </div>
                     )}
@@ -336,15 +340,15 @@ export default function CalendarPage() {
           <div className="flex gap-6">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-green-100 border-2 border-green-400 rounded"></div>
-              <span className="text-gray-700 dark:text-gray-300">Día rentable</span>
+              <span className="text-gray-700 dark:text-gray-300">{t.calendar.legendProfit}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-red-100 border-2 border-red-400 rounded"></div>
-              <span className="text-gray-700 dark:text-gray-300">Día con pérdidas</span>
+              <span className="text-gray-700 dark:text-gray-300">{t.calendar.legendLoss}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-gray-50 border-2 border-gray-200 rounded"></div>
-              <span className="text-gray-700 dark:text-gray-300">Sin operaciones</span>
+              <span className="text-gray-700 dark:text-gray-300">{t.calendar.legendNoOps}</span>
             </div>
           </div>
         </div>

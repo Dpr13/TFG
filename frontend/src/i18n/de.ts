@@ -394,6 +394,17 @@ calendar: {
   operations: 'Operationen',
   noOperations: 'Für dieses Datum sind keine Operationen erfasst.',
   addOperation: 'Operation hinzufügen',
+  pageTitle: 'Operationskalender',
+  loading: 'Kalender wird geladen...',
+  errorLoading: 'Fehler beim Laden der Daten',
+  strategy: 'Strategie:',
+  allStrategies: 'Alle',
+  clearFilter: 'Zurücksetzen',
+  weekdays: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
+  legendProfit: 'Profitabler Tag',
+  legendLoss: 'Verlusttag',
+  legendNoOps: 'Keine Trades',
+  opsCount: '{n} Trades',
 },
 
 // ── Compare Page ──

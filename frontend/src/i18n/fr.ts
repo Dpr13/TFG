@@ -395,6 +395,17 @@ calendar: {
   operations: 'Opérations',
   noOperations: 'Aucune opération enregistrée pour cette date.',
   addOperation: 'Ajouter une opération',
+  pageTitle: 'Calendrier des opérations',
+  loading: 'Chargement du calendrier...',
+  errorLoading: 'Erreur lors du chargement',
+  strategy: 'Stratégie :',
+  allStrategies: 'Toutes',
+  clearFilter: 'Effacer',
+  weekdays: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+  legendProfit: 'Jour rentable',
+  legendLoss: 'Jour en perte',
+  legendNoOps: 'Sans opérations',
+  opsCount: '{n} op',
 },
 
 // ── Compare Page ──
