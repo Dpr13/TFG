@@ -19,7 +19,13 @@ export const userController = {
       // Comprobar si el usuario ya existe
       const existing = await userService.getUserByEmail(email);
       if (existing) {
-        return res.status(409).json({ error: 'El email ya está registrado. Por favor, intente con otro o inicie sesión.' });
+        if (existing.emailVerified) {
+          // Solo bloquear si el email ya está verificado
+          return res.status(409).json({ error: 'El email ya está registrado. Por favor, intente con otro o inicie sesión.' });
+        }
+        // Si el email existe pero NO está verificado, eliminar el registro anterior
+        // para permitir que el usuario se registre de nuevo
+        await userService.deleteUser(existing.id);
       }
 
       // Validar contraseña

@@ -5,7 +5,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 10000,
+  timeout: 30000, // 30s para tolerar cold starts de Render
 });
 
 // Añadir JWT token y locale a todas las peticiones excepto login y register
@@ -51,9 +51,17 @@ apiClient.interceptors.response.use(
     const config = error.config;
     
     // Si no hay config o ya superamos los intentos (máximo 3 peticiones en total = 2 reintentos)
-    // El usuario pidió "máximo de 3 peticiones", eso significa la original + 2 reintentos.
     if (!config || (config.__retryCount || 0) >= 2) {
       console.error('API Error (Max retries reached or non-retryable):', error.response?.data || error.message);
+      return Promise.reject(error);
+    }
+
+    // NO reintentar peticiones POST/PUT/DELETE (no son idempotentes)
+    // Reintentar un POST como /register puede crear duplicados
+    const method = (config.method || '').toLowerCase();
+    const isIdempotent = ['get', 'head', 'options'].includes(method);
+    if (!isIdempotent) {
+      console.error('API Error (non-retryable method):', method.toUpperCase(), config.url, error.response?.data || error.message);
       return Promise.reject(error);
     }
 
