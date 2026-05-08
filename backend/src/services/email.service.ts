@@ -1,13 +1,21 @@
 import nodemailer from 'nodemailer';
+import dns from 'node:dns';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Forzar que el sistema prefiera IPv4 globalmente en este proceso (Node 17+)
+if (dns && typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,
-  secure: false,
+  secure: false, // TLS
+  requireTLS: true,
   family: 4,
+  connectionTimeout: 10000, // 10 segundos
   auth: {
     user: process.env.MAIL_USERNAME,
     pass: process.env.MAIL_PASSWORD,
