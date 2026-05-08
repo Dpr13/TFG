@@ -16,6 +16,10 @@ const transporter = nodemailer.createTransport({
   requireTLS: true,
   family: 4,
   connectionTimeout: 10000, // 10 segundos
+  // Forzar resolución IPv4 específica para este transporte
+  lookup: (hostname: string, options: any, callback: any) => {
+    dns.lookup(hostname, { ...options, family: 4 }, callback);
+  },
   auth: {
     user: process.env.MAIL_USERNAME,
     pass: process.env.MAIL_PASSWORD,
