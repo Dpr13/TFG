@@ -1,30 +1,12 @@
-import nodemailer from 'nodemailer';
-import dns from 'node:dns';
+import { Resend } from 'resend';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Forzar que el sistema prefiera IPv4 globalmente en este proceso (Node 17+)
-if (dns && typeof dns.setDefaultResultOrder === 'function') {
-  dns.setDefaultResultOrder('ipv4first');
-}
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // TLS
-  requireTLS: true,
-  family: 4,
-  connectionTimeout: 10000, // 10 segundos
-  // Forzar resolución IPv4 específica para este transporte
-  lookup: (hostname: string, options: any, callback: any) => {
-    dns.lookup(hostname, { ...options, family: 4 }, callback);
-  },
-  auth: {
-    user: process.env.MAIL_USERNAME,
-    pass: process.env.MAIL_PASSWORD,
-  },
-} as any);
+// Dirección de envío: usa MAIL_FROM si está definido, o el default de Resend
+const FROM_ADDRESS = process.env.MAIL_FROM || 'Análisis de Riesgo Financiero <onboarding@resend.dev>';
 
 export function generarCodigoVerificacion(): string {
   return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join('');
@@ -44,8 +26,8 @@ export async function enviarEmailVerificacion(
   codigo: string
 ): Promise<boolean> {
   try {
-    await transporter.sendMail({
-      from: `"Análisis de Riesgo Financiero" <${process.env.MAIL_USERNAME}>`,
+    await resend.emails.send({
+      from: FROM_ADDRESS,
       to: email,
       subject: 'Tu código de verificación — Análisis de Riesgo Financiero',
       html: `
@@ -78,8 +60,8 @@ export async function enviarEmailRecuperacion(
   const resetLink = `${frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
   
   try {
-    await transporter.sendMail({
-      from: `"Análisis de Riesgo Financiero" <${process.env.MAIL_USERNAME}>`,
+    await resend.emails.send({
+      from: FROM_ADDRESS,
       to: email,
       subject: 'Restablece tu contraseña — Análisis de Riesgo Financiero',
       html: `
