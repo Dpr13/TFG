@@ -85,6 +85,7 @@ const de: Translations = {
     confirmPlaceholder: 'Passwort wiederholen',
     submit: 'Konto erstellen',
     creating: 'Konto wird erstellt...',
+    coldStartMsg: 'Der Server startet gerade, dies kann einige Sekunden dauern. Bitte warten...',
     termsPrefix: 'Mit der Registrierung akzeptierst du unsere',
     terms: 'Allgemeinen Geschäftsbedingungen',
     privacyPrefix: 'und die',
