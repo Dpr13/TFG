@@ -47,7 +47,10 @@ export const userController = {
       });
 
       // Enviar email de verificación (sin bloquear la respuesta)
-      enviarEmailVerificacion(email, name, codigo).catch(error => {
+      console.log(`[DEBUG]: Intentando enviar email de verificación a ${email} con código ${codigo}`);
+      enviarEmailVerificacion(email, name, codigo).then(success => {
+        console.log(`[DEBUG]: Resultado del envío de email: ${success ? 'ÉXITO' : 'FALLO'}`);
+      }).catch(error => {
         console.error('[ERROR email background]:', error);
       });
 
