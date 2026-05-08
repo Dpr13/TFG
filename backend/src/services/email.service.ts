@@ -7,11 +7,12 @@ const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,
   secure: false,
+  family: 4,
   auth: {
     user: process.env.MAIL_USERNAME,
     pass: process.env.MAIL_PASSWORD,
   },
-});
+} as any);
 
 export function generarCodigoVerificacion(): string {
   return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join('');

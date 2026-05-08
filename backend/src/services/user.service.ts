@@ -79,10 +79,10 @@ export const userService = {
       codeExpiration: expiracion,
     });
 
-    const enviado = await enviarEmailVerificacion(email, user.name, codigo);
-    if (!enviado) {
-      throw new Error('email_send_failed');
-    }
+    // Enviar email (sin bloquear)
+    enviarEmailVerificacion(email, user.name, codigo).catch(error => {
+      console.error('[ERROR email resend background]:', error);
+    });
 
     return { ok: true, emailEnmascarado: enmascararEmail(email) };
   },
@@ -136,7 +136,12 @@ export const userService = {
     });
 
     const { enviarEmailRecuperacion } = require('./email.service');
-    return enviarEmailRecuperacion(email, user.name, token, frontendUrl);
+    // Enviar email (sin bloquear)
+    enviarEmailRecuperacion(email, user.name, token, frontendUrl).catch((error: any) => {
+      console.error('[ERROR email recovery background]:', error);
+    });
+    
+    return true;
   },
 
   async resetPassword(token: string, newPassword: string): Promise<boolean> {
