@@ -46,14 +46,13 @@ export const userController = {
         codeExpiration: expiracion,
       });
 
-      // Enviar email de verificación
-      const enviado = await enviarEmailVerificacion(email, name, codigo);
-
-      if (!enviado) {
-        // Si falla el envío, eliminar el usuario creado
-        await userService.deleteUser(user.id);
-        return res.status(500).json({ error: 'No se pudo enviar el email de verificación. Comprueba que la dirección es correcta.' });
-      }
+      // Enviar email de verificación (sin bloquear la respuesta)
+      console.log(`[DEBUG]: Intentando enviar email de verificación a ${email} con código ${codigo}`);
+      enviarEmailVerificacion(email, name, codigo).then(success => {
+        console.log(`[DEBUG]: Resultado del envío de email: ${success ? 'ÉXITO' : 'FALLO'}`);
+      }).catch(error => {
+        console.error('[ERROR email background]:', error);
+      });
 
       res.status(201).json({
         ok: true,

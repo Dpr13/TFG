@@ -1,17 +1,15 @@
-import nodemailer from 'nodemailer';
+import { BrevoClient } from '@getbrevo/brevo';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.MAIL_USERNAME,
-    pass: process.env.MAIL_PASSWORD,
-  },
-});
+// Inicializar el cliente de Brevo (SDK v2+)
+const apiKey = process.env.BREVO_API_KEY || '';
+const client = new BrevoClient({ apiKey });
+
+// Dirección de envío: DEBE ser un email verificado en tu panel de Brevo (ej: tu gmail)
+const FROM_EMAIL = process.env.MAIL_FROM || process.env.MAIL_USERNAME || 'riskanalisis2026@gmail.com';
+const FROM_NAME = 'Análisis de Riesgo Financiero';
 
 export function generarCodigoVerificacion(): string {
   return Array.from({ length: 6 }, () => Math.floor(Math.random() * 10)).join('');
@@ -30,12 +28,15 @@ export async function enviarEmailVerificacion(
   nombre: string,
   codigo: string
 ): Promise<boolean> {
+  if (!apiKey) {
+    console.error('[ERROR email]: BREVO_API_KEY no configurada');
+    return false;
+  }
+
   try {
-    await transporter.sendMail({
-      from: `"Análisis de Riesgo Financiero" <${process.env.MAIL_USERNAME}>`,
-      to: email,
+    await client.transactionalEmails.sendTransacEmail({
       subject: 'Tu código de verificación — Análisis de Riesgo Financiero',
-      html: `
+      htmlContent: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #f9fafb; border-radius: 12px;">
           <h2 style="color: #1e293b; margin: 0 0 8px;">Verifica tu cuenta</h2>
           <p style="color: #64748b; margin: 0 0 24px; font-size: 14px;">
@@ -48,10 +49,17 @@ export async function enviarEmailVerificacion(
           <p style="color: #94a3b8; font-size: 13px; margin: 0;">Si no has creado una cuenta, ignora este mensaje.</p>
         </div>
       `,
+      sender: { name: FROM_NAME, email: FROM_EMAIL },
+      to: [{ email, name: nombre }],
     });
     return true;
-  } catch (error) {
-    console.error('[ERROR email]:', error);
+  } catch (error: any) {
+    const errorMessage = error.response?.body?.message || error.message || error;
+    console.error('[ERROR email Brevo]:', errorMessage);
+    
+    if (errorMessage.toString().includes('unauthorized')) {
+      console.warn('⚠️ TIP: Revisa que tu BREVO_API_KEY sea correcta.');
+    }
     return false;
   }
 }
@@ -62,14 +70,17 @@ export async function enviarEmailRecuperacion(
   token: string,
   frontendUrl?: string
 ): Promise<boolean> {
+  if (!apiKey) {
+    console.error('[ERROR email recuperacion]: BREVO_API_KEY no configurada');
+    return false;
+  }
+
   const resetLink = `${frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
   
   try {
-    await transporter.sendMail({
-      from: `"Análisis de Riesgo Financiero" <${process.env.MAIL_USERNAME}>`,
-      to: email,
+    await client.transactionalEmails.sendTransacEmail({
       subject: 'Restablece tu contraseña — Análisis de Riesgo Financiero',
-      html: `
+      htmlContent: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #f9fafb; border-radius: 12px;">
           <h2 style="color: #1e293b; margin: 0 0 8px;">Restablece tu contraseña</h2>
           <p style="color: #64748b; margin: 0 0 24px; font-size: 14px;">
@@ -86,10 +97,13 @@ export async function enviarEmailRecuperacion(
           <p style="color: #94a3b8; font-size: 13px; margin: 0;">Si no has solicitado este cambio, puedes ignorar este correo.</p>
         </div>
       `,
+      sender: { name: FROM_NAME, email: FROM_EMAIL },
+      to: [{ email, name: nombre }],
     });
     return true;
-  } catch (error) {
-    console.error('[ERROR email recuperacion]:', error);
+  } catch (error: any) {
+    const errorMessage = error.response?.body?.message || error.message || error;
+    console.error('[ERROR email recuperacion Brevo]:', errorMessage);
     return false;
   }
 }
