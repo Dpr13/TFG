@@ -460,6 +460,20 @@ export const botService = {
   deleteBot: async (id: string): Promise<void> => {
     await apiClient.delete(`/bots/${id}`);
   },
+
+  getMonthlyStats: async (year: number, month: number, botId?: string): Promise<import('../types').BotDailyStats[]> => {
+    const params: Record<string, string> = { year: String(year), month: String(month) };
+    if (botId) params.botId = botId;
+    const response = await apiClient.get<import('../types').BotDailyStats[]>('/bots/trades/monthly', { params });
+    return response.data;
+  },
+
+  getDailyTrades: async (date: string, botId?: string): Promise<import('../types').BotTradeWithBot[]> => {
+    const params: Record<string, string> = { date };
+    if (botId) params.botId = botId;
+    const response = await apiClient.get<import('../types').BotTradeWithBot[]>('/bots/trades/daily', { params });
+    return response.data;
+  },
 };
 
 export const watchlistService = {

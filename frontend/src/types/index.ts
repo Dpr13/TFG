@@ -110,10 +110,13 @@ export interface ApiResponse<T> {
   error?: string;
 }
 // Operations and Strategies
+export type OperationType = 'long' | 'short';
+
 export interface Operation {
   id: string;
   date: string;
   symbol: string;
+  type: OperationType;
   quantity: number;
   buyPrice: number;
   sellPrice: number;
@@ -128,6 +131,7 @@ export interface Operation {
 export interface CreateOperationDTO {
   date: string;
   symbol: string;
+  type?: OperationType;
   quantity: number;
   buyPrice: number;
   sellPrice: number;
@@ -137,11 +141,31 @@ export interface CreateOperationDTO {
 
 export interface UpdateOperationDTO {
   symbol?: string;
+  type?: OperationType;
   quantity?: number;
   buyPrice?: number;
   sellPrice?: number;
   strategyId?: string;
   notes?: string;
+}
+
+export interface BotDailyStats {
+  date: string;
+  totalPnL: number;
+  tradeCount: number;
+  isProfit: boolean;
+}
+
+export interface BotTradeWithBot {
+  id: string;
+  botId: string;
+  botName: string;
+  symbol: string;
+  side: 'BUY' | 'SELL';
+  quantity: number;
+  fillPrice: number;
+  pnl: number | null;
+  executedAt: string;
 }
 
 export interface DailyStats {
