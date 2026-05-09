@@ -1,202 +1,273 @@
 import { useState, useEffect, useMemo } from 'react';
-import { operationService, strategyService } from '../services';
-import type { Operation, DailyStats, Strategy } from '../types';
+import { operationService, strategyService, botService } from '../services';
+import type { Operation, DailyStats, Strategy, BotDailyStats, BotTradeWithBot } from '../types';
 import DailyOperationsModal from '../components/DailyOperationsModal';
+import DailyBotTradesModal from '../components/DailyBotTradesModal';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
-// ============================================================================
-// CALENDAR PAGE
-// ============================================================================
-// Vista de calendario para visualizar operaciones por día
-//
-// EXPANSIONES FUTURAS:
-// - Vista semanal y anual
-// - [HECHO] Heatmap de rentabilidad con gradientes
-// - Exportar calendario a PDF/imagen
-// - Anotaciones/notas diarias sin operaciones
-// - [HECHO] Filtrado por símbolo/estrategia
-// - Vista comparativa de múltiples meses
-// - Integración con festividades/eventos de mercado
-// - Notificaciones de anomalías (mejor/peor día histórico, etc)
-// - Análisis de ciclos de luna/planetas (si lo desea)
-// - Sincronización con calendarios externos (Google, Outlook)
-// ============================================================================
-
 const localeMap: Record<string, string> = { es: 'es-ES', en: 'en-US', de: 'de-DE', fr: 'fr-FR' };
+
+type CalendarTab = 'manual' | 'bots';
+
+// ── Shared helpers ─────────────────────────────────────────────────────────────
+
+function formatDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getDaysInMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+}
+
+function getFirstDayOfMonth(date: Date) {
+  return (new Date(date.getFullYear(), date.getMonth(), 1).getDay() + 6) % 7;
+}
+
+// ── Calendar grid (shared between tabs) ────────────────────────────────────────
+
+interface CalendarGridProps {
+  currentDate: Date;
+  statsMap: Map<string, { totalPnL: number; count: number; isProfit: boolean }>;
+  maxAbsPnL: number;
+  onDayClick: (day: number) => void;
+  weekdays: string[];
+  countLabel: (n: number) => string;
+}
+
+function CalendarGrid({ currentDate, statsMap, maxAbsPnL, onDayClick, weekdays, countLabel }: CalendarGridProps) {
+  const daysInMonth = getDaysInMonth(currentDate);
+  const firstDay = getFirstDayOfMonth(currentDate);
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let i = 1; i <= daysInMonth; i++) cells.push(i);
+
+  return (
+    <>
+      <div className="grid grid-cols-7 gap-2 mb-2">
+        {weekdays.map((day) => (
+          <div key={day} className="text-center font-semibold text-gray-600 dark:text-gray-400 py-2">
+            {day}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-2">
+        {cells.map((day, index) => {
+          if (day === null) return <div key={`empty-${index}`} className="aspect-square" />;
+
+          const dateStr = formatDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
+          const stats = statsMap.get(dateStr);
+          const isProfit = stats && stats.totalPnL > 0;
+          const intensity = stats ? Math.min(Math.abs(stats.totalPnL) / maxAbsPnL, 1) : 0;
+          const alpha = stats ? (0.15 + intensity * 0.75).toFixed(2) : '0';
+          const bgStyle = stats
+            ? { backgroundColor: isProfit ? `rgba(34,197,94,${alpha})` : `rgba(239,68,68,${alpha})` }
+            : undefined;
+
+          return (
+            <button
+              key={day}
+              onClick={() => onDayClick(day)}
+              style={bgStyle}
+              className={`aspect-square p-2 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-primary-400 transition-all cursor-pointer ${!stats ? 'bg-gray-50 dark:bg-gray-700' : ''}`}
+            >
+              <div className="h-full flex flex-col items-start justify-start">
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">{day}</span>
+                {stats && (
+                  <div className="mt-auto text-xs">
+                    <div className={isProfit ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-red-600 dark:text-red-400 font-semibold'}>
+                      {stats.totalPnL >= 0 ? '+' : ''}{stats.totalPnL.toFixed(0)}€
+                    </div>
+                    <div className="text-gray-500 dark:text-gray-400">
+                      {countLabel(stats.count)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function CalendarPage() {
   const { t, language } = useLanguage();
+  const [activeTab, setActiveTab] = useState<CalendarTab>('manual');
   const [currentDate, setCurrentDate] = useState(new Date());
+
+  // ── Manual tab state ────────────────────────────────────────────────────────
   const [operations, setOperations] = useState<Operation[]>([]);
   const [monthlyStats, setMonthlyStats] = useState<Map<string, DailyStats>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [strategies, setStrategies] = useState<Strategy[]>([]);
-  const [selectedStrategyId, setSelectedStrategyId] = useState<string>('');
-
-  // Filtra las estadísticas por estrategia calculando localmente desde las operaciones
-  const filteredStats = useMemo(() => {
-    if (!selectedStrategyId) return monthlyStats;
-    const filtered = operations.filter((op) => op.strategyId === selectedStrategyId);
-    const statsMap = new Map<string, DailyStats>();
-    filtered.forEach((op) => {
-      const existing = statsMap.get(op.date);
-      if (existing) {
-        statsMap.set(op.date, {
-          ...existing,
-          totalPnL: existing.totalPnL + op.pnl,
-          operationCount: existing.operationCount + 1,
-          isProfit: existing.totalPnL + op.pnl > 0,
-        });
-      } else {
-        statsMap.set(op.date, {
-          date: op.date,
-          totalPnL: op.pnl,
-          totalPnLPercentage: op.pnlPercentage ?? 0,
-          operationCount: 1,
-          isProfit: op.pnl > 0,
-        });
-      }
-    });
-    return statsMap;
-  }, [selectedStrategyId, operations, monthlyStats]);
-
-  const maxAbsPnL = useMemo(() => {
-    let max = 0;
-    filteredStats.forEach((stat) => {
-      if (Math.abs(stat.totalPnL) > max) max = Math.abs(stat.totalPnL);
-    });
-    return max || 1;
-  }, [filteredStats]);
+  const [selectedStrategyId, setSelectedStrategyId] = useState('');
+  const [manualLoading, setManualLoading] = useState(true);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedDayOperations, setSelectedDayOperations] = useState<Operation[]>([]);
+  const [selectedDayOps, setSelectedDayOps] = useState<Operation[]>([]);
   const [selectedDayStats, setSelectedDayStats] = useState<DailyStats | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
+  // ── Bot tab state ───────────────────────────────────────────────────────────
+  const [botDailyStats, setBotDailyStats] = useState<BotDailyStats[]>([]);
+  const [bots, setBots] = useState<{ id: string; name: string }[]>([]);
+  const [selectedBotId, setSelectedBotId] = useState('');
+  const [botLoading, setBotLoading] = useState(false);
+
+  const [selectedBotDate, setSelectedBotDate] = useState<string | null>(null);
+  const [selectedBotDayTrades, setSelectedBotDayTrades] = useState<BotTradeWithBot[]>([]);
+  const [selectedBotDayStats, setSelectedBotDayStats] = useState<BotDailyStats | null>(null);
+  const [isBotModalOpen, setIsBotModalOpen] = useState(false);
+
+  const [error, setError] = useState<string | null>(null);
+
+  // ── Load strategies & bots once ────────────────────────────────────────────
   useEffect(() => {
     strategyService.getAllStrategies().then(setStrategies).catch(console.error);
+    botService.getBots().then(setBots).catch(console.error);
   }, []);
 
-  // Fetch monthly data
+  // ── Fetch data when tab or month changes ───────────────────────────────────
   useEffect(() => {
-    fetchMonthlyData();
-  }, [currentDate]);
+    if (activeTab === 'manual') fetchManualData();
+    else fetchBotData();
+  }, [currentDate, activeTab]);
 
-  const fetchMonthlyData = async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (activeTab === 'bots') fetchBotData();
+  }, [selectedBotId]);
+
+  const fetchManualData = async () => {
+    setManualLoading(true);
     setError(null);
-
     try {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
-
       const stats = await operationService.getMonthlyStats(year, month);
       const statsMap = new Map<string, DailyStats>();
-      stats.forEach((stat) => {
-        statsMap.set(stat.date, stat);
-      });
+      stats.forEach((s) => statsMap.set(s.date, s));
       setMonthlyStats(statsMap);
 
-      // Fetch all operations for the month
-      const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+      const start = `${year}-${String(month).padStart(2, '0')}-01`;
       const lastDay = new Date(year, month, 0).getDate();
-      const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-      const opsData = await operationService.getOperationsByDateRange(startDate, endDate);
-      setOperations(opsData);
-    } catch (err) {
+      const end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      const ops = await operationService.getOperationsByDateRange(start, end);
+      setOperations(ops);
+    } catch {
       setError(t.calendar.errorLoading);
-      console.error(err);
     } finally {
-      setLoading(false);
+      setManualLoading(false);
     }
   };
 
-  const handleDayClick = async (day: number) => {
+  const fetchBotData = async () => {
+    setBotLoading(true);
+    setError(null);
+    try {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+      const stats = await botService.getMonthlyStats(year, month, selectedBotId || undefined);
+      setBotDailyStats(stats);
+    } catch {
+      setError('Error al cargar datos de bots');
+    } finally {
+      setBotLoading(false);
+    }
+  };
+
+  // ── Filtered manual stats ──────────────────────────────────────────────────
+  const filteredManualStats = useMemo(() => {
+    if (!selectedStrategyId) return monthlyStats;
+    const filtered = operations.filter((op) => op.strategyId === selectedStrategyId);
+    const map = new Map<string, DailyStats>();
+    filtered.forEach((op) => {
+      const ex = map.get(op.date);
+      if (ex) {
+        map.set(op.date, { ...ex, totalPnL: ex.totalPnL + op.pnl, operationCount: ex.operationCount + 1, isProfit: ex.totalPnL + op.pnl > 0 });
+      } else {
+        map.set(op.date, { date: op.date, totalPnL: op.pnl, totalPnLPercentage: op.pnlPercentage ?? 0, operationCount: 1, isProfit: op.pnl > 0 });
+      }
+    });
+    return map;
+  }, [selectedStrategyId, operations, monthlyStats]);
+
+  const manualStatsMap = useMemo(() => {
+    const m = new Map<string, { totalPnL: number; count: number; isProfit: boolean }>();
+    filteredManualStats.forEach((s, date) => m.set(date, { totalPnL: s.totalPnL, count: s.operationCount, isProfit: s.isProfit }));
+    return m;
+  }, [filteredManualStats]);
+
+  const botStatsMap = useMemo(() => {
+    const m = new Map<string, { totalPnL: number; count: number; isProfit: boolean }>();
+    botDailyStats.forEach((s) => m.set(s.date, { totalPnL: s.totalPnL, count: s.tradeCount, isProfit: s.isProfit }));
+    return m;
+  }, [botDailyStats]);
+
+  const maxAbsManual = useMemo(() => {
+    let max = 0;
+    manualStatsMap.forEach((s) => { if (Math.abs(s.totalPnL) > max) max = Math.abs(s.totalPnL); });
+    return max || 1;
+  }, [manualStatsMap]);
+
+  const maxAbsBot = useMemo(() => {
+    let max = 0;
+    botStatsMap.forEach((s) => { if (Math.abs(s.totalPnL) > max) max = Math.abs(s.totalPnL); });
+    return max || 1;
+  }, [botStatsMap]);
+
+  // ── Day click handlers ─────────────────────────────────────────────────────
+  const handleManualDayClick = async (day: number) => {
     const dateStr = formatDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
     setSelectedDate(dateStr);
+    const dayOps = operations.filter((op) => op.date === dateStr && (!selectedStrategyId || op.strategyId === selectedStrategyId));
+    setSelectedDayOps(dayOps);
+    setSelectedDayStats(filteredManualStats.get(dateStr) ?? null);
+    setIsManualModalOpen(true);
+  };
 
-    const dayOps = operations.filter(
-      (op) => op.date === dateStr && (!selectedStrategyId || op.strategyId === selectedStrategyId)
-    );
-    setSelectedDayOperations(dayOps);
-
-    const stats = filteredStats.get(dateStr);
-    setSelectedDayStats(stats || null);
-
-    setIsModalOpen(true);
+  const handleBotDayClick = async (day: number) => {
+    const dateStr = formatDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
+    setSelectedBotDate(dateStr);
+    try {
+      const trades = await botService.getDailyTrades(dateStr, selectedBotId || undefined);
+      setSelectedBotDayTrades(trades);
+    } catch {
+      setSelectedBotDayTrades([]);
+    }
+    setSelectedBotDayStats(botStatsMap.get(dateStr) ? { date: dateStr, ...botStatsMap.get(dateStr)! } as BotDailyStats : null);
+    setIsBotModalOpen(true);
   };
 
   const handleOperationAdded = async () => {
-    await fetchMonthlyData();
+    await fetchManualData();
     if (selectedDate) {
-      const dayOps = operations.filter(
-        (op) => op.date === selectedDate && (!selectedStrategyId || op.strategyId === selectedStrategyId)
-      );
-      setSelectedDayOperations(dayOps);
+      const dayOps = operations.filter((op) => op.date === selectedDate && (!selectedStrategyId || op.strategyId === selectedStrategyId));
+      setSelectedDayOps(dayOps);
     }
   };
 
-  const handleOperationDeleted = async () => {
-    await fetchMonthlyData();
-    if (selectedDate) {
-      const dayOps = operations.filter(
-        (op) => op.date === selectedDate && (!selectedStrategyId || op.strategyId === selectedStrategyId)
-      );
-      setSelectedDayOperations(dayOps);
-    }
-  };
+  const handleOperationDeleted = handleOperationAdded;
 
-  const formatDate = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  // ── Navigation ─────────────────────────────────────────────────────────────
+  const previousMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
+  const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
 
-  const getDaysInMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  };
+  const monthName = currentDate.toLocaleDateString(localeMap[language] ?? language, { month: 'long', year: 'numeric' });
 
-  const getFirstDayOfMonth = (date: Date) => {
-    // Convertir de 0=Domingo a 0=Lunes para coincidir con las cabeceras
-    return (new Date(date.getFullYear(), date.getMonth(), 1).getDay() + 6) % 7;
-  };
+  const isLoading = activeTab === 'manual' ? manualLoading : botLoading;
 
-  const previousMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
-  };
-
-  const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
-  };
-
-  const monthName = currentDate.toLocaleDateString(localeMap[language] ?? language, {
-    month: 'long',
-    year: 'numeric',
-  });
-
-  const daysInMonth = getDaysInMonth(currentDate);
-  const firstDay = getFirstDayOfMonth(currentDate);
-  const days = [];
-
-  // Empty days before month starts
-  for (let i = 0; i < firstDay; i++) {
-    days.push(null);
-  }
-
-  // Days of month
-  for (let i = 1; i <= daysInMonth; i++) {
-    days.push(i);
-  }
-
-  if (loading && operations.length === 0) {
+  if (isLoading && operations.length === 0 && botDailyStats.length === 0) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="inline-block animate-spin">
-            <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full"></div>
+            <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full" />
           </div>
           <p className="mt-4 text-gray-600 dark:text-gray-400">{t.calendar.loading}</p>
         </div>
@@ -217,31 +288,37 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {/* Calendar Header */}
+        {/* Tabs */}
+        <div className="flex gap-1 mb-6 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg w-fit">
+          {(['manual', 'bots'] as CalendarTab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-5 py-2 rounded-md text-sm font-semibold transition-colors ${
+                activeTab === tab
+                  ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              {tab === 'manual' ? 'Operaciones manuales' : 'Bots'}
+            </button>
+          ))}
+        </div>
+
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
           {/* Month Navigation */}
           <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={previousMonth}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-            >
+            <button onClick={previousMonth} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
               <ChevronLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </button>
-
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white capitalize">
-              {monthName}
-            </h2>
-
-            <button
-              onClick={nextMonth}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-            >
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white capitalize">{monthName}</h2>
+            <button onClick={nextMonth} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
               <ChevronRight className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </button>
           </div>
 
-          {/* Strategy Filter */}
-          {strategies.length > 0 && (
+          {/* Filter row */}
+          {activeTab === 'manual' && strategies.length > 0 && (
             <div className="flex items-center gap-2 mb-6">
               <label className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
                 {t.calendar.strategy}
@@ -252,118 +329,105 @@ export default function CalendarPage() {
                 className="px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
                 <option value="">{t.calendar.allStrategies}</option>
-                {strategies.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
+                {strategies.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
               {selectedStrategyId && (
-                <button
-                  onClick={() => setSelectedStrategyId('')}
-                  className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline"
-                >
+                <button onClick={() => setSelectedStrategyId('')} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline">
                   {t.calendar.clearFilter}
                 </button>
               )}
             </div>
           )}
 
-          {/* Weekday Headers */}
-          <div className="grid grid-cols-7 gap-2 mb-2">
-            {t.calendar.weekdays.map((day) => (
-              <div
-                key={day}
-                className="text-center font-semibold text-gray-600 dark:text-gray-400 py-2"
+          {activeTab === 'bots' && bots.length > 0 && (
+            <div className="flex items-center gap-2 mb-6">
+              <label className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                Bot
+              </label>
+              <select
+                value={selectedBotId}
+                onChange={(e) => setSelectedBotId(e.target.value)}
+                className="px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-2">
-            {days.map((day, index) => {
-              if (day === null) {
-                return <div key={`empty-${index}`} className="aspect-square"></div>;
-              }
-
-              const dateStr = formatDate(
-                new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
-              );
-              const stats = filteredStats.get(dateStr);
-              const isProfit = stats && stats.totalPnL > 0;
-              const isLoss = stats && stats.totalPnL < 0;
-
-              const intensity = stats ? Math.min(Math.abs(stats.totalPnL) / maxAbsPnL, 1) : 0;
-              const alpha = stats ? (0.15 + intensity * 0.75).toFixed(2) : '0';
-              const bgStyle = stats
-                ? { backgroundColor: isProfit ? `rgba(34,197,94,${alpha})` : `rgba(239,68,68,${alpha})` }
-                : undefined;
-
-              return (
-                <button
-                  key={day}
-                  onClick={() => handleDayClick(day)}
-                  style={bgStyle}
-                  className={`aspect-square p-2 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-primary-400 transition-all cursor-pointer ${!stats ? 'bg-gray-50 dark:bg-gray-700' : ''}`}
-                >
-                  <div className="h-full flex flex-col items-start justify-start">
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {day}
-                    </span>
-                    {stats && (
-                      <div className="mt-auto text-xs">
-                        <div
-                          className={
-                            isProfit
-                              ? 'text-green-600 dark:text-green-400 font-semibold'
-                              : isLoss
-                                ? 'text-red-600 dark:text-red-400 font-semibold'
-                                : 'text-gray-600 dark:text-gray-400'
-                          }
-                        >
-                          €{stats.totalPnL.toFixed(0)}
-                        </div>
-                        <div className="text-gray-500 dark:text-gray-400">
-                          {t.calendar.opsCount.replace('{n}', stats.operationCount.toString())}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                <option value="">Todos los bots</option>
+                {bots.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+              {selectedBotId && (
+                <button onClick={() => setSelectedBotId('')} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline">
+                  Limpiar
                 </button>
-              );
-            })}
-          </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'bots' && bots.length === 0 && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              No tienes bots creados. Crea uno desde la sección Bots para ver su actividad aquí.
+            </p>
+          )}
+
+          {/* Grid */}
+          {activeTab === 'manual' ? (
+            <CalendarGrid
+              currentDate={currentDate}
+              statsMap={manualStatsMap}
+              maxAbsPnL={maxAbsManual}
+              onDayClick={handleManualDayClick}
+              weekdays={t.calendar.weekdays}
+              countLabel={(n) => t.calendar.opsCount.replace('{n}', String(n))}
+            />
+          ) : (
+            <CalendarGrid
+              currentDate={currentDate}
+              statsMap={botStatsMap}
+              maxAbsPnL={maxAbsBot}
+              onDayClick={handleBotDayClick}
+              weekdays={t.calendar.weekdays}
+              countLabel={(n) => `${n} op.`}
+            />
+          )}
         </div>
 
         {/* Legend */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
           <div className="flex gap-6">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-100 border-2 border-green-400 rounded"></div>
+              <div className="w-4 h-4 bg-green-100 border-2 border-green-400 rounded" />
               <span className="text-gray-700 dark:text-gray-300">{t.calendar.legendProfit}</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-red-100 border-2 border-red-400 rounded"></div>
+              <div className="w-4 h-4 bg-red-100 border-2 border-red-400 rounded" />
               <span className="text-gray-700 dark:text-gray-300">{t.calendar.legendLoss}</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-gray-50 border-2 border-gray-200 rounded"></div>
+              <div className="w-4 h-4 bg-gray-50 border-2 border-gray-200 rounded" />
               <span className="text-gray-700 dark:text-gray-300">{t.calendar.legendNoOps}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Manual modal */}
       {selectedDate && (
         <DailyOperationsModal
           date={selectedDate}
-          operations={selectedDayOperations}
+          operations={selectedDayOps}
           stats={selectedDayStats}
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          isOpen={isManualModalOpen}
+          onClose={() => setIsManualModalOpen(false)}
           onOperationAdded={handleOperationAdded}
           onOperationDeleted={handleOperationDeleted}
+        />
+      )}
+
+      {/* Bot modal */}
+      {selectedBotDate && (
+        <DailyBotTradesModal
+          date={selectedBotDate}
+          trades={selectedBotDayTrades}
+          stats={selectedBotDayStats}
+          isOpen={isBotModalOpen}
+          onClose={() => setIsBotModalOpen(false)}
         />
       )}
     </div>
