@@ -182,6 +182,14 @@ export class BotService {
     return this.repo.getTrades(botId);
   }
 
+  async getMonthlyStats(userId: string, year: number, month: number, botId?: string) {
+    return this.repo.getMonthlyStats(userId, year, month, botId);
+  }
+
+  async getDailyTrades(userId: string, date: string, botId?: string) {
+    return this.repo.getDailyTrades(userId, date, botId);
+  }
+
   async getMetrics(botId: string, userId: string): Promise<BotMetrics> {
     const bot = await this.getBot(botId, userId);
     const trades = await this.repo.getTrades(botId);

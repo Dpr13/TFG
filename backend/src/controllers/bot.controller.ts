@@ -77,3 +77,34 @@ export const deleteBot = async (req: AuthRequest, res: Response): Promise<void> 
     res.status(500).json({ error: 'Error al eliminar el bot' });
   }
 };
+
+export const getBotMonthlyStats = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const year = parseInt(req.query.year as string);
+    const month = parseInt(req.query.month as string);
+    if (isNaN(year) || isNaN(month)) {
+      res.status(400).json({ error: 'year y month son obligatorios' });
+      return;
+    }
+    const botId = req.query.botId as string | undefined;
+    const stats = await botService.getMonthlyStats(req.userId!, year, month, botId);
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener estadísticas mensuales de bots' });
+  }
+};
+
+export const getBotDailyTrades = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const date = req.query.date as string;
+    if (!date) {
+      res.status(400).json({ error: 'date es obligatorio' });
+      return;
+    }
+    const botId = req.query.botId as string | undefined;
+    const trades = await botService.getDailyTrades(req.userId!, date, botId);
+    res.json(trades);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener trades del día' });
+  }
+};
