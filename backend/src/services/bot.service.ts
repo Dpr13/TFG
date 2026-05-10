@@ -72,7 +72,7 @@ function meanReversionSignal(prices: number[], params: BotParams): Signal {
   const std = Math.sqrt(slice.map(p => (p - mean) ** 2).reduce((a, b) => a + b, 0) / window);
   const price = prices[prices.length - 1];
   if (price < mean - k * std) return 'BUY';
-  if (price > mean) return 'SELL';
+  if (price > mean + k * std) return 'SELL';
   return 'HOLD';
 }
 
@@ -85,7 +85,7 @@ interface AgentRuntime {
   lastSignal: Signal;
 }
 
-export class BotService {
+class BotService {
   private readonly repo = new BotRepository();
   private readonly agents = new Map<string, AgentRuntime>();
 
@@ -112,14 +112,8 @@ export class BotService {
     await this.repo.delete(botId, userId);
   }
 
-  async startBot(botId: string, userId: string): Promise<Bot> {
-    const bot = await this.getBot(botId, userId);
-    if (bot.status === 'running') return bot;
-
-    const provider = new YahooFinanceMarketDataProvider();
-    const realPrice = await provider.getLatestPrice(bot.symbol).catch(() => null);
-    const seedPrice = realPrice ?? 100;
-
+  private _launchAgent(bot: Bot, seedPrice: number): void {
+    const botId = bot.id;
     const priceHistory: number[] = [];
     const feed = new SimulatedFeed(bot.symbol, async (tick) => {
       priceHistory.push(tick.price);
@@ -148,9 +142,9 @@ export class BotService {
           positionEntryPrice: fillPrice,
           currentCapital: currentBot.currentCapital - cost,
         });
-      } else if (signal === 'SELL' && hasPosition) {
+      } else if (signal === 'SELL' && hasPosition && currentBot.positionEntryPrice !== null) {
         const fillPrice = paperFill(tick.price, 'SELL');
-        const pnl = (fillPrice - currentBot.positionEntryPrice!) * currentBot.positionSize;
+        const pnl = (fillPrice - currentBot.positionEntryPrice) * currentBot.positionSize;
         const proceeds = currentBot.positionSize * fillPrice;
         await this.repo.recordTrade(botId, 'SELL', currentBot.positionSize, fillPrice, pnl);
         await this.repo.updatePosition(botId, {
@@ -163,7 +157,30 @@ export class BotService {
 
     this.agents.set(botId, { feed, priceHistory, lastPrice: seedPrice, lastSignal: 'HOLD' });
     feed.start();
+  }
+
+  async startBot(botId: string, userId: string): Promise<Bot> {
+    const bot = await this.getBot(botId, userId);
+    if (bot.status === 'running') return bot;
+
+    const provider = new YahooFinanceMarketDataProvider();
+    const seedPrice = await provider.getLatestPrice(bot.symbol).catch(() => null) ?? 100;
+
+    this._launchAgent(bot, seedPrice);
     return this.repo.setStatus(botId, 'running');
+  }
+
+  async restoreRunningBots(): Promise<void> {
+    const runningBots = await this.repo.findAllRunning();
+    const provider = new YahooFinanceMarketDataProvider();
+    for (const bot of runningBots) {
+      if (this.agents.has(bot.id)) continue;
+      const seedPrice = await provider.getLatestPrice(bot.symbol).catch(() => null) ?? 100;
+      this._launchAgent(bot, seedPrice);
+    }
+    if (runningBots.length > 0) {
+      console.log(`[BotService] ${runningBots.length} bot(s) restaurado(s) tras reinicio`);
+    }
   }
 
   async stopBot(botId: string, userId: string): Promise<Bot> {
@@ -207,3 +224,5 @@ export class BotService {
     };
   }
 }
+
+export const botService = new BotService();

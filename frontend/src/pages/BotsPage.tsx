@@ -275,11 +275,7 @@ function BotDetail({ bot }: { bot: Bot }) {
 
   useEffect(() => {
     load();
-    if (bot.status === 'running') {
-      const interval = setInterval(load, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [load, bot.status]);
+  }, [load, bot.updatedAt]);
 
   if (loading) return <div className="p-4 text-sm text-gray-400 animate-pulse">{t.bots.loading}</div>;
 

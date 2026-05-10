@@ -1,8 +1,6 @@
 import { Response } from 'express';
-import { BotService } from '../services/bot.service';
+import { botService } from '../services/bot.service';
 import type { AuthRequest } from '../middleware/auth.middleware';
-
-const botService = new BotService();
 
 export const createBot = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -14,6 +12,12 @@ export const createBot = async (req: AuthRequest, res: Response): Promise<void> 
     if (!['momentum', 'mean-reversion'].includes(strategy)) {
       res.status(400).json({ error: 'strategy debe ser momentum o mean-reversion' });
       return;
+    }
+    if (strategy === 'momentum' && params?.fastWindow != null && params?.slowWindow != null) {
+      if (params.fastWindow >= params.slowWindow) {
+        res.status(400).json({ error: 'fastWindow debe ser menor que slowWindow' });
+        return;
+      }
     }
     const bot = await botService.createBot(req.userId!, { name, symbol, strategy, initialCapital, params });
     res.status(201).json(bot);

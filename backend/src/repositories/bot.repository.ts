@@ -55,6 +55,11 @@ export class BotRepository {
     return result.rows[0] ? mapBot(result.rows[0]) : null;
   }
 
+  async findAllRunning(): Promise<Bot[]> {
+    const result = await pool.query("SELECT * FROM bots WHERE status = 'running'");
+    return result.rows.map(mapBot);
+  }
+
   async setStatus(botId: string, status: BotStatus): Promise<Bot> {
     const result = await pool.query(
       'UPDATE bots SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',

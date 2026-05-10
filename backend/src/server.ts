@@ -1,6 +1,7 @@
 import http from 'node:http';
 import app from './app';
 import { pool } from './config';
+import { botService } from './services/bot.service';
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 
@@ -17,6 +18,8 @@ server.listen(PORT, async () => {
     console.log('✅ Conexión exitosa a PostgreSQL');
     console.log('   Fecha/hora actual:', result.rows[0].now);
     console.log('   Versión:', result.rows[0].version.split(',')[0]);
+
+    await botService.restoreRunningBots();
   } catch (err) {
     console.error('❌ Error de conexión a PostgreSQL:');
     if (err instanceof Error) {
