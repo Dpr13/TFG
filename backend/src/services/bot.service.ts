@@ -2,6 +2,8 @@ import { BotRepository } from '../repositories/bot.repository';
 import { YahooFinanceMarketDataProvider } from '../providers/YahooFinanceMarketDataProvider';
 import type { Bot, BotParams, BotMetrics, TradeSide } from '../models/bot';
 
+const FEED_INTERVAL_MS = 15_000;
+
 // ─── Paper Broker ────────────────────────────────────────────────────────────
 
 function paperFill(marketPrice: number, side: TradeSide): number {
@@ -10,7 +12,7 @@ function paperFill(marketPrice: number, side: TradeSide): number {
   return Number((marketPrice * factor).toFixed(5));
 }
 
-// ─── Market Feed ─────────────────────────────────────────────────────────────
+// ─── Real Market Feed ─────────────────────────────────────────────────────────
 
 interface MarketTick {
   symbol: string;
@@ -18,26 +20,26 @@ interface MarketTick {
   timestamp: string;
 }
 
-class SimulatedFeed {
-  private price: number;
+class RealFeed {
   private timer?: NodeJS.Timeout;
+  private lastPrice: number;
 
   constructor(
     private readonly symbol: string,
+    private readonly provider: YahooFinanceMarketDataProvider,
     private readonly onTick: (tick: MarketTick) => Promise<void>,
-    private readonly intervalMs = 3000,
-    seedPrice = 100
+    seedPrice: number
   ) {
-    this.price = seedPrice;
+    this.lastPrice = seedPrice;
   }
 
   start() {
     if (this.timer) return;
     this.timer = setInterval(async () => {
-      const drift = (Math.random() - 0.5) * 0.001;
-      this.price = Number((this.price * (1 + drift)).toFixed(5));
-      await this.onTick({ symbol: this.symbol, price: this.price, timestamp: new Date().toISOString() });
-    }, this.intervalMs);
+      const fetched = await this.provider.getLatestPrice(this.symbol).catch(() => null);
+      if (fetched !== null) this.lastPrice = fetched;
+      await this.onTick({ symbol: this.symbol, price: this.lastPrice, timestamp: new Date().toISOString() });
+    }, FEED_INTERVAL_MS);
   }
 
   stop() {
@@ -79,7 +81,7 @@ function meanReversionSignal(prices: number[], params: BotParams): Signal {
 // ─── Agent runtime ────────────────────────────────────────────────────────────
 
 interface AgentRuntime {
-  feed: SimulatedFeed;
+  feed: RealFeed;
   priceHistory: number[];
   lastPrice: number;
   lastSignal: Signal;
@@ -87,6 +89,7 @@ interface AgentRuntime {
 
 class BotService {
   private readonly repo = new BotRepository();
+  private readonly provider = new YahooFinanceMarketDataProvider();
   private readonly agents = new Map<string, AgentRuntime>();
 
   async createBot(userId: string, dto: { name: string; symbol: string; strategy: string; initialCapital?: number; params?: BotParams }): Promise<Bot> {
@@ -112,10 +115,27 @@ class BotService {
     await this.repo.delete(botId, userId);
   }
 
-  private _launchAgent(bot: Bot, seedPrice: number): void {
+  // Seeds price history with real 1-minute candles so strategies can signal from tick 1.
+  private async _seedHistory(symbol: string, points: number, fallback: number): Promise<number[]> {
+    try {
+      const data = await this.provider.getHistoricalPrices(symbol, '1min', '5d');
+      if (data && data.length > 0) {
+        const closes = data.slice(-points).map(p => p.close);
+        const padding = points - closes.length;
+        return padding > 0
+          ? [...Array(padding).fill(closes[0] ?? fallback), ...closes]
+          : closes;
+      }
+    } catch {}
+    return Array(points).fill(fallback);
+  }
+
+  private async _launchAgent(bot: Bot, seedPrice: number): Promise<void> {
     const botId = bot.id;
-    const priceHistory: number[] = [];
-    const feed = new SimulatedFeed(bot.symbol, async (tick) => {
+    const needed = Math.max(bot.params.slowWindow ?? 20, bot.params.window ?? 20);
+    const priceHistory = await this._seedHistory(bot.symbol, needed, seedPrice);
+
+    const feed = new RealFeed(bot.symbol, this.provider, async (tick) => {
       priceHistory.push(tick.price);
       const signal = bot.strategy === 'momentum'
         ? momentumSignal(priceHistory, bot.params)
@@ -153,7 +173,7 @@ class BotService {
           currentCapital: currentBot.currentCapital + proceeds,
         });
       }
-    }, 3000, seedPrice);
+    }, seedPrice);
 
     this.agents.set(botId, { feed, priceHistory, lastPrice: seedPrice, lastSignal: 'HOLD' });
     feed.start();
@@ -163,21 +183,18 @@ class BotService {
     const bot = await this.getBot(botId, userId);
     if (bot.status === 'running') return bot;
 
-    const provider = new YahooFinanceMarketDataProvider();
-    const seedPrice = await provider.getLatestPrice(bot.symbol).catch(() => null) ?? 100;
-
-    this._launchAgent(bot, seedPrice);
+    const seedPrice = await this.provider.getLatestPrice(bot.symbol).catch(() => null) ?? 100;
+    await this._launchAgent(bot, seedPrice);
     return this.repo.setStatus(botId, 'running');
   }
 
   async restoreRunningBots(): Promise<void> {
     const runningBots = await this.repo.findAllRunning();
-    const provider = new YahooFinanceMarketDataProvider();
-    for (const bot of runningBots) {
-      if (this.agents.has(bot.id)) continue;
-      const seedPrice = await provider.getLatestPrice(bot.symbol).catch(() => null) ?? 100;
-      this._launchAgent(bot, seedPrice);
-    }
+    await Promise.all(runningBots.map(async (bot) => {
+      if (this.agents.has(bot.id)) return;
+      const seedPrice = await this.provider.getLatestPrice(bot.symbol).catch(() => null) ?? 100;
+      await this._launchAgent(bot, seedPrice);
+    }));
     if (runningBots.length > 0) {
       console.log(`[BotService] ${runningBots.length} bot(s) restaurado(s) tras reinicio`);
     }

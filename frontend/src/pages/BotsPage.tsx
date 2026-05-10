@@ -202,17 +202,19 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.bots.algorithmLabel}</label>
-            <select
-              value={form.strategy}
-              onChange={e => { setSelectedStrategyId(''); setForm(f => ({ ...f, strategy: e.target.value as any })); }}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm"
-            >
-              <option value="momentum">{t.bots.momentumAlgo}</option>
-              <option value="mean-reversion">{t.bots.meanReversionAlgo}</option>
-            </select>
-          </div>
+          {!selectedStrategyId && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.bots.algorithmLabel}</label>
+              <select
+                value={form.strategy}
+                onChange={e => setForm(f => ({ ...f, strategy: e.target.value as any }))}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm"
+              >
+                <option value="momentum">{t.bots.momentumAlgo}</option>
+                <option value="mean-reversion">{t.bots.meanReversionAlgo}</option>
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.bots.capitalLabel}</label>
@@ -494,7 +496,7 @@ export default function BotsPage() {
 
   useEffect(() => {
     fetchBots();
-    const interval = setInterval(fetchBots, 3000);
+    const interval = setInterval(fetchBots, 15000);
     return () => clearInterval(interval);
   }, [fetchBots]);
 

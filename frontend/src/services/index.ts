@@ -476,6 +476,58 @@ export const botService = {
   },
 };
 
+export const quoteService = {
+  getPrice: async (symbol: string): Promise<number | null> => {
+    try {
+      const r = await apiClient.get<{ symbol: string; price: number }>(`/quote/${encodeURIComponent(symbol)}`);
+      return r.data.price;
+    } catch {
+      return null;
+    }
+  },
+};
+
+export const positionService = {
+  openPosition: async (dto: import('../types').OpenPositionDTO): Promise<{ position: import('../types').Position; trade: import('../types').PositionTrade }> => {
+    const r = await apiClient.post('/positions', dto);
+    return r.data;
+  },
+
+  closePosition: async (id: string, dto: import('../types').ClosePositionDTO): Promise<{ position: import('../types').Position; trade: import('../types').PositionTrade }> => {
+    const r = await apiClient.post(`/positions/${id}/close`, dto);
+    return r.data;
+  },
+
+  getOpenPositions: async (): Promise<import('../types').Position[]> => {
+    const r = await apiClient.get<import('../types').Position[]>('/positions/open');
+    return r.data;
+  },
+
+  getAllPositions: async (): Promise<import('../types').Position[]> => {
+    const r = await apiClient.get<import('../types').Position[]>('/positions');
+    return r.data;
+  },
+
+  getPositionTrades: async (id: string): Promise<import('../types').PositionTrade[]> => {
+    const r = await apiClient.get<import('../types').PositionTrade[]>(`/positions/${id}/trades`);
+    return r.data;
+  },
+
+  getDailyTrades: async (date: string): Promise<import('../types').PositionTrade[]> => {
+    const r = await apiClient.get<import('../types').PositionTrade[]>('/positions/trades/daily', { params: { date } });
+    return r.data;
+  },
+
+  getMonthlyStats: async (year: number, month: number): Promise<import('../types').PositionDailyStats[]> => {
+    const r = await apiClient.get<import('../types').PositionDailyStats[]>('/positions/stats/monthly', { params: { year, month } });
+    return r.data;
+  },
+
+  deletePosition: async (id: string): Promise<void> => {
+    await apiClient.delete(`/positions/${id}`);
+  },
+};
+
 export const watchlistService = {
   // Obtener la watchlist completa del usuario
   getWatchlist: async (): Promise<WatchlistItem[]> => {

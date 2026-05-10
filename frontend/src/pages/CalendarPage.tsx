@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { operationService, strategyService, botService } from '../services';
-import type { Operation, DailyStats, Strategy, BotDailyStats, BotTradeWithBot } from '../types';
-import DailyOperationsModal from '../components/DailyOperationsModal';
+import { positionService, quoteService, botService } from '../services';
+import type { Position, PositionTrade, PositionDailyStats, BotDailyStats, BotTradeWithBot } from '../types';
+import DailyPositionTradesModal from '../components/DailyPositionTradesModal';
 import DailyBotTradesModal from '../components/DailyBotTradesModal';
+import OpenPositionsPanel from '../components/OpenPositionsPanel';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -103,15 +104,14 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   // ── Manual tab state ────────────────────────────────────────────────────────
-  const [operations, setOperations] = useState<Operation[]>([]);
-  const [monthlyStats, setMonthlyStats] = useState<Map<string, DailyStats>>(new Map());
-  const [strategies, setStrategies] = useState<Strategy[]>([]);
-  const [selectedStrategyId, setSelectedStrategyId] = useState('');
+  const [openPositions, setOpenPositions] = useState<Position[]>([]);
+  const [positionPrices, setPositionPrices] = useState<Record<string, number>>({});
+  const [manualStats, setManualStats] = useState<Map<string, PositionDailyStats>>(new Map());
   const [manualLoading, setManualLoading] = useState(true);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedDayOps, setSelectedDayOps] = useState<Operation[]>([]);
-  const [selectedDayStats, setSelectedDayStats] = useState<DailyStats | null>(null);
+  const [selectedDayTrades, setSelectedDayTrades] = useState<PositionTrade[]>([]);
+  const [selectedDayStats, setSelectedDayStats] = useState<PositionDailyStats | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
   // ── Bot tab state ───────────────────────────────────────────────────────────
@@ -127,10 +127,10 @@ export default function CalendarPage() {
 
   const [error, setError] = useState<string | null>(null);
 
-  // ── Load strategies & bots once ────────────────────────────────────────────
+  // ── Load bots and open positions once ─────────────────────────────────────
   useEffect(() => {
-    strategyService.getAllStrategies().then(setStrategies).catch(console.error);
     botService.getBots().then(setBots).catch(console.error);
+    loadOpenPositions();
   }, []);
 
   // ── Fetch data when tab or month changes ───────────────────────────────────
@@ -143,22 +143,30 @@ export default function CalendarPage() {
     if (activeTab === 'bots') fetchBotData();
   }, [selectedBotId]);
 
+  const loadOpenPositions = async () => {
+    try {
+      const positions = await positionService.getOpenPositions();
+      setOpenPositions(positions);
+      const symbols = [...new Set(positions.map(p => p.symbol))];
+      const priceEntries = await Promise.all(
+        symbols.map(async s => [s, await quoteService.getPrice(s).catch(() => null)] as const)
+      );
+      const pricesMap: Record<string, number> = {};
+      priceEntries.forEach(([sym, p]) => { if (p !== null) pricesMap[sym] = p; });
+      setPositionPrices(pricesMap);
+    } catch {}
+  };
+
   const fetchManualData = async () => {
     setManualLoading(true);
     setError(null);
     try {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
-      const stats = await operationService.getMonthlyStats(year, month);
-      const statsMap = new Map<string, DailyStats>();
-      stats.forEach((s) => statsMap.set(s.date, s));
-      setMonthlyStats(statsMap);
-
-      const start = `${year}-${String(month).padStart(2, '0')}-01`;
-      const lastDay = new Date(year, month, 0).getDate();
-      const end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-      const ops = await operationService.getOperationsByDateRange(start, end);
-      setOperations(ops);
+      const stats = await positionService.getMonthlyStats(year, month);
+      const statsMap = new Map<string, PositionDailyStats>();
+      stats.forEach(s => statsMap.set(s.date, s));
+      setManualStats(statsMap);
     } catch {
       setError(t.calendar.errorLoading);
     } finally {
@@ -181,27 +189,11 @@ export default function CalendarPage() {
     }
   };
 
-  // ── Filtered manual stats ──────────────────────────────────────────────────
-  const filteredManualStats = useMemo(() => {
-    if (!selectedStrategyId) return monthlyStats;
-    const filtered = operations.filter((op) => op.strategyId === selectedStrategyId);
-    const map = new Map<string, DailyStats>();
-    filtered.forEach((op) => {
-      const ex = map.get(op.date);
-      if (ex) {
-        map.set(op.date, { ...ex, totalPnL: ex.totalPnL + op.pnl, operationCount: ex.operationCount + 1, isProfit: ex.totalPnL + op.pnl > 0 });
-      } else {
-        map.set(op.date, { date: op.date, totalPnL: op.pnl, totalPnLPercentage: op.pnlPercentage ?? 0, operationCount: 1, isProfit: op.pnl > 0 });
-      }
-    });
-    return map;
-  }, [selectedStrategyId, operations, monthlyStats]);
-
   const manualStatsMap = useMemo(() => {
     const m = new Map<string, { totalPnL: number; count: number; isProfit: boolean }>();
-    filteredManualStats.forEach((s, date) => m.set(date, { totalPnL: s.totalPnL, count: s.operationCount, isProfit: s.isProfit }));
+    manualStats.forEach((s, date) => m.set(date, { totalPnL: s.totalPnL, count: s.tradeCount, isProfit: s.isProfit }));
     return m;
-  }, [filteredManualStats]);
+  }, [manualStats]);
 
   const botStatsMap = useMemo(() => {
     const m = new Map<string, { totalPnL: number; count: number; isProfit: boolean }>();
@@ -225,9 +217,13 @@ export default function CalendarPage() {
   const handleManualDayClick = async (day: number) => {
     const dateStr = formatDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
     setSelectedDate(dateStr);
-    const dayOps = operations.filter((op) => op.date === dateStr && (!selectedStrategyId || op.strategyId === selectedStrategyId));
-    setSelectedDayOps(dayOps);
-    setSelectedDayStats(filteredManualStats.get(dateStr) ?? null);
+    try {
+      const trades = await positionService.getDailyTrades(dateStr);
+      setSelectedDayTrades(trades);
+    } catch {
+      setSelectedDayTrades([]);
+    }
+    setSelectedDayStats(manualStats.get(dateStr) ?? null);
     setIsManualModalOpen(true);
   };
 
@@ -240,19 +236,14 @@ export default function CalendarPage() {
     } catch {
       setSelectedBotDayTrades([]);
     }
-    setSelectedBotDayStats(botStatsMap.get(dateStr) ? { date: dateStr, ...botStatsMap.get(dateStr)! } as BotDailyStats : null);
+    const bsm = botStatsMap.get(dateStr);
+    setSelectedBotDayStats(bsm ? { date: dateStr, totalPnL: bsm.totalPnL, tradeCount: bsm.count, isProfit: bsm.isProfit } : null);
     setIsBotModalOpen(true);
   };
 
-  const handleOperationAdded = async () => {
-    await fetchManualData();
-    if (selectedDate) {
-      const dayOps = operations.filter((op) => op.date === selectedDate && (!selectedStrategyId || op.strategyId === selectedStrategyId));
-      setSelectedDayOps(dayOps);
-    }
+  const handlePositionRefresh = async () => {
+    await Promise.all([loadOpenPositions(), fetchManualData()]);
   };
-
-  const handleOperationDeleted = handleOperationAdded;
 
   // ── Navigation ─────────────────────────────────────────────────────────────
   const previousMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
@@ -262,7 +253,7 @@ export default function CalendarPage() {
 
   const isLoading = activeTab === 'manual' ? manualLoading : botLoading;
 
-  if (isLoading && operations.length === 0 && botDailyStats.length === 0) {
+  if (isLoading && manualStats.size === 0 && botDailyStats.length === 0) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
@@ -285,6 +276,17 @@ export default function CalendarPage() {
         {error && (
           <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
             {error}
+          </div>
+        )}
+
+        {/* Open Positions Panel */}
+        {activeTab === 'manual' && (
+          <div className="mb-6">
+            <OpenPositionsPanel
+              positions={openPositions}
+              prices={positionPrices}
+              onRefresh={handlePositionRefresh}
+            />
           </div>
         )}
 
@@ -318,27 +320,6 @@ export default function CalendarPage() {
           </div>
 
           {/* Filter row */}
-          {activeTab === 'manual' && strategies.length > 0 && (
-            <div className="flex items-center gap-2 mb-6">
-              <label className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                {t.calendar.strategy}
-              </label>
-              <select
-                value={selectedStrategyId}
-                onChange={(e) => setSelectedStrategyId(e.target.value)}
-                className="px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="">{t.calendar.allStrategies}</option>
-                {strategies.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              {selectedStrategyId && (
-                <button onClick={() => setSelectedStrategyId('')} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline">
-                  {t.calendar.clearFilter}
-                </button>
-              )}
-            </div>
-          )}
-
           {activeTab === 'bots' && bots.length > 0 && (
             <div className="flex items-center gap-2 mb-6">
               <label className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
@@ -408,15 +389,12 @@ export default function CalendarPage() {
       </div>
 
       {/* Manual modal */}
-      {selectedDate && (
-        <DailyOperationsModal
+      {isManualModalOpen && selectedDate && (
+        <DailyPositionTradesModal
           date={selectedDate}
-          operations={selectedDayOps}
+          trades={selectedDayTrades}
           stats={selectedDayStats}
-          isOpen={isManualModalOpen}
           onClose={() => setIsManualModalOpen(false)}
-          onOperationAdded={handleOperationAdded}
-          onOperationDeleted={handleOperationDeleted}
         />
       )}
 
