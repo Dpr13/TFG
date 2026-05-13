@@ -85,6 +85,7 @@ register: {
   confirmPlaceholder: 'Répéter le mot de passe',
   submit: 'Créer un compte',
   creating: 'Création du compte...',
+  coldStartMsg: 'Le serveur démarre, cela peut prendre quelques secondes. Veuillez patienter...',
   termsPrefix: "En vous inscrivant, vous acceptez nos",
   terms: 'Conditions générales',
   privacyPrefix: 'et la',

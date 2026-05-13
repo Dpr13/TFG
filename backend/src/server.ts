@@ -1,7 +1,13 @@
+import dns from 'node:dns';
 import http from 'node:http';
 import app from './app';
 import { pool } from './config';
 import { botService } from './services/bot.service';
+
+// Forzar que el sistema prefiera IPv4 globalmente en este proceso (Node 17+)
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 

@@ -1,4 +1,4 @@
-import { useState, FormEvent, useMemo } from 'react';
+import { useState, useEffect, useRef, FormEvent, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Eye,
@@ -35,6 +35,19 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showColdStartMsg, setShowColdStartMsg] = useState(false);
+  const coldStartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Mostrar mensaje de cold start tras 5s de carga
+  useEffect(() => {
+    if (isLoading) {
+      coldStartTimer.current = setTimeout(() => setShowColdStartMsg(true), 5000);
+    } else {
+      setShowColdStartMsg(false);
+      if (coldStartTimer.current) clearTimeout(coldStartTimer.current);
+    }
+    return () => { if (coldStartTimer.current) clearTimeout(coldStartTimer.current); };
+  }, [isLoading]);
 
   const FEATURES = useMemo(() => [
     {
@@ -402,6 +415,16 @@ export default function RegisterPage() {
                     </>
                   )}
                 </button>
+
+                {/* Cold start message */}
+                {isLoading && showColdStartMsg && (
+                  <div className="px-4 py-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                    <p className="text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                      {t.register.coldStartMsg}
+                    </p>
+                  </div>
+                )}
               </form>
 
               {/* Link to login */}

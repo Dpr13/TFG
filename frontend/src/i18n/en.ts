@@ -85,6 +85,7 @@ const en: Translations = {
     confirmPlaceholder: 'Repeat password',
     submit: 'Create account',
     creating: 'Creating account...',
+    coldStartMsg: 'The server is waking up, this may take a few seconds. Please wait...',
     termsPrefix: 'By signing up, you agree to our',
     terms: 'Terms and Conditions',
     privacyPrefix: 'and the',

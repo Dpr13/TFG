@@ -84,6 +84,7 @@ const es = {
     confirmPlaceholder: 'Repite la contraseña',
     submit: 'Crear cuenta',
     creating: 'Creando cuenta...',
+    coldStartMsg: 'El servidor está arrancando, puede tardar unos segundos. Por favor, espera...',
     termsPrefix: 'Al registrarte, aceptas nuestros',
     terms: 'Términos y Condiciones',
     privacyPrefix: 'y la',
