@@ -55,6 +55,11 @@ export class BotRepository {
     return result.rows[0] ? mapBot(result.rows[0]) : null;
   }
 
+  async findAllRunning(): Promise<Bot[]> {
+    const result = await pool.query("SELECT * FROM bots WHERE status = 'running'");
+    return result.rows.map(mapBot);
+  }
+
   async setStatus(botId: string, status: BotStatus): Promise<Bot> {
     const result = await pool.query(
       'UPDATE bots SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
@@ -84,6 +89,49 @@ export class BotRepository {
       [botId]
     );
     return result.rows.map(mapTrade);
+  }
+
+  async getMonthlyStats(userId: string, year: number, month: number, botId?: string): Promise<{ date: string; totalPnL: number; tradeCount: number; isProfit: boolean }[]> {
+    const result = await pool.query(
+      `SELECT
+         DATE(bt.executed_at)::text AS date,
+         COALESCE(SUM(bt.pnl), 0)  AS total_pnl,
+         COUNT(*)                  AS trade_count
+       FROM bot_trades bt
+       JOIN bots b ON bt.bot_id = b.id
+       WHERE b.user_id = $1
+         AND bt.pnl IS NOT NULL
+         AND EXTRACT(YEAR  FROM bt.executed_at) = $2
+         AND EXTRACT(MONTH FROM bt.executed_at) = $3
+         AND ($4::uuid IS NULL OR bt.bot_id = $4)
+       GROUP BY DATE(bt.executed_at)
+       ORDER BY DATE(bt.executed_at)`,
+      [userId, year, month, botId ?? null]
+    );
+    return result.rows.map(row => ({
+      date: row.date,
+      totalPnL: Number(row.total_pnl),
+      tradeCount: Number(row.trade_count),
+      isProfit: Number(row.total_pnl) > 0,
+    }));
+  }
+
+  async getDailyTrades(userId: string, date: string, botId?: string): Promise<(BotTrade & { botName: string; symbol: string })[]> {
+    const result = await pool.query(
+      `SELECT bt.*, b.name AS bot_name, b.symbol
+       FROM bot_trades bt
+       JOIN bots b ON bt.bot_id = b.id
+       WHERE b.user_id = $1
+         AND DATE(bt.executed_at) = $2::date
+         AND ($3::uuid IS NULL OR bt.bot_id = $3)
+       ORDER BY bt.executed_at ASC`,
+      [userId, date, botId ?? null]
+    );
+    return result.rows.map(row => ({
+      ...mapTrade(row),
+      botName: row.bot_name,
+      symbol: row.symbol,
+    }));
   }
 
   async delete(botId: string, userId: string): Promise<void> {

@@ -327,7 +327,7 @@ export interface Bot {
   userId: string;
   name: string;
   symbol: string;
-  strategy: 'momentum' | 'mean-reversion';
+  strategy: BotAlgorithm;
   status: 'running' | 'stopped';
   initialCapital: number;
   currentCapital: number;
@@ -363,10 +363,12 @@ export interface BotMetrics {
 export interface CreateBotDTO {
   name: string;
   symbol: string;
-  strategy: 'momentum' | 'mean-reversion';
+  strategy: BotAlgorithm;
   initialCapital?: number;
   params?: BotStrategyParams;
 }
+
+export type BotAlgorithm = 'momentum' | 'mean-reversion' | 'rsi';
 
 export interface BotStrategyParams {
   fastWindow?: number;
@@ -374,6 +376,9 @@ export interface BotStrategyParams {
   thresholdPct?: number;
   window?: number;
   k?: number;
+  rsiPeriod?: number;
+  rsiOverbought?: number;
+  rsiOversold?: number;
   [key: string]: number | undefined;
 }
 
@@ -381,7 +386,7 @@ export interface BotStrategy {
   id: string;
   userId: string;
   name: string;
-  algorithm: 'momentum' | 'mean-reversion';
+  algorithm: BotAlgorithm;
   description?: string;
   params: BotStrategyParams;
   createdAt: string;
@@ -390,7 +395,7 @@ export interface BotStrategy {
 
 export interface CreateBotStrategyDTO {
   name: string;
-  algorithm: 'momentum' | 'mean-reversion';
+  algorithm: BotAlgorithm;
   description?: string;
   params: BotStrategyParams;
 }
@@ -454,6 +459,72 @@ export const botService = {
 
   deleteBot: async (id: string): Promise<void> => {
     await apiClient.delete(`/bots/${id}`);
+  },
+
+  getMonthlyStats: async (year: number, month: number, botId?: string): Promise<import('../types').BotDailyStats[]> => {
+    const params: Record<string, string> = { year: String(year), month: String(month) };
+    if (botId) params.botId = botId;
+    const response = await apiClient.get<import('../types').BotDailyStats[]>('/bots/trades/monthly', { params });
+    return response.data;
+  },
+
+  getDailyTrades: async (date: string, botId?: string): Promise<import('../types').BotTradeWithBot[]> => {
+    const params: Record<string, string> = { date };
+    if (botId) params.botId = botId;
+    const response = await apiClient.get<import('../types').BotTradeWithBot[]>('/bots/trades/daily', { params });
+    return response.data;
+  },
+};
+
+export const quoteService = {
+  getPrice: async (symbol: string): Promise<number | null> => {
+    try {
+      const r = await apiClient.get<{ symbol: string; price: number }>(`/quote/${encodeURIComponent(symbol)}`);
+      return r.data.price;
+    } catch {
+      return null;
+    }
+  },
+};
+
+export const positionService = {
+  openPosition: async (dto: import('../types').OpenPositionDTO): Promise<{ position: import('../types').Position; trade: import('../types').PositionTrade }> => {
+    const r = await apiClient.post('/positions', dto);
+    return r.data;
+  },
+
+  closePosition: async (id: string, dto: import('../types').ClosePositionDTO): Promise<{ position: import('../types').Position; trade: import('../types').PositionTrade }> => {
+    const r = await apiClient.post(`/positions/${id}/close`, dto);
+    return r.data;
+  },
+
+  getOpenPositions: async (): Promise<import('../types').Position[]> => {
+    const r = await apiClient.get<import('../types').Position[]>('/positions/open');
+    return r.data;
+  },
+
+  getAllPositions: async (): Promise<import('../types').Position[]> => {
+    const r = await apiClient.get<import('../types').Position[]>('/positions');
+    return r.data;
+  },
+
+  getPositionTrades: async (id: string): Promise<import('../types').PositionTrade[]> => {
+    const r = await apiClient.get<import('../types').PositionTrade[]>(`/positions/${id}/trades`);
+    return r.data;
+  },
+
+  getDailyTrades: async (date: string): Promise<import('../types').PositionTrade[]> => {
+    const r = await apiClient.get<import('../types').PositionTrade[]>('/positions/trades/daily', { params: { date } });
+    return r.data;
+  },
+
+  getMonthlyStats: async (year: number, month: number): Promise<import('../types').PositionDailyStats[]> => {
+    const r = await apiClient.get<import('../types').PositionDailyStats[]>('/positions/stats/monthly', { params: { year, month } });
+    return r.data;
+  },
+
+  deletePosition: async (id: string): Promise<void> => {
+    await apiClient.delete(`/positions/${id}`);
   },
 };
 

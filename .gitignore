@@ -11,6 +11,9 @@ frontend/node_modules/
 .env.*.local
 *.env
 
+# Claude Code
+.claude/
+
 # Editor
 .vscode/
 .idea/

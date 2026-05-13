@@ -1,13 +1,18 @@
-export type BotAlgorithm = 'momentum' | 'mean-reversion';
+export type BotAlgorithm = 'momentum' | 'mean-reversion' | 'rsi';
 
 export interface BotStrategyParams {
   // Momentum
   fastWindow?: number;
   slowWindow?: number;
   thresholdPct?: number;
-  // Mean-reversion
+  // Mean-reversion / Bollinger
   window?: number;
   k?: number;
+  // RSI
+  rsiPeriod?: number;
+  rsiOverbought?: number;
+  rsiOversold?: number;
+  [key: string]: number | undefined;
 }
 
 export interface BotStrategy {

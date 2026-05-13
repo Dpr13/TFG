@@ -12,11 +12,14 @@
 // - Análisis de razón riesgo/recompensa esperada vs actual
 // ============================================================================
 
+export type OperationType = 'long' | 'short';
+
 export interface Operation {
   id: string;
   userId: string;
   date: string; // YYYY-MM-DD format
   symbol: string;
+  type: OperationType;
   quantity: number;
   buyPrice: number;
   sellPrice: number;
@@ -37,6 +40,7 @@ export interface CreateOperationDTO {
   userId: string;
   date: string;
   symbol: string;
+  type?: OperationType;
   quantity: number;
   buyPrice: number;
   sellPrice: number;
@@ -48,6 +52,7 @@ export interface CreateOperationDTO {
 
 export interface UpdateOperationDTO {
   symbol?: string;
+  type?: OperationType;
   quantity?: number;
   buyPrice?: number;
   sellPrice?: number;
