@@ -14,6 +14,7 @@ import comparisonRouter from './comparison.routes';
 import botRouter from './bot.routes';
 import botStrategyRouter from './bot_strategy.routes';
 import positionRouter from './position.routes';
+import brokerCredentialRouter from './broker_credential.routes';
 
 const router = Router();
 
@@ -35,6 +36,7 @@ router.use('/', comparisonRouter);
 router.use('/', botRouter);
 router.use('/', botStrategyRouter);
 router.use('/', positionRouter);
+router.use('/', brokerCredentialRouter);
 
 export default router;
 
