@@ -322,6 +322,23 @@ export interface AddToWatchlistDTO {
   assetType: 'stock' | 'crypto' | 'forex';
 }
 
+export type BrokerMode = 'simulated' | 'alpaca_paper' | 'alpaca_live';
+
+export interface BrokerCredential {
+  id: string;
+  userId: string;
+  broker: 'alpaca';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BrokerAccountBalance {
+  broker: 'alpaca';
+  cash: number;
+  buyingPower: number;
+  portfolioValue: number;
+}
+
 export interface Bot {
   id: string;
   userId: string;
@@ -329,6 +346,7 @@ export interface Bot {
   symbol: string;
   strategy: BotAlgorithm;
   status: 'running' | 'stopped';
+  brokerMode: BrokerMode;
   initialCapital: number;
   currentCapital: number;
   positionSize: number;
@@ -347,6 +365,7 @@ export interface BotTrade {
   quantity: number;
   fillPrice: number;
   pnl: number | null;
+  commission: number;
   executedAt: string;
 }
 
@@ -356,6 +375,7 @@ export interface BotMetrics {
   winRate: number;
   totalPnl: number;
   pnlPct: number;
+  totalCommissions: number;
   currentCapital: number;
   positionSize: number;
 }
@@ -364,6 +384,7 @@ export interface CreateBotDTO {
   name: string;
   symbol: string;
   strategy: BotAlgorithm;
+  brokerMode?: BrokerMode;
   initialCapital?: number;
   params?: BotStrategyParams;
 }
@@ -525,6 +546,27 @@ export const positionService = {
 
   deletePosition: async (id: string): Promise<void> => {
     await apiClient.delete(`/positions/${id}`);
+  },
+};
+
+export const brokerCredentialService = {
+  list: async (): Promise<BrokerCredential[]> => {
+    const response = await apiClient.get<BrokerCredential[]>('/broker-credentials');
+    return response.data;
+  },
+
+  save: async (broker: 'alpaca', apiKey: string, apiSecret: string): Promise<BrokerCredential> => {
+    const response = await apiClient.post<BrokerCredential>('/broker-credentials', { broker, apiKey, apiSecret });
+    return response.data;
+  },
+
+  remove: async (broker: 'alpaca'): Promise<void> => {
+    await apiClient.delete(`/broker-credentials/${broker}`);
+  },
+
+  getBalance: async (broker: 'alpaca', isPaper: boolean = true): Promise<BrokerAccountBalance> => {
+    const response = await apiClient.get<BrokerAccountBalance>(`/broker-credentials/${broker}/balance`, { params: { isPaper } });
+    return response.data;
   },
 };
 

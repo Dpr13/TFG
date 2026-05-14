@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Bot as BotIcon, Play, Square, Trash2, Plus, TrendingUp, TrendingDown, ChevronDown, ChevronUp, X, Sparkles } from 'lucide-react';
-import { botService, autocompleteService, botStrategyService } from '../services';
-import type { Bot, BotTrade, BotMetrics, CreateBotDTO, BotStrategy } from '../services';
+import { botService, autocompleteService, botStrategyService, brokerCredentialService } from '../services';
+import type { Bot, BotTrade, BotMetrics, CreateBotDTO, BotStrategy, BrokerMode, BrokerAccountBalance } from '../services';
 import { useLanguage } from '../context/LanguageContext';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -29,6 +29,7 @@ const DEFAULT_FORM: CreateBotDTO = {
   name: '',
   symbol: '',
   strategy: 'momentum',
+  brokerMode: 'simulated',
   initialCapital: 10000,
 };
 
@@ -122,10 +123,32 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
   const [error, setError] = useState<string | null>(null);
   const [savedStrategies, setSavedStrategies] = useState<BotStrategy[]>([]);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string>('');
+  const [hasAlpaca, setHasAlpaca] = useState(false);
+  const [alpacaBalance, setAlpacaBalance] = useState<BrokerAccountBalance | null>(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
 
   useEffect(() => {
     botStrategyService.getAll().then(setSavedStrategies).catch(() => {});
+    brokerCredentialService.list()
+      .then(creds => setHasAlpaca(creds.some(c => c.broker === 'alpaca')))
+      .catch(() => {});
   }, []);
+
+  const handleBrokerModeChange = async (mode: BrokerMode) => {
+    setForm(f => ({ ...f, brokerMode: mode }));
+    setAlpacaBalance(null);
+    if (mode === 'alpaca_paper' || mode === 'alpaca_live') {
+      setLoadingBalance(true);
+      try {
+        const balance = await brokerCredentialService.getBalance('alpaca', mode === 'alpaca_paper');
+        setAlpacaBalance(balance);
+      } catch {
+        setError('No se pudo obtener el balance de Alpaca. Verifica tus credenciales en el perfil.');
+      } finally {
+        setLoadingBalance(false);
+      }
+    }
+  };
 
   const applyStrategy = (id: string) => {
     setSelectedStrategyId(id);
@@ -143,8 +166,8 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
     try {
       await onCreate(form);
       onClose();
-    } catch {
-      setError(t.bots.createError);
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || t.bots.createError);
     } finally {
       setLoading(false);
     }
@@ -207,7 +230,7 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.bots.algorithmLabel}</label>
               <select
                 value={form.strategy}
-                onChange={e => setForm(f => ({ ...f, strategy: e.target.value as any }))}
+                onChange={e => setForm(f => ({ ...f, strategy: e.target.value as BotAlgorithm }))}
                 className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm"
               >
                 <option value="momentum">{t.bots.momentumAlgo}</option>
@@ -215,6 +238,43 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
               </select>
             </div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Modo de ejecución</label>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { value: 'simulated', label: 'Simulado', desc: 'Sin broker real', color: 'gray' },
+                { value: 'alpaca_paper', label: 'Alpaca Paper', desc: 'Demo Alpaca', color: 'blue' },
+                { value: 'alpaca_live', label: 'Alpaca Live', desc: '⚠ Dinero real', color: 'orange' },
+              ] as { value: BrokerMode; label: string; desc: string; color: string }[]).map(opt => {
+                const disabled = opt.value !== 'simulated' && !hasAlpaca;
+                const selected = form.brokerMode === opt.value;
+                const borderColor = selected
+                  ? opt.color === 'blue' ? 'border-blue-500' : opt.color === 'orange' ? 'border-orange-500' : 'border-gray-500'
+                  : 'border-gray-200 dark:border-gray-600';
+                const bgColor = selected
+                  ? opt.color === 'blue' ? 'bg-blue-50 dark:bg-blue-900/20' : opt.color === 'orange' ? 'bg-orange-50 dark:bg-orange-900/20' : 'bg-gray-100 dark:bg-gray-600'
+                  : 'bg-white dark:bg-gray-700';
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => handleBrokerModeChange(opt.value)}
+                    className={`flex flex-col items-center p-2 rounded-lg border-2 text-xs transition-colors ${borderColor} ${bgColor} disabled:opacity-40 disabled:cursor-not-allowed`}
+                  >
+                    <span className="font-semibold text-gray-900 dark:text-white">{opt.label}</span>
+                    <span className="text-gray-400 dark:text-gray-500 mt-0.5">{opt.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {!hasAlpaca && (
+              <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                Conecta Alpaca en tu perfil para usar los modos paper y live.
+              </p>
+            )}
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.bots.capitalLabel}</label>
@@ -226,6 +286,14 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
               onChange={e => setForm(f => ({ ...f, initialCapital: Number(e.target.value) }))}
               className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm"
             />
+            {loadingBalance && (
+              <p className="mt-1 text-xs text-gray-400 animate-pulse">Obteniendo balance…</p>
+            )}
+            {alpacaBalance && !loadingBalance && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Buying power disponible: <span className="font-semibold text-gray-900 dark:text-white">${alpacaBalance.buyingPower.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </p>
+            )}
           </div>
 
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -284,12 +352,13 @@ function BotDetail({ bot }: { bot: Bot }) {
   return (
     <div className="space-y-4 p-4">
       {metrics && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[
             { label: t.bots.currentCapital, value: fmtCurrency(metrics.currentCapital) },
             { label: t.bots.totalPnl, value: <PnlBadge value={metrics.totalPnl} pct={metrics.pnlPct} /> },
             { label: t.bots.winRate, value: `${fmt(metrics.winRate * 100)}%` },
             { label: t.bots.tradesLabel, value: `${metrics.totalTrades}` },
+            { label: 'Comisiones pagadas', value: fmtCurrency(metrics.totalCommissions) },
           ].map(({ label, value }) => (
             <div key={label} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
@@ -395,6 +464,21 @@ function BotCard({ bot, onStart, onStop, onDelete }: {
             <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
               {bot.strategy}
             </span>
+            {bot.brokerMode === 'simulated' && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 font-medium">
+                SIMULADO
+              </span>
+            )}
+            {bot.brokerMode === 'alpaca_paper' && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">
+                ALPACA PAPER
+              </span>
+            )}
+            {bot.brokerMode === 'alpaca_live' && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 font-semibold">
+                ⚠ ALPACA LIVE
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
             <span>{t.bots.valueLabel}: {fmtCurrency(totalValue)}</span>
@@ -503,6 +587,7 @@ export default function BotsPage() {
   const handleCreate = async (dto: CreateBotDTO) => {
     const bot = await botService.createBot(dto);
     setBots(prev => [bot, ...prev]);
+    // throws on error — modal catches and shows message
   };
 
   const handleStart = async (id: string) => {
