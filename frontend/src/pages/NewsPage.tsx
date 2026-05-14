@@ -6,7 +6,6 @@ import {
   Clock,
   Search,
   Filter,
-  Zap,
   ChevronLeft,
 } from 'lucide-react';
 import { useFetch } from '@hooks/useFetch';
@@ -76,9 +75,6 @@ export default function NewsPage() {
           {t.news.back}
         </button>
         <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-            <Newspaper className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-          </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             {t.news.title}
           </h1>
@@ -96,9 +92,6 @@ export default function NewsPage() {
         <div className="absolute top-2 right-24 w-16 h-16 bg-white/5 rounded-full" />
 
         <div className="relative flex items-center gap-4">
-          <div className="flex-shrink-0 p-3 bg-white/20 backdrop-blur-sm rounded-xl">
-            <Zap className="w-7 h-7 text-white" />
-          </div>
           <div>
             <p className="text-xs font-semibold text-blue-100 uppercase tracking-widest mb-0.5">
               {t.news.banner.source}
