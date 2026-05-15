@@ -521,10 +521,14 @@ riskAnalysis: {
       label: "Rendement YTD",
       desc: "Rendement cumulé depuis le début de l\'année."
     },
-    annualReportExpenseRatio: {
-      label: "Frais (TER)",
-      desc: "Frais de gestion annuels totaux du fonds."
-    },
+      buffett: {
+        label: "Indicateur de Buffett",
+        desc: "Indicateur macro (États-Unis) : capitalisation boursière (sociétés cotées) / PIB. Sert de contexte de valorisation globale du marché et peut varier selon la source et l’année des données."
+      },
+      annualReportExpenseRatio: {
+        label: "Frais (TER)",
+        desc: "Frais de gestion annuels totaux du fonds."
+      },
   },
 
   sections: {

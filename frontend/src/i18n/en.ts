@@ -522,6 +522,10 @@ const en: Translations = {
         label: "Expense Ratio (TER)",
         desc: "Total annual management fee of the fund."
       },
+        buffett: {
+          label: "Buffett Indicator",
+          desc: "Macro indicator (US): market capitalization (listed companies) / GDP. It is meant as market-wide valuation context and can vary depending on data source and reporting year."
+        },
     },
     sections: {
       helpWhat: 'What this section analyzes',

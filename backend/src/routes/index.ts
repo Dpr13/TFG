@@ -13,6 +13,7 @@ import iaRouter from './ia.routes';
 import comparisonRouter from './comparison.routes';
 import botRouter from './bot.routes';
 import botStrategyRouter from './bot_strategy.routes';
+import marketRouter from './market.routes';
 
 const router = Router();
 
@@ -33,6 +34,7 @@ router.use('/', iaRouter);
 router.use('/', comparisonRouter);
 router.use('/', botRouter);
 router.use('/', botStrategyRouter);
+router.use('/', marketRouter);
 
 export default router;
 

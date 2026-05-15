@@ -521,6 +521,10 @@ const es = {
         label: "Gastos (TER)",
         desc: "Comisión total de gestión anual del fondo."
       },
+      buffett: {
+        label: "Índice de Buffett",
+        desc: "Indicador macro (EEUU): capitalización del mercado (empresas listadas) / PIB. Se usa como contexto del nivel general de valoración del mercado y puede diferir según la fuente y el año de datos."
+      },
     },
     sections: {
       helpWhat: 'Qué analiza esta sección',

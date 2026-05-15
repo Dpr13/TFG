@@ -521,6 +521,10 @@ riskAnalysis: {
       label: "Kostenquote (TER)",
       desc: "Gesamte jährliche Verwaltungsgebühr des Fonds."
     },
+    buffett: {
+      label: "Buffett-Indikator",
+      desc: "Makro-Indikator (USA): Marktkapitalisierung (börsennotierte Unternehmen) / BIP. Dient als Kontext für die Gesamtbewertung des Marktes und kann je nach Quelle und Datenjahr variieren."
+    },
   },
   sections: {
     helpWhat: 'Was wird in diesem Abschnitt analysiert',
