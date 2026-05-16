@@ -30,7 +30,7 @@ class RealFeed {
 
   constructor(
     private readonly symbol: string,
-    private readonly provider: YahooFinanceMarketDataProvider,
+    private readonly priceFetcher: (symbol: string) => Promise<number | null>,
     private readonly onTick: (tick: MarketTick) => Promise<void>,
     seedPrice: number
   ) {
@@ -40,9 +40,13 @@ class RealFeed {
   start() {
     if (this.timer) return;
     this.timer = setInterval(async () => {
-      const fetched = await this.provider.getLatestPrice(this.symbol).catch(() => null);
-      if (fetched !== null) this.lastPrice = fetched;
-      await this.onTick({ symbol: this.symbol, price: this.lastPrice, timestamp: new Date().toISOString() });
+      try {
+        const fetched = await this.priceFetcher(this.symbol).catch(() => null);
+        if (fetched !== null) this.lastPrice = fetched;
+        await this.onTick({ symbol: this.symbol, price: this.lastPrice, timestamp: new Date().toISOString() });
+      } catch (err) {
+        console.error(`[RealFeed ${this.symbol}] tick error:`, (err as Error).message);
+      }
     }, FEED_INTERVAL_MS);
   }
 
@@ -158,7 +162,9 @@ class BotService {
     const needed = Math.max(bot.params.slowWindow ?? 20, bot.params.window ?? 20);
     const priceHistory = await this._seedHistory(bot.symbol, needed, seedPrice);
 
-    const feed = new RealFeed(bot.symbol, this.provider, async (tick) => {
+    const priceFetcher = (s: string) => this.provider.getLatestPrice(s).catch(() => null);
+
+    const feed = new RealFeed(bot.symbol, priceFetcher, async (tick) => {
       priceHistory.push(tick.price);
       const signal = bot.strategy === 'momentum'
         ? momentumSignal(priceHistory, bot.params)
@@ -242,7 +248,9 @@ class BotService {
     const bot = await this.getBot(botId, userId);
     if (bot.status === 'running') return bot;
 
-    const seedPrice = await this.provider.getLatestPrice(bot.symbol).catch(() => null) ?? 100;
+    const seedPrice = await this.provider.getLatestPrice(bot.symbol).catch(() => null)
+      ?? bot.positionEntryPrice
+      ?? 100;
 
     let alpacaAdapter: AlpacaAdapter | undefined;
     if (bot.brokerMode === 'alpaca_paper' || bot.brokerMode === 'alpaca_live') {
@@ -258,7 +266,9 @@ class BotService {
     const runningBots = await this.repo.findAllRunning();
     await Promise.all(runningBots.map(async (bot) => {
       if (this.agents.has(bot.id)) return;
-      const seedPrice = await this.provider.getLatestPrice(bot.symbol).catch(() => null) ?? 100;
+      const seedPrice = await this.provider.getLatestPrice(bot.symbol).catch(() => null)
+        ?? bot.positionEntryPrice
+        ?? 100;
       // Alpaca bots cannot be auto-restored after restart without the user's credentials in session.
       // They are stopped and must be restarted manually.
       if (bot.brokerMode === 'alpaca_paper' || bot.brokerMode === 'alpaca_live') {

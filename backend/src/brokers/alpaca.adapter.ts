@@ -46,6 +46,14 @@ export class AlpacaAdapter {
     };
   }
 
+  async getLatestPrice(symbol: string): Promise<number> {
+    const { data } = await axios.get(
+      `https://data.alpaca.markets/v2/stocks/${encodeURIComponent(symbol)}/bars/latest`,
+      { headers: this.headers, params: { feed: 'iex' } }
+    );
+    return Number(data.bar.vw ?? data.bar.c);
+  }
+
   async executeOrder(symbol: string, side: TradeSide, quantity: number): Promise<AlpacaOrderResult> {
     const { data: order } = await axios.post(
       `${this.baseUrl}/v2/orders`,
