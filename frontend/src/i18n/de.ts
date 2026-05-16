@@ -895,6 +895,10 @@ psycho: {
   kpiWinRate: 'Gewinnrate',
   kpiTotalOps: 'Gesamte Trades',
   kpiBestDay: 'Bester Tag',
+  kpiWorstDay: 'Schlechtester Tag',
+  kpiExpectedValue: 'Erwartungswert',
+  kpiProfitFactor: 'Profit-Faktor',
+  kpiDisciplineScore: 'Disziplin-Score',
   chartDayOfWeek: 'Rentabilität nach Wochentag',
   bestDay: 'Bester Tag',
   worstDay: 'Schlechtester Tag',
@@ -923,6 +927,9 @@ psycho: {
   alertLossSpiral: 'Verlustspirale',
   insightsTitle: 'Verhaltens-Einblicke',
   bestAssetInsight: 'Dein bestes Asset ist {symbol} mit €{amount}.',
+  riskScores: 'Risiko-Scores',
+  overtradingScore: 'Overtrading',
+  impulsivityScore: 'Impulsivität',
 },
 
 // ── News Page ──

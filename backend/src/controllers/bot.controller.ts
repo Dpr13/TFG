@@ -4,7 +4,7 @@ import type { AuthRequest } from '../middleware/auth.middleware';
 
 export const createBot = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { name, symbol, strategy, initialCapital, params } = req.body;
+    const { name, symbol, strategy, brokerMode, initialCapital, params } = req.body;
     if (!name || !symbol || !strategy) {
       res.status(400).json({ error: 'name, symbol y strategy son obligatorios' });
       return;
@@ -13,16 +13,21 @@ export const createBot = async (req: AuthRequest, res: Response): Promise<void> 
       res.status(400).json({ error: 'strategy debe ser momentum o mean-reversion' });
       return;
     }
+    if (brokerMode && !['simulated', 'alpaca_paper', 'alpaca_live'].includes(brokerMode)) {
+      res.status(400).json({ error: 'brokerMode debe ser simulated, alpaca_paper o alpaca_live' });
+      return;
+    }
     if (strategy === 'momentum' && params?.fastWindow != null && params?.slowWindow != null) {
       if (params.fastWindow >= params.slowWindow) {
         res.status(400).json({ error: 'fastWindow debe ser menor que slowWindow' });
         return;
       }
     }
-    const bot = await botService.createBot(req.userId!, { name, symbol, strategy, initialCapital, params });
+    const bot = await botService.createBot(req.userId!, { name, symbol, strategy, brokerMode, initialCapital, params });
     res.status(201).json(bot);
   } catch (error) {
-    res.status(500).json({ error: 'Error al crear el bot' });
+    const msg = error instanceof Error ? error.message : 'Error al crear el bot';
+    res.status(400).json({ error: msg });
   }
 };
 

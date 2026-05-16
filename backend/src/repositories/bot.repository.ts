@@ -1,5 +1,6 @@
 import { pool } from '../config';
 import type { Bot, BotTrade, BotStatus, TradeSide, BotParams } from '../models/bot';
+import type { BrokerMode } from '../models/broker_credential';
 
 function mapBot(row: any): Bot {
   return {
@@ -9,6 +10,7 @@ function mapBot(row: any): Bot {
     symbol: row.symbol,
     strategy: row.strategy,
     status: row.status,
+    brokerMode: row.broker_mode ?? 'simulated',
     initialCapital: Number(row.initial_capital),
     currentCapital: Number(row.current_capital),
     positionSize: Number(row.position_size),
@@ -27,17 +29,19 @@ function mapTrade(row: any): BotTrade {
     quantity: Number(row.quantity),
     fillPrice: Number(row.fill_price),
     pnl: row.pnl !== null ? Number(row.pnl) : null,
+    commission: Number(row.commission ?? 0),
     executedAt: row.executed_at,
   };
 }
 
 export class BotRepository {
-  async create(userId: string, dto: { name: string; symbol: string; strategy: string; initialCapital?: number; params?: BotParams }): Promise<Bot> {
+  async create(userId: string, dto: { name: string; symbol: string; strategy: string; brokerMode?: BrokerMode; initialCapital?: number; params?: BotParams }): Promise<Bot> {
     const capital = dto.initialCapital ?? 10000;
+    const brokerMode = dto.brokerMode ?? 'simulated';
     const result = await pool.query(
-      `INSERT INTO bots (user_id, name, symbol, strategy, initial_capital, current_capital, params)
-       VALUES ($1, $2, $3, $4, $5, $5, $6) RETURNING *`,
-      [userId, dto.name, dto.symbol.toUpperCase(), dto.strategy, capital, JSON.stringify(dto.params ?? {})]
+      `INSERT INTO bots (user_id, name, symbol, strategy, broker_mode, initial_capital, current_capital, params)
+       VALUES ($1, $2, $3, $4, $5, $6, $6, $7) RETURNING *`,
+      [userId, dto.name, dto.symbol.toUpperCase(), dto.strategy, brokerMode, capital, JSON.stringify(dto.params ?? {})]
     );
     return mapBot(result.rows[0]);
   }
@@ -75,10 +79,10 @@ export class BotRepository {
     );
   }
 
-  async recordTrade(botId: string, side: TradeSide, quantity: number, fillPrice: number, pnl: number | null): Promise<BotTrade> {
+  async recordTrade(botId: string, side: TradeSide, quantity: number, fillPrice: number, pnl: number | null, commission: number = 0): Promise<BotTrade> {
     const result = await pool.query(
-      'INSERT INTO bot_trades (bot_id, side, quantity, fill_price, pnl) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [botId, side, quantity, fillPrice, pnl]
+      'INSERT INTO bot_trades (bot_id, side, quantity, fill_price, pnl, commission) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [botId, side, quantity, fillPrice, pnl, commission]
     );
     return mapTrade(result.rows[0]);
   }

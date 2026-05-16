@@ -195,6 +195,8 @@ export interface GeneralStats {
   totalOperations: number;
   totalPnL: number;
   winRate: number;
+  expectedValue: number;
+  profitFactor: number;
   bestDay: { date: string; pnl: number };
   worstDay: { date: string; pnl: number };
   bestAsset: { symbol: string; pnl: number };
@@ -229,6 +231,8 @@ export interface BehaviorStats {
   recoverySuccessRate: number;
   longestWinStreak: number;
   longestLossStreak: number;
+  overtradingScore: number;
+  impulsivityScore: number;
 }
 
 export interface RiskAlert {
@@ -243,6 +247,7 @@ export interface PsychoAnalysisSummary {
   temporalStats: TemporalStats;
   behaviorStats: BehaviorStats;
   alerts: RiskAlert[];
+  disciplineScore: number;
 }
 export interface UpdateStrategyDTO {
   name?: string;

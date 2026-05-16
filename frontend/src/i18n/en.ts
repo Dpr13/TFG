@@ -896,6 +896,10 @@ const en: Translations = {
     kpiWinRate: 'Win Rate',
     kpiTotalOps: 'Total Operations',
     kpiBestDay: 'Best Day',
+    kpiWorstDay: 'Worst Day',
+    kpiExpectedValue: 'Expected Value',
+    kpiProfitFactor: 'Profit Factor',
+    kpiDisciplineScore: 'Discipline Score',
     chartDayOfWeek: 'Profitability by Day of the Week',
     bestDay: 'Best day',
     worstDay: 'Worst day',
@@ -924,6 +928,9 @@ const en: Translations = {
     alertLossSpiral: 'Loss Spiral',
     insightsTitle: 'Behavioral Insights',
     bestAssetInsight: 'Your best asset is {symbol} with €{amount}.',
+    riskScores: 'Risk Scores',
+    overtradingScore: 'Overtrading',
+    impulsivityScore: 'Impulsivity',
   },
 
   // ── News Page ──

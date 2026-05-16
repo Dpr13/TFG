@@ -12,7 +12,8 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   }
   const token = authHeader.split(' ')[1];
   try {
-    const secret = process.env.JWT_SECRET || 'tfg_jwt_secret_2026_secure_key';
+    const secret = process.env.JWT_SECRET;
+    if (!secret) throw new Error('JWT_SECRET env variable is required');
     const decoded = jwt.verify(token, secret) as { userId: string };
     req.userId = decoded.userId;
     next();
@@ -27,7 +28,8 @@ export function optionalAuth(req: AuthRequest, res: Response, next: NextFunction
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
     try {
-      const secret = process.env.JWT_SECRET || 'tfg_jwt_secret_2026_secure_key';
+      const secret = process.env.JWT_SECRET;
+      if (!secret) throw new Error('JWT_SECRET env variable is required');
       const decoded = jwt.verify(token, secret) as { userId: string };
       req.userId = decoded.userId;
     } catch (err) {
