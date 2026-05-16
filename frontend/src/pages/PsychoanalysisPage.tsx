@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { PsychoAnalysisSummary, Strategy } from '../types';
 import { psychoanalysisService, strategyService } from '../services';
 import { useLanguage } from '../context/LanguageContext';
@@ -44,11 +44,7 @@ export default function PsychoanalysisPage() {
     strategyService.getAllStrategies().then(setStrategies).catch(console.error);
   }, []);
 
-  useEffect(() => {
-    fetchAnalysis();
-  }, [selectedStrategyId, startDate, endDate]);
-
-  const fetchAnalysis = async () => {
+  const fetchAnalysis = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -67,7 +63,11 @@ export default function PsychoanalysisPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedStrategyId, startDate, endDate, t]);
+
+  useEffect(() => {
+    fetchAnalysis();
+  }, [fetchAnalysis]);
 
   if (loading) {
     return (
@@ -258,28 +258,28 @@ export default function PsychoanalysisPage() {
         {/* KPI Cards — secondary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <KPICard
-            title={t.psycho.kpiExpectedValue ?? 'Expected Value'}
+            title={t.psycho.kpiExpectedValue}
             value={`€${generalStats.expectedValue.toFixed(2)}`}
             color={generalStats.expectedValue >= 0 ? 'green' : 'red'}
             icon={<DollarSign />}
             secondary
           />
           <KPICard
-            title={t.psycho.kpiProfitFactor ?? 'Profit Factor'}
+            title={t.psycho.kpiProfitFactor}
             value={generalStats.profitFactor.toFixed(2)}
             color={generalStats.profitFactor >= 1 ? 'green' : 'red'}
             icon={<Shield />}
             secondary
           />
           <KPICard
-            title={t.psycho.kpiWorstDay ?? 'Worst Day'}
+            title={t.psycho.kpiWorstDay}
             value={`€${generalStats.worstDay.pnl.toFixed(2)}`}
             color="red"
             icon={<TrendingDown />}
             secondary
           />
           <KPICard
-            title={t.psycho.kpiDisciplineScore ?? 'Discipline Score'}
+            title={t.psycho.kpiDisciplineScore}
             value={`${disciplineScore} / 100`}
             color={disciplineScore >= 85 ? 'green' : disciplineScore >= 50 ? 'blue' : 'red'}
             icon={<Shield />}
@@ -294,7 +294,7 @@ export default function PsychoanalysisPage() {
               <BarChart2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
               {t.psycho.chartDayOfWeek}
             </h2>
-            <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? 250 : 300}>
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart data={temporalStats.dayOfWeek}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" />
@@ -322,7 +322,7 @@ export default function PsychoanalysisPage() {
               <Target className="w-4 h-4 text-gray-500 dark:text-gray-400" />
               {t.psycho.chartWinRateByAsset}
             </h2>
-            <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? 250 : 300}>
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart data={assetStats.slice(0, 6)}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="symbol" />
@@ -410,16 +410,16 @@ export default function PsychoanalysisPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              {t.psycho.riskScores ?? 'Risk Scores'}
+              {t.psycho.riskScores}
             </h3>
             <div className="space-y-5">
               <ScoreBar
                 value={behaviorStats.overtradingScore}
-                label={t.psycho.overtradingScore ?? 'Overtrading'}
+                label={t.psycho.overtradingScore}
               />
               <ScoreBar
                 value={behaviorStats.impulsivityScore}
-                label={t.psycho.impulsivityScore ?? 'Impulsividad'}
+                label={t.psycho.impulsivityScore}
               />
             </div>
           </div>
