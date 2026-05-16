@@ -21,14 +21,12 @@ export interface GeneralStats {
   totalOperations: number;
   totalPnL: number;
   winRate: number; // porcentaje
+  expectedValue: number; // PnL medio por operación
+  profitFactor: number; // suma ganancias / suma pérdidas absolutas
   bestDay: { date: string; pnl: number };
   worstDay: { date: string; pnl: number };
   bestAsset: { symbol: string; pnl: number };
   worstAsset: { symbol: string; pnl: number };
-  // EXPANSIÓN: expectedValue?: number; // Promedio por operación
-  // EXPANSIÓN: profitFactor?: number; // Total ganancias / Total pérdidas
-  // EXPANSIÓN: maxConsecutiveWins?: number;
-  // EXPANSIÓN: maxConsecutiveLosses?: number;
 }
 
 // Rendimiento por activo
@@ -65,16 +63,14 @@ export interface TemporalStats {
 
 // Análisis de comportamiento
 export interface BehaviorStats {
-  opsAfterWin: number; // promedio
-  opsAfterLoss: number; // promedio
+  opsAfterWin: number; // fracción de ops que siguen a una ganancia
+  opsAfterLoss: number; // fracción de ops que siguen a una pérdida
   recoveryAttempts: number; // ops inmediatas post-pérdida
   recoverySuccessRate: number; // % de recuperaciones exitosas
   longestWinStreak: number;
   longestLossStreak: number;
-  // EXPANSIÓN: overTradingIndex?: number; // 0-100, detecta sobre-trading
-  // EXPANSIÓN: emotionalTrading?: boolean; // Detecta cambios de comportamiento
-  // EXPANSIÓN: averageTimeToRecovery?: number; // horas
-  // EXPANSIÓN: impulsivityScore?: number; // 0-100
+  overtradingScore: number; // 0-100: intensidad de sobreoperación detectada
+  impulsivityScore: number; // 0-100: tendencia a operar impulsivamente tras pérdidas
 }
 
 // Alerta de comportamiento de riesgo detectada automáticamente
@@ -91,6 +87,7 @@ export interface PsychoAnalysisSummary {
   temporalStats: TemporalStats;
   behaviorStats: BehaviorStats;
   alerts: RiskAlert[];
+  disciplineScore: number; // 0-100: disciplina global del operador
 }
 
 // EXPANSIONES FUTURAS:
