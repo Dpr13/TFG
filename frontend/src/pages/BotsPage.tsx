@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Bot as BotIcon, Play, Square, Trash2, Plus, TrendingUp, TrendingDown, ChevronDown, ChevronUp, X, Sparkles } from 'lucide-react';
 import { botService, autocompleteService, botStrategyService, brokerCredentialService } from '../services';
-import type { Bot, BotTrade, BotMetrics, CreateBotDTO, BotStrategy, BrokerMode, BrokerAccountBalance } from '../services';
+import type { Bot, BotTrade, BotMetrics, CreateBotDTO, BotStrategy, BrokerMode, BrokerAccountBalance, BotAlgorithm } from '../services';
 import { useLanguage } from '../context/LanguageContext';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
