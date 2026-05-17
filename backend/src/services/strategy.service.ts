@@ -61,6 +61,8 @@ export const strategyService = {
         bestTrade: 0,
         worstTrade: 0,
         totalInvested: 0,
+        maxDrawdown: 0,
+        profitFactor: 0,
       };
     }
 
@@ -69,9 +71,24 @@ export const strategyService = {
     const winningOps = operations.filter(op => op.pnl > 0);
     const winRate = (winningOps.length / operations.length) * 100;
     const avgPnL = totalPnL / operations.length;
-    const avgPnLPercentage = operations.reduce((sum, op) => sum + op.pnlPercentage, 0) / operations.length;
+    const avgPnLPercentage = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
     const bestTrade = Math.max(...operations.map(op => op.pnl));
     const worstTrade = Math.min(...operations.map(op => op.pnl));
+
+    const sorted = [...operations].sort((a, b) => a.date.localeCompare(b.date));
+    let peak = 0;
+    let cumulative = 0;
+    let maxDrawdown = 0;
+    for (const op of sorted) {
+      cumulative += op.pnl;
+      if (cumulative > peak) peak = cumulative;
+      const drawdown = cumulative - peak;
+      if (drawdown < maxDrawdown) maxDrawdown = drawdown;
+    }
+
+    const grossProfit = operations.filter(op => op.pnl > 0).reduce((sum, op) => sum + op.pnl, 0);
+    const grossLoss = Math.abs(operations.filter(op => op.pnl < 0).reduce((sum, op) => sum + op.pnl, 0));
+    const profitFactor = grossLoss === 0 ? 9999 : grossProfit / grossLoss;
 
     return {
       strategyId,
@@ -83,6 +100,8 @@ export const strategyService = {
       bestTrade,
       worstTrade,
       totalInvested,
+      maxDrawdown,
+      profitFactor,
     };
   },
 

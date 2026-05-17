@@ -35,8 +35,13 @@ export const psychoanalysisService = {
     const generalStats = calculateGeneralStats(operations);
     const assetStats = calculateAssetStats(operations);
     const temporalStats = calculateTemporalStats(operations);
-    const behaviorStats = calculateBehaviorStats(operations);
+    const baseBehaviorStats = calculateBehaviorStats(operations);
     const alerts = detectRiskAlerts(operations);
+
+    const overtradingScore = calculateOvertradingScore(operations);
+    const impulsivityScore = calculateImpulsivityScore(baseBehaviorStats, alerts);
+    const behaviorStats = { ...baseBehaviorStats, overtradingScore, impulsivityScore };
+    const disciplineScore = calculateDisciplineScore(generalStats, behaviorStats, alerts);
 
     return {
       generalStats,
@@ -44,6 +49,7 @@ export const psychoanalysisService = {
       temporalStats,
       behaviorStats,
       alerts,
+      disciplineScore,
     };
   },
 };
@@ -54,6 +60,8 @@ function getEmptySummary(): PsychoAnalysisSummary {
       totalOperations: 0,
       totalPnL: 0,
       winRate: 0,
+      expectedValue: 0,
+      profitFactor: 0,
       bestDay: { date: '', pnl: 0 },
       worstDay: { date: '', pnl: 0 },
       bestAsset: { symbol: '', pnl: 0 },
@@ -80,8 +88,11 @@ function getEmptySummary(): PsychoAnalysisSummary {
       recoverySuccessRate: 0,
       longestWinStreak: 0,
       longestLossStreak: 0,
+      overtradingScore: 0,
+      impulsivityScore: 0,
     },
     alerts: [],
+    disciplineScore: 0,
   };
 }
 
@@ -91,8 +102,12 @@ function calculateGeneralStats(operations: Operation[]): GeneralStats {
   const winRate = (wins / operations.length) * 100;
   const totalPnL = operations.reduce((sum, op) => sum + op.pnl, 0);
 
-  // EXPANSIÓN: Calcular Expected Value (promedio por operación)
-  // EXPANSIÓN: Calcular Profit Factor (ganancias totales / pérdidas totales)
+  const expectedValue = totalPnL / operations.length;
+
+  const grossWins = operations.filter(op => op.pnl > 0).reduce((sum, op) => sum + op.pnl, 0);
+  const grossLosses = Math.abs(operations.filter(op => op.pnl < 0).reduce((sum, op) => sum + op.pnl, 0));
+  // 9.99 = sin pérdidas registradas (no hay divisor); valor simbólico de máxima eficiencia
+  const profitFactor = grossLosses > 0 ? grossWins / grossLosses : grossWins > 0 ? 9.99 : 0;
 
   // Datos por día
   const statsByDate = new Map<string, number>();
@@ -132,6 +147,8 @@ function calculateGeneralStats(operations: Operation[]): GeneralStats {
     totalOperations: operations.length,
     totalPnL,
     winRate,
+    expectedValue,
+    profitFactor,
     bestDay: bestDay.date ? bestDay : { date: '', pnl: 0 },
     worstDay: worstDay.date ? worstDay : { date: '', pnl: 0 },
     bestAsset: bestAsset.symbol ? bestAsset : { symbol: '', pnl: 0 },
@@ -208,15 +225,13 @@ function calculateTemporalStats(operations: Operation[]): TemporalStats {
   };
 }
 
-// EXPANSIÓN: Aquí iría detección de sobre-trading emocional
-// EXPANSIÓN: Aquí iría cálculo de "impulsivity score" (0-100)
-// EXPANSIÓN: Aquí iría análisis de ciclos emocionales
-// EXPANSIÓN: Aquí iría generación de alertas de comportamiento riesgoso
-function calculateBehaviorStats(operations: Operation[]): BehaviorStats {
+function calculateBehaviorStats(
+  operations: Operation[]
+): Omit<BehaviorStats, 'overtradingScore' | 'impulsivityScore'> {
   const sorted = [...operations].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   let opsAfterWin = 0;
-  let opsAfterLossCount = 0;
+  let opsAfterLoss = 0;
   let recoveryAttempts = 0;
   let recoverySuccesses = 0;
   let longestWinStreak = 0;
@@ -228,21 +243,17 @@ function calculateBehaviorStats(operations: Operation[]): BehaviorStats {
     const op = sorted[i];
     const isWin = op.pnl > 0;
 
-    // Conteo de op después de win/loss
     if (i > 0) {
       const prevOp = sorted[i - 1];
       if (prevOp.pnl > 0) {
         opsAfterWin++;
       } else if (prevOp.pnl < 0) {
-        opsAfterLossCount++;
-        recoveryAttempts++; // intento de recuperación
-        if (isWin) {
-          recoverySuccesses++;
-        }
+        opsAfterLoss++;
+        recoveryAttempts++;
+        if (isWin) recoverySuccesses++;
       }
     }
 
-    // Rachas
     if (isWin) {
       currentWinStreak++;
       currentLossStreak = 0;
@@ -255,12 +266,11 @@ function calculateBehaviorStats(operations: Operation[]): BehaviorStats {
     longestLossStreak = Math.max(longestLossStreak, currentLossStreak);
   }
 
-  const countAfterLossOps = sorted.filter((op, i) => i > 0 && sorted[i - 1].pnl < 0).length;
-
+  // fracción de ops que siguen a una ganancia/pérdida sobre el total de ops con predecesor
+  const totalFollowing = sorted.length - 1;
   return {
-    opsAfterWin: countAfterLossOps > 0 ? Math.round((opsAfterWin / countAfterLossOps) * 100) / 100 : 0,
-    opsAfterLoss:
-      opsAfterLossCount > 0 ? Math.round((opsAfterLossCount / opsAfterLossCount) * 100) / 100 : 0,
+    opsAfterWin: totalFollowing > 0 ? Math.round((opsAfterWin / totalFollowing) * 100) / 100 : 0,
+    opsAfterLoss: totalFollowing > 0 ? Math.round((opsAfterLoss / totalFollowing) * 100) / 100 : 0,
     recoveryAttempts,
     recoverySuccessRate:
       recoveryAttempts > 0 ? Math.round((recoverySuccesses / recoveryAttempts) * 100) : 0,
@@ -269,18 +279,65 @@ function calculateBehaviorStats(operations: Operation[]): BehaviorStats {
   };
 }
 
+function buildOpsByDay(operations: Operation[]): { opsByDay: Map<string, number>; threshold: number } {
+  const opsByDay = new Map<string, number>();
+  operations.forEach(op => opsByDay.set(op.date, (opsByDay.get(op.date) || 0) + 1));
+  const dayCount = opsByDay.size || 1;
+  const avgDayOps = operations.length / dayCount;
+  const threshold = Math.max(8, Math.round(avgDayOps * 3));
+  return { opsByDay, threshold };
+}
+
+function calculateOvertradingScore(operations: Operation[]): number {
+  if (operations.length === 0) return 0;
+  const { opsByDay, threshold } = buildOpsByDay(operations);
+  const dayCount = opsByDay.size || 1;
+  const overtradingDays = [...opsByDay.values()].filter(count => count >= threshold).length;
+  return Math.min(100, Math.round((overtradingDays / dayCount) * 300));
+}
+
+function calculateImpulsivityScore(
+  behaviorStats: Omit<BehaviorStats, 'overtradingScore' | 'impulsivityScore'>,
+  alerts: RiskAlert[]
+): number {
+  let score = 0;
+  const total = behaviorStats.opsAfterWin + behaviorStats.opsAfterLoss;
+  if (total > 0) {
+    // más ops tras pérdida que tras ganancia = más impulsividad (hasta 40 pts)
+    score += Math.round((behaviorStats.opsAfterLoss / total) * 40);
+  }
+  if (alerts.some(a => a.type === 'revenge_trading')) score += 35;
+  if (alerts.some(a => a.type === 'loss_spiral')) score += 25;
+  return Math.min(100, score);
+}
+
+function calculateDisciplineScore(
+  generalStats: GeneralStats,
+  behaviorStats: BehaviorStats,
+  alerts: RiskAlert[]
+): number {
+  let score = 100;
+  score -= Math.round(behaviorStats.overtradingScore * 0.3);
+  score -= Math.round(behaviorStats.impulsivityScore * 0.3);
+  for (const alert of alerts) {
+    if (alert.severity === 'high') score -= 15;
+    else if (alert.severity === 'medium') score -= 8;
+    else score -= 3;
+  }
+  if (generalStats.winRate > 60) score += 10;
+  else if (generalStats.winRate > 50) score += 5;
+  return Math.max(0, Math.min(100, score));
+}
+
 function detectRiskAlerts(operations: Operation[]): RiskAlert[] {
   const alerts: RiskAlert[] = [];
   const sorted = [...operations].sort((a, b) => a.date.localeCompare(b.date));
 
   // --- Over-trading: días con volumen anormalmente alto ---
-  const opsByDay = new Map<string, number>();
-  sorted.forEach(op => opsByDay.set(op.date, (opsByDay.get(op.date) || 0) + 1));
-
+  const { opsByDay, threshold } = buildOpsByDay(operations);
+  const overtradingDays = [...opsByDay.entries()].filter(([, count]) => count >= threshold);
   const dayCount = opsByDay.size || 1;
   const avgDayOps = operations.length / dayCount;
-  const threshold = Math.max(8, Math.round(avgDayOps * 3));
-  const overtradingDays = [...opsByDay.entries()].filter(([, count]) => count >= threshold);
   const maxDayOps = Math.max(...opsByDay.values());
 
   if (overtradingDays.length > 0) {

@@ -1,12 +1,10 @@
 import { Response } from 'express';
-import { BotService } from '../services/bot.service';
+import { botService } from '../services/bot.service';
 import type { AuthRequest } from '../middleware/auth.middleware';
-
-const botService = new BotService();
 
 export const createBot = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { name, symbol, strategy, initialCapital, params } = req.body;
+    const { name, symbol, strategy, brokerMode, initialCapital, params } = req.body;
     if (!name || !symbol || !strategy) {
       res.status(400).json({ error: 'name, symbol y strategy son obligatorios' });
       return;
@@ -15,10 +13,21 @@ export const createBot = async (req: AuthRequest, res: Response): Promise<void> 
       res.status(400).json({ error: 'strategy debe ser momentum o mean-reversion' });
       return;
     }
-    const bot = await botService.createBot(req.userId!, { name, symbol, strategy, initialCapital, params });
+    if (brokerMode && !['simulated', 'alpaca_paper', 'alpaca_live'].includes(brokerMode)) {
+      res.status(400).json({ error: 'brokerMode debe ser simulated, alpaca_paper o alpaca_live' });
+      return;
+    }
+    if (strategy === 'momentum' && params?.fastWindow != null && params?.slowWindow != null) {
+      if (params.fastWindow >= params.slowWindow) {
+        res.status(400).json({ error: 'fastWindow debe ser menor que slowWindow' });
+        return;
+      }
+    }
+    const bot = await botService.createBot(req.userId!, { name, symbol, strategy, brokerMode, initialCapital, params });
     res.status(201).json(bot);
   } catch (error) {
-    res.status(500).json({ error: 'Error al crear el bot' });
+    const msg = error instanceof Error ? error.message : 'Error al crear el bot';
+    res.status(400).json({ error: msg });
   }
 };
 
@@ -75,5 +84,36 @@ export const deleteBot = async (req: AuthRequest, res: Response): Promise<void> 
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ error: 'Error al eliminar el bot' });
+  }
+};
+
+export const getBotMonthlyStats = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const year = parseInt(req.query.year as string);
+    const month = parseInt(req.query.month as string);
+    if (isNaN(year) || isNaN(month)) {
+      res.status(400).json({ error: 'year y month son obligatorios' });
+      return;
+    }
+    const botId = req.query.botId as string | undefined;
+    const stats = await botService.getMonthlyStats(req.userId!, year, month, botId);
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener estadísticas mensuales de bots' });
+  }
+};
+
+export const getBotDailyTrades = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const date = req.query.date as string;
+    if (!date) {
+      res.status(400).json({ error: 'date es obligatorio' });
+      return;
+    }
+    const botId = req.query.botId as string | undefined;
+    const trades = await botService.getDailyTrades(req.userId!, date, botId);
+    res.json(trades);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener trades del día' });
   }
 };

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Bot as BotIcon, Play, Square, Trash2, Plus, TrendingUp, TrendingDown, ChevronDown, ChevronUp, X, Sparkles } from 'lucide-react';
-import { botService, autocompleteService, botStrategyService } from '../services';
-import type { Bot, BotTrade, BotMetrics, CreateBotDTO, BotStrategy } from '../services';
+import { botService, autocompleteService, botStrategyService, brokerCredentialService } from '../services';
+import type { Bot, BotTrade, BotMetrics, CreateBotDTO, BotStrategy, BrokerMode, BrokerAccountBalance, BotAlgorithm } from '../services';
+import { useLanguage } from '../context/LanguageContext';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -28,10 +29,12 @@ const DEFAULT_FORM: CreateBotDTO = {
   name: '',
   symbol: '',
   strategy: 'momentum',
+  brokerMode: 'simulated',
   initialCapital: 10000,
 };
 
 function SymbolAutocomplete({ value, onChange }: { value: string; onChange: (symbol: string) => void }) {
+  const { t } = useLanguage();
   const [query, setQuery] = useState(value);
   const [suggestions, setSuggestions] = useState<{ symbol: string; name: string; type: string; exchange: string }[]>([]);
   const [open, setOpen] = useState(false);
@@ -69,10 +72,7 @@ function SymbolAutocomplete({ value, onChange }: { value: string; onChange: (sym
     setSuggestions([]);
   };
 
-  const typeLabel: Record<string, string> = {
-    EQUITY: 'Acción', CRYPTOCURRENCY: 'Crypto', ETF: 'ETF',
-    CURRENCY: 'Divisa', FUTURE: 'Futuro', INDEX: 'Índice',
-  };
+  const typeLabels = t.bots.typeLabels as Record<string, string>;
 
   return (
     <div ref={containerRef} className="relative">
@@ -82,7 +82,7 @@ function SymbolAutocomplete({ value, onChange }: { value: string; onChange: (sym
           value={query}
           onChange={e => { setQuery(e.target.value.toUpperCase()); onChange(''); }}
           onFocus={() => suggestions.length > 0 && setOpen(true)}
-          placeholder="Busca AAPL, BTC-USD, EURUSD=X..."
+          placeholder={t.bots.symbolSearchPlaceholder}
           className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm pr-8"
         />
         {searching && (
@@ -105,7 +105,7 @@ function SymbolAutocomplete({ value, onChange }: { value: string; onChange: (sym
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <span className="text-xs text-gray-400 dark:text-gray-500">{s.exchange}</span>
                 <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300">
-                  {typeLabel[s.type] ?? s.type}
+                  {typeLabels[s.type] ?? s.type}
                 </span>
               </div>
             </button>
@@ -117,15 +117,38 @@ function SymbolAutocomplete({ value, onChange }: { value: string; onChange: (sym
 }
 
 function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: (dto: CreateBotDTO) => Promise<void> }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState<CreateBotDTO>(DEFAULT_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedStrategies, setSavedStrategies] = useState<BotStrategy[]>([]);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string>('');
+  const [hasAlpaca, setHasAlpaca] = useState(false);
+  const [alpacaBalance, setAlpacaBalance] = useState<BrokerAccountBalance | null>(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
 
   useEffect(() => {
     botStrategyService.getAll().then(setSavedStrategies).catch(() => {});
+    brokerCredentialService.list()
+      .then(creds => setHasAlpaca(creds.some(c => c.broker === 'alpaca')))
+      .catch(() => {});
   }, []);
+
+  const handleBrokerModeChange = async (mode: BrokerMode) => {
+    setForm(f => ({ ...f, brokerMode: mode }));
+    setAlpacaBalance(null);
+    if (mode === 'alpaca_paper' || mode === 'alpaca_live') {
+      setLoadingBalance(true);
+      try {
+        const balance = await brokerCredentialService.getBalance('alpaca', mode === 'alpaca_paper');
+        setAlpacaBalance(balance);
+      } catch {
+        setError('No se pudo obtener el balance de Alpaca. Verifica tus credenciales en el perfil.');
+      } finally {
+        setLoadingBalance(false);
+      }
+    }
+  };
 
   const applyStrategy = (id: string) => {
     setSelectedStrategyId(id);
@@ -136,15 +159,15 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) { setError('El nombre es obligatorio'); return; }
-    if (!form.symbol.trim()) { setError('Selecciona un símbolo válido de la lista'); return; }
+    if (!form.name.trim()) { setError(t.bots.nameRequired); return; }
+    if (!form.symbol.trim()) { setError(t.bots.symbolRequired); return; }
     setLoading(true);
     setError(null);
     try {
       await onCreate(form);
       onClose();
-    } catch {
-      setError('Error al crear el bot');
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || t.bots.createError);
     } finally {
       setLoading(false);
     }
@@ -156,7 +179,7 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <BotIcon className="w-5 h-5 text-primary-600" />
-            Nuevo Bot
+            {t.bots.modalTitle}
           </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400">
             <X className="w-5 h-5" />
@@ -165,36 +188,36 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.bots.nameLabel}</label>
             <input
               type="text"
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="Mi Bot Momentum"
+              placeholder={t.bots.namePlaceholder}
               className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Símbolo</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.bots.symbolLabel}</label>
             <SymbolAutocomplete
               value={form.symbol}
               onChange={symbol => setForm(f => ({ ...f, symbol }))}
             />
-            <p className="mt-1 text-xs text-gray-400">Precio simulado · selecciona un símbolo de la lista</p>
+            <p className="mt-1 text-xs text-gray-400">{t.bots.symbolHint}</p>
           </div>
 
           {savedStrategies.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-primary-500" /> Usar estrategia guardada
+                <Sparkles className="w-3.5 h-3.5 text-primary-500" /> {t.bots.useSavedStrategy}
               </label>
               <select
                 value={selectedStrategyId}
                 onChange={e => applyStrategy(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm"
               >
-                <option value="">— Sin estrategia guardada —</option>
+                <option value="">{t.bots.noSavedStrategy}</option>
                 {savedStrategies.map(s => (
                   <option key={s.id} value={s.id}>{s.name} ({s.algorithm})</option>
                 ))}
@@ -202,20 +225,59 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
             </div>
           )}
 
+          {!selectedStrategyId && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.bots.algorithmLabel}</label>
+              <select
+                value={form.strategy}
+                onChange={e => setForm(f => ({ ...f, strategy: e.target.value as BotAlgorithm }))}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm"
+              >
+                <option value="momentum">{t.bots.momentumAlgo}</option>
+                <option value="mean-reversion">{t.bots.meanReversionAlgo}</option>
+              </select>
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Algoritmo</label>
-            <select
-              value={form.strategy}
-              onChange={e => { setSelectedStrategyId(''); setForm(f => ({ ...f, strategy: e.target.value as any })); }}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm"
-            >
-              <option value="momentum">Momentum (Doble Media Móvil)</option>
-              <option value="mean-reversion">Mean Reversion (Bandas de Bollinger)</option>
-            </select>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Modo de ejecución</label>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { value: 'simulated', label: 'Simulado', desc: 'Sin broker real', color: 'gray' },
+                { value: 'alpaca_paper', label: 'Alpaca Paper', desc: 'Demo Alpaca', color: 'blue' },
+                { value: 'alpaca_live', label: 'Alpaca Live', desc: '⚠ Dinero real', color: 'orange' },
+              ] as { value: BrokerMode; label: string; desc: string; color: string }[]).map(opt => {
+                const disabled = opt.value !== 'simulated' && !hasAlpaca;
+                const selected = form.brokerMode === opt.value;
+                const borderColor = selected
+                  ? opt.color === 'blue' ? 'border-blue-500' : opt.color === 'orange' ? 'border-orange-500' : 'border-gray-500'
+                  : 'border-gray-200 dark:border-gray-600';
+                const bgColor = selected
+                  ? opt.color === 'blue' ? 'bg-blue-50 dark:bg-blue-900/20' : opt.color === 'orange' ? 'bg-orange-50 dark:bg-orange-900/20' : 'bg-gray-100 dark:bg-gray-600'
+                  : 'bg-white dark:bg-gray-700';
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => handleBrokerModeChange(opt.value)}
+                    className={`flex flex-col items-center p-2 rounded-lg border-2 text-xs transition-colors ${borderColor} ${bgColor} disabled:opacity-40 disabled:cursor-not-allowed`}
+                  >
+                    <span className="font-semibold text-gray-900 dark:text-white">{opt.label}</span>
+                    <span className="text-gray-400 dark:text-gray-500 mt-0.5">{opt.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {!hasAlpaca && (
+              <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                Conecta Alpaca en tu perfil para usar los modos paper y live.
+              </p>
+            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Capital inicial ($)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.bots.capitalLabel}</label>
             <input
               type="number"
               min={100}
@@ -224,6 +286,14 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
               onChange={e => setForm(f => ({ ...f, initialCapital: Number(e.target.value) }))}
               className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm"
             />
+            {loadingBalance && (
+              <p className="mt-1 text-xs text-gray-400 animate-pulse">Obteniendo balance…</p>
+            )}
+            {alpacaBalance && !loadingBalance && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Buying power disponible: <span className="font-semibold text-gray-900 dark:text-white">${alpacaBalance.buyingPower.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </p>
+            )}
           </div>
 
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -234,14 +304,14 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
               onClick={onClose}
               className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
-              Cancelar
+              {t.bots.cancelBtn}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="flex-1 px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
             >
-              {loading ? 'Creando…' : 'Crear Bot'}
+              {loading ? t.bots.creating : t.bots.createBtn}
             </button>
           </div>
         </form>
@@ -253,17 +323,18 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
 // ─── Bot Detail Panel ─────────────────────────────────────────────────────────
 
 function BotDetail({ bot }: { bot: Bot }) {
+  const { t } = useLanguage();
   const [trades, setTrades] = useState<BotTrade[]>([]);
   const [metrics, setMetrics] = useState<BotMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const [t, m] = await Promise.all([
+      const [tr, m] = await Promise.all([
         botService.getTrades(bot.id),
         botService.getMetrics(bot.id),
       ]);
-      setTrades(t);
+      setTrades(tr);
       setMetrics(m);
     } catch {
       // silent
@@ -274,24 +345,20 @@ function BotDetail({ bot }: { bot: Bot }) {
 
   useEffect(() => {
     load();
-    if (bot.status === 'running') {
-      const interval = setInterval(load, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [load, bot.status]);
+  }, [load, bot.updatedAt]);
 
-  if (loading) return <div className="p-4 text-sm text-gray-400 animate-pulse">Cargando…</div>;
+  if (loading) return <div className="p-4 text-sm text-gray-400 animate-pulse">{t.bots.loading}</div>;
 
   return (
     <div className="space-y-4 p-4">
-      {/* Metrics */}
       {metrics && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[
-            { label: 'Capital actual', value: fmtCurrency(metrics.currentCapital) },
-            { label: 'PnL total', value: <PnlBadge value={metrics.totalPnl} pct={metrics.pnlPct} /> },
-            { label: 'Win rate', value: `${fmt(metrics.winRate * 100)}%` },
-            { label: 'Trades', value: `${metrics.totalTrades}` },
+            { label: t.bots.currentCapital, value: fmtCurrency(metrics.currentCapital) },
+            { label: t.bots.totalPnl, value: <PnlBadge value={metrics.totalPnl} pct={metrics.pnlPct} /> },
+            { label: t.bots.winRate, value: `${fmt(metrics.winRate * 100)}%` },
+            { label: t.bots.tradesLabel, value: `${metrics.totalTrades}` },
+            { label: 'Comisiones pagadas', value: fmtCurrency(metrics.totalCommissions) },
           ].map(({ label, value }) => (
             <div key={label} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
@@ -301,48 +368,47 @@ function BotDetail({ bot }: { bot: Bot }) {
         </div>
       )}
 
-      {/* Trades table */}
       <div>
-        <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Historial de trades</h4>
+        <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">{t.bots.tradeHistory}</h4>
         {trades.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500">Sin trades todavía. Inicia el bot para comenzar.</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500">{t.bots.noTrades}</p>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
             <table className="min-w-full text-xs">
               <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 <tr>
-                  <th className="px-3 py-2 text-left">Lado</th>
-                  <th className="px-3 py-2 text-right">Cantidad</th>
-                  <th className="px-3 py-2 text-right">Precio</th>
-                  <th className="px-3 py-2 text-right">PnL</th>
-                  <th className="px-3 py-2 text-left">Hora</th>
+                  <th className="px-3 py-2 text-left">{t.bots.colSide}</th>
+                  <th className="px-3 py-2 text-right">{t.bots.colQuantity}</th>
+                  <th className="px-3 py-2 text-right">{t.bots.colPrice}</th>
+                  <th className="px-3 py-2 text-right">{t.bots.colPnl}</th>
+                  <th className="px-3 py-2 text-left">{t.bots.colTime}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {trades.slice(0, 50).map(t => (
-                  <tr key={t.id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                {trades.slice(0, 50).map(tr => (
+                  <tr key={tr.id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                     <td className="px-3 py-2">
-                      <span className={`font-semibold ${t.side === 'BUY' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {t.side}
+                      <span className={`font-semibold ${tr.side === 'BUY' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {tr.side}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">{fmt(t.quantity, 4)}</td>
-                    <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">{fmt(t.fillPrice, 4)}</td>
+                    <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">{fmt(tr.quantity, 4)}</td>
+                    <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">{fmt(tr.fillPrice, 4)}</td>
                     <td className="px-3 py-2 text-right">
-                      {t.pnl !== null ? (() => {
-                        const positive = t.pnl >= 0;
-                        const entryPrice = t.fillPrice - t.pnl / t.quantity;
-                        const pct = (t.pnl / (entryPrice * t.quantity)) * 100;
+                      {tr.pnl !== null ? (() => {
+                        const positive = tr.pnl >= 0;
+                        const entryPrice = tr.fillPrice - tr.pnl / tr.quantity;
+                        const pct = (tr.pnl / (entryPrice * tr.quantity)) * 100;
                         return (
                           <span className={positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                            {positive ? '+' : ''}{fmt(t.pnl)} $
+                            {positive ? '+' : ''}{fmt(tr.pnl)} $
                             <span className="opacity-75 ml-1">({positive ? '+' : ''}{fmt(pct, 2)}%)</span>
                           </span>
                         );
                       })() : <span className="text-gray-400">—</span>}
                     </td>
                     <td className="px-3 py-2 text-gray-500 dark:text-gray-400">
-                      {new Date(t.executedAt).toLocaleTimeString('es-ES')}
+                      {new Date(tr.executedAt).toLocaleTimeString()}
                     </td>
                   </tr>
                 ))}
@@ -363,6 +429,7 @@ function BotCard({ bot, onStart, onStop, onDelete }: {
   onStop: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -385,9 +452,7 @@ function BotCard({ bot, onStart, onStop, onDelete }: {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-      {/* Header row */}
       <div className="flex items-center gap-4 p-4">
-        {/* Status indicator */}
         <div className={`w-3 h-3 rounded-full flex-shrink-0 ${running ? 'bg-green-500 animate-pulse' : 'bg-gray-300 dark:bg-gray-600'}`} />
 
         <div className="flex-1 min-w-0">
@@ -399,21 +464,35 @@ function BotCard({ bot, onStart, onStop, onDelete }: {
             <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
               {bot.strategy}
             </span>
+            {bot.brokerMode === 'simulated' && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 font-medium">
+                SIMULADO
+              </span>
+            )}
+            {bot.brokerMode === 'alpaca_paper' && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">
+                ALPACA PAPER
+              </span>
+            )}
+            {bot.brokerMode === 'alpaca_live' && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 font-semibold">
+                ⚠ ALPACA LIVE
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
-            <span>Valor: {fmtCurrency(totalValue)}</span>
+            <span>{t.bots.valueLabel}: {fmtCurrency(totalValue)}</span>
             {bot.positionSize > 0 && (
               <span className="text-gray-400 dark:text-gray-500">
-                (efectivo {fmtCurrency(bot.currentCapital)})
+                ({t.bots.cashLabel} {fmtCurrency(bot.currentCapital)})
               </span>
             )}
             <PnlBadge value={pnl} pct={(pnl / bot.initialCapital) * 100} />
           </div>
-          {/* Precio en tiempo real + señal + posición */}
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {bot.currentPrice != null && bot.currentPrice > 0 && (
               <span className="inline-flex items-center gap-1 text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md font-mono">
-                <span className="text-gray-500 dark:text-gray-400">Precio {bot.symbol}:</span>
+                <span className="text-gray-500 dark:text-gray-400">{t.bots.priceLabel} {bot.symbol}:</span>
                 <span className="text-gray-900 dark:text-white font-bold">${fmt(bot.currentPrice, 4)}</span>
               </span>
             )}
@@ -434,7 +513,7 @@ function BotCard({ bot, onStart, onStop, onDelete }: {
                   positive ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
                            : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
                 }`}>
-                  <span className="opacity-70">Entrada ${fmt(bot.positionEntryPrice, 4)} →</span>
+                  <span className="opacity-70">{t.bots.entryLabel} ${fmt(bot.positionEntryPrice, 4)} →</span>
                   <span className="font-bold">{positive ? '+' : ''}{fmt(unrealized, 2)}$</span>
                 </span>
               );
@@ -442,12 +521,11 @@ function BotCard({ bot, onStart, onStop, onDelete }: {
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
             onClick={handleToggle}
             disabled={actionLoading}
-            title={running ? 'Detener' : 'Iniciar'}
+            title={running ? t.bots.stopTitle : t.bots.startTitle}
             className={`p-2 rounded-xl transition-colors disabled:opacity-50 ${running
               ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40'
               : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40'
@@ -458,7 +536,7 @@ function BotCard({ bot, onStart, onStop, onDelete }: {
           <button
             onClick={() => onDelete(bot.id)}
             disabled={running}
-            title="Eliminar"
+            title={t.bots.deleteTitle}
             className="p-2 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-30"
           >
             <Trash2 className="w-4 h-4" />
@@ -472,7 +550,6 @@ function BotCard({ bot, onStart, onStop, onDelete }: {
         </div>
       </div>
 
-      {/* Expandable detail */}
       {expanded && (
         <div className="border-t border-gray-100 dark:border-gray-700">
           <BotDetail bot={bot} />
@@ -485,6 +562,7 @@ function BotCard({ bot, onStart, onStop, onDelete }: {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BotsPage() {
+  const { t } = useLanguage();
   const [bots, setBots] = useState<Bot[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -502,13 +580,14 @@ export default function BotsPage() {
 
   useEffect(() => {
     fetchBots();
-    const interval = setInterval(fetchBots, 3000);
+    const interval = setInterval(fetchBots, 15000);
     return () => clearInterval(interval);
   }, [fetchBots]);
 
   const handleCreate = async (dto: CreateBotDTO) => {
     const bot = await botService.createBot(dto);
     setBots(prev => [bot, ...prev]);
+    // throws on error — modal catches and shows message
   };
 
   const handleStart = async (id: string) => {
@@ -522,24 +601,25 @@ export default function BotsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar este bot y todos sus trades?')) return;
+    if (!confirm(t.bots.deleteConfirm)) return;
     await botService.deleteBot(id);
     setBots(prev => prev.filter(b => b.id !== id));
   };
 
   const runningCount = bots.filter(b => b.status === 'running').length;
+  const activeLabel = (runningCount === 1 ? t.bots.activeCount : t.bots.activeCountPlural)
+    .replace('{n}', String(runningCount));
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
-      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
             <BotIcon className="w-7 h-7 text-primary-600" />
-            Paper Trading
+            {t.bots.pageTitle}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Bots de trading simulado · sin dinero real · {runningCount} activo{runningCount !== 1 ? 's' : ''}
+            {t.bots.subtitle} · {t.bots.activeCount.replace('{n}', '') === t.bots.activeCountPlural.replace('{n}', '') ? activeLabel : activeLabel}
           </p>
         </div>
         <button
@@ -547,16 +627,14 @@ export default function BotsPage() {
           className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm"
         >
           <Plus className="w-4 h-4" />
-          Nuevo Bot
+          {t.bots.newBot}
         </button>
       </div>
 
-      {/* Info banner */}
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
-        Los bots operan con <strong>precios simulados</strong> generados localmente. Cada tick se genera cada 3 segundos con variación aleatoria realista.
+        {t.bots.infoBanner}
       </div>
 
-      {/* Bot list */}
       {loading ? (
         <div className="space-y-3">
           {[1, 2].map(i => (
@@ -566,13 +644,13 @@ export default function BotsPage() {
       ) : bots.length === 0 ? (
         <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-300 dark:border-gray-600">
           <BotIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400 font-medium">No tienes ningún bot todavía</p>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Crea uno para empezar a practicar estrategias</p>
+          <p className="text-gray-500 dark:text-gray-400 font-medium">{t.bots.noBotsTitle}</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">{t.bots.createPractice}</p>
           <button
             onClick={() => setShowModal(true)}
             className="mt-4 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold transition-colors"
           >
-            Crear mi primer bot
+            {t.bots.createMyFirst}
           </button>
         </div>
       ) : (

@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { PriceService } from '../services/price.service';
+import { YahooFinanceMarketDataProvider } from '../providers/YahooFinanceMarketDataProvider';
 
-// Create a single instance of PriceService
 const priceService = new PriceService();
+const quoteProvider = new YahooFinanceMarketDataProvider();
 
 /**
  * Controller for price-related endpoints
@@ -50,5 +51,16 @@ export const getPriceHistory = async (req: Request, res: Response) => {
       error: 'Failed to fetch price history',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
+  }
+};
+
+export const getQuote = async (req: Request, res: Response): Promise<void> => {
+  const symbol = Array.isArray(req.params.symbol) ? req.params.symbol[0] : req.params.symbol;
+  try {
+    const price = await quoteProvider.getLatestPrice(symbol);
+    if (price === null) { res.status(404).json({ error: `No se encontró precio para ${symbol}` }); return; }
+    res.json({ symbol: symbol.toUpperCase(), price });
+  } catch {
+    res.status(503).json({ error: 'Proveedor no disponible' });
   }
 };

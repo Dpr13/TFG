@@ -52,6 +52,7 @@ export default function DailyOperationsModal({
 
   const [formData, setFormData] = useState({
     symbol: '',
+    type: 'long' as 'long' | 'short',
     quantity: '',
     buyPrice: '',
     sellPrice: '',
@@ -153,6 +154,7 @@ export default function DailyOperationsModal({
       const operationData: CreateOperationDTO = {
         date,
         symbol: formData.symbol.toUpperCase(),
+        type: formData.type,
         quantity: parseFloat(formData.quantity),
         buyPrice: parseFloat(formData.buyPrice),
         sellPrice: parseFloat(formData.sellPrice),
@@ -161,7 +163,7 @@ export default function DailyOperationsModal({
       };
 
       await operationService.createOperation(operationData);
-      setFormData({ symbol: '', quantity: '', buyPrice: '', sellPrice: '', strategyId: '', notes: '' });
+      setFormData({ symbol: '', type: 'long', quantity: '', buyPrice: '', sellPrice: '', strategyId: '', notes: '' });
       setShowSuggestions(false);
       onOperationAdded();
     } catch (err) {
@@ -251,7 +253,7 @@ export default function DailyOperationsModal({
             {operations.length === 0 ? (
               <p className="text-gray-500 dark:text-gray-400">No hay operaciones para este día</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
                 {operations.map((op) => (
                   <div
                     key={op.id}
@@ -262,12 +264,19 @@ export default function DailyOperationsModal({
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-lg text-gray-900 dark:text-white">
                             {op.symbol}
                           </span>
+                          <span className={`px-2 py-0.5 text-xs font-bold rounded-full uppercase tracking-wide ${
+                            (op.type ?? 'long') === 'long'
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                              : 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                          }`}>
+                            {(op.type ?? 'long') === 'long' ? 'LONG' : 'SHORT'}
+                          </span>
                           <span className="text-gray-600 dark:text-gray-400">
-                            {op.quantity} unidades
+                            {op.quantity} uds
                           </span>
                         </div>
                         <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
@@ -316,6 +325,25 @@ export default function DailyOperationsModal({
                 Añadir Operación
               </h3>
               <form onSubmit={handleAddOperation} className="space-y-4">
+                {/* Long / Short toggle */}
+                <div className="flex gap-2">
+                  {(['long', 'short'] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, type: t })}
+                      className={`flex-1 py-2 rounded-lg text-sm font-bold uppercase tracking-wide border-2 transition-colors ${
+                        formData.type === t
+                          ? t === 'long'
+                            ? 'bg-blue-600 border-blue-600 text-white'
+                            : 'bg-purple-600 border-purple-600 text-white'
+                          : 'bg-transparent border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400'
+                      }`}
+                    >
+                      {t === 'long' ? '↑ Long' : '↓ Short'}
+                    </button>
+                  ))}
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   {/* Symbol Input with Autocomplete */}
                   <div className="relative" ref={symbolInputRef}>
