@@ -463,6 +463,7 @@ export default function ProfilePage() {
             </h3>
             {!showPasswordSection && (
               <button
+                type="button"
                 onClick={() => {
                   setShowPasswordSection(true);
                   setPasswordError(null);
