@@ -10,6 +10,7 @@ function mapOperationFromDb(row: any): Operation {
       ? `${row.date.getFullYear()}-${String(row.date.getMonth() + 1).padStart(2, '0')}-${String(row.date.getDate()).padStart(2, '0')}`
       : row.date,
     symbol: row.symbol,
+    type: row.type ?? 'long',
     quantity: parseFloat(row.quantity),
     buyPrice: parseFloat(row.buy_price),
     sellPrice: parseFloat(row.sell_price),
@@ -42,11 +43,12 @@ export const operationRepository = {
   async create(dto: CreateOperationDTO): Promise<Operation> {
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
+    const type = dto.type ?? 'long';
     const pnl = (dto.sellPrice - dto.buyPrice) * dto.quantity;
     const pnlPercentage = ((dto.sellPrice - dto.buyPrice) / dto.buyPrice) * 100;
-    const query = `INSERT INTO operations (id, user_id, date, symbol, quantity, buy_price, sell_price, pnl, pnl_percentage, strategy_id, notes, created_at, updated_at)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`;
-    const values = [id, dto.userId, dto.date, dto.symbol, dto.quantity, dto.buyPrice, dto.sellPrice, pnl, pnlPercentage, dto.strategyId ?? null, dto.notes ?? null, now, now];
+    const query = `INSERT INTO operations (id, user_id, date, symbol, type, quantity, buy_price, sell_price, pnl, pnl_percentage, strategy_id, notes, created_at, updated_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`;
+    const values = [id, dto.userId, dto.date, dto.symbol, type, dto.quantity, dto.buyPrice, dto.sellPrice, pnl, pnlPercentage, dto.strategyId ?? null, dto.notes ?? null, now, now];
     const result = await pool.query(query, values);
     return mapOperationFromDb(result.rows[0]);
   },
@@ -84,13 +86,14 @@ export const operationRepository = {
     const buyPrice = dto.buyPrice ?? op.buy_price;
     const sellPrice = dto.sellPrice ?? op.sell_price;
     const quantity = dto.quantity ?? op.quantity;
+    const type = dto.type ?? op.type ?? 'long';
     const pnl = (sellPrice - buyPrice) * quantity;
     const pnlPercentage = ((sellPrice - buyPrice) / buyPrice) * 100;
     const query = `UPDATE operations SET
-      date = $3, symbol = $4, quantity = $5, buy_price = $6, sell_price = $7,
-      pnl = $8, pnl_percentage = $9, strategy_id = $10, notes = $11, updated_at = $12
+      date = $3, symbol = $4, type = $5, quantity = $6, buy_price = $7, sell_price = $8,
+      pnl = $9, pnl_percentage = $10, strategy_id = $11, notes = $12, updated_at = $13
       WHERE id = $1 AND user_id = $2 RETURNING *`;
-    const values = [id, userId, (dto as any).date ?? op.date, dto.symbol ?? op.symbol, quantity, buyPrice, sellPrice, pnl, pnlPercentage, dto.strategyId ?? op.strategy_id, dto.notes ?? op.notes, now];
+    const values = [id, userId, (dto as any).date ?? op.date, dto.symbol ?? op.symbol, type, quantity, buyPrice, sellPrice, pnl, pnlPercentage, dto.strategyId ?? op.strategy_id, dto.notes ?? op.notes, now];
     const result = await pool.query(query, values);
     return result.rows[0] ? mapOperationFromDb(result.rows[0]) : undefined;
   },

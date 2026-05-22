@@ -77,4 +77,6 @@ export interface StrategyPerformance {
   bestTrade: number;
   worstTrade: number;
   totalInvested: number;
+  maxDrawdown: number;    // max peak-to-trough loss in currency (always <= 0)
+  profitFactor: number;   // grossProfit / |grossLoss|; 9999 = no losing trades
 }

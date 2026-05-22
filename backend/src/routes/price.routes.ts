@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { getPriceHistory } from '../controllers/price.controller';
+import { getPriceHistory, getQuote } from '../controllers/price.controller';
 
 const router = Router();
 
-// GET /api/assets/:symbol/history
 router.get('/assets/:symbol/history', getPriceHistory);
+router.get('/quote/:symbol', getQuote);
 
 export default router;

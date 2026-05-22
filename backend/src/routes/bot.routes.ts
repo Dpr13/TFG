@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
-import { createBot, getUserBots, startBot, stopBot, getBotTrades, getBotMetrics, deleteBot } from '../controllers/bot.controller';
+import { createBot, getUserBots, startBot, stopBot, getBotTrades, getBotMetrics, deleteBot, getBotMonthlyStats, getBotDailyTrades } from '../controllers/bot.controller';
 
 const router = Router();
 
 router.get('/bots', requireAuth, getUserBots);
 router.post('/bots', requireAuth, createBot);
+// Calendar endpoints — must be defined before /:id routes to avoid param collision
+router.get('/bots/trades/monthly', requireAuth, getBotMonthlyStats);
+router.get('/bots/trades/daily', requireAuth, getBotDailyTrades);
 router.post('/bots/:id/start', requireAuth, startBot);
 router.post('/bots/:id/stop', requireAuth, stopBot);
 router.get('/bots/:id/trades', requireAuth, getBotTrades);

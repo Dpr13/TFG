@@ -331,13 +331,31 @@ export interface AddToWatchlistDTO {
   assetType: 'stock' | 'crypto' | 'forex';
 }
 
+export type BrokerMode = 'simulated' | 'alpaca_paper' | 'alpaca_live';
+
+export interface BrokerCredential {
+  id: string;
+  userId: string;
+  broker: 'alpaca';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BrokerAccountBalance {
+  broker: 'alpaca';
+  cash: number;
+  buyingPower: number;
+  portfolioValue: number;
+}
+
 export interface Bot {
   id: string;
   userId: string;
   name: string;
   symbol: string;
-  strategy: 'momentum' | 'mean-reversion';
+  strategy: BotAlgorithm;
   status: 'running' | 'stopped';
+  brokerMode: BrokerMode;
   initialCapital: number;
   currentCapital: number;
   positionSize: number;
@@ -356,6 +374,7 @@ export interface BotTrade {
   quantity: number;
   fillPrice: number;
   pnl: number | null;
+  commission: number;
   executedAt: string;
 }
 
@@ -365,6 +384,7 @@ export interface BotMetrics {
   winRate: number;
   totalPnl: number;
   pnlPct: number;
+  totalCommissions: number;
   currentCapital: number;
   positionSize: number;
 }
@@ -372,10 +392,13 @@ export interface BotMetrics {
 export interface CreateBotDTO {
   name: string;
   symbol: string;
-  strategy: 'momentum' | 'mean-reversion';
+  strategy: BotAlgorithm;
+  brokerMode?: BrokerMode;
   initialCapital?: number;
   params?: BotStrategyParams;
 }
+
+export type BotAlgorithm = 'momentum' | 'mean-reversion' | 'rsi';
 
 export interface BotStrategyParams {
   fastWindow?: number;
@@ -383,6 +406,9 @@ export interface BotStrategyParams {
   thresholdPct?: number;
   window?: number;
   k?: number;
+  rsiPeriod?: number;
+  rsiOverbought?: number;
+  rsiOversold?: number;
   [key: string]: number | undefined;
 }
 
@@ -390,7 +416,7 @@ export interface BotStrategy {
   id: string;
   userId: string;
   name: string;
-  algorithm: 'momentum' | 'mean-reversion';
+  algorithm: BotAlgorithm;
   description?: string;
   params: BotStrategyParams;
   createdAt: string;
@@ -399,7 +425,7 @@ export interface BotStrategy {
 
 export interface CreateBotStrategyDTO {
   name: string;
-  algorithm: 'momentum' | 'mean-reversion';
+  algorithm: BotAlgorithm;
   description?: string;
   params: BotStrategyParams;
 }
@@ -463,6 +489,93 @@ export const botService = {
 
   deleteBot: async (id: string): Promise<void> => {
     await apiClient.delete(`/bots/${id}`);
+  },
+
+  getMonthlyStats: async (year: number, month: number, botId?: string): Promise<import('../types').BotDailyStats[]> => {
+    const params: Record<string, string> = { year: String(year), month: String(month) };
+    if (botId) params.botId = botId;
+    const response = await apiClient.get<import('../types').BotDailyStats[]>('/bots/trades/monthly', { params });
+    return response.data;
+  },
+
+  getDailyTrades: async (date: string, botId?: string): Promise<import('../types').BotTradeWithBot[]> => {
+    const params: Record<string, string> = { date };
+    if (botId) params.botId = botId;
+    const response = await apiClient.get<import('../types').BotTradeWithBot[]>('/bots/trades/daily', { params });
+    return response.data;
+  },
+};
+
+export const quoteService = {
+  getPrice: async (symbol: string): Promise<number | null> => {
+    try {
+      const r = await apiClient.get<{ symbol: string; price: number }>(`/quote/${encodeURIComponent(symbol)}`);
+      return r.data.price;
+    } catch {
+      return null;
+    }
+  },
+};
+
+export const positionService = {
+  openPosition: async (dto: import('../types').OpenPositionDTO): Promise<{ position: import('../types').Position; trade: import('../types').PositionTrade }> => {
+    const r = await apiClient.post('/positions', dto);
+    return r.data;
+  },
+
+  closePosition: async (id: string, dto: import('../types').ClosePositionDTO): Promise<{ position: import('../types').Position; trade: import('../types').PositionTrade }> => {
+    const r = await apiClient.post(`/positions/${id}/close`, dto);
+    return r.data;
+  },
+
+  getOpenPositions: async (): Promise<import('../types').Position[]> => {
+    const r = await apiClient.get<import('../types').Position[]>('/positions/open');
+    return r.data;
+  },
+
+  getAllPositions: async (): Promise<import('../types').Position[]> => {
+    const r = await apiClient.get<import('../types').Position[]>('/positions');
+    return r.data;
+  },
+
+  getPositionTrades: async (id: string): Promise<import('../types').PositionTrade[]> => {
+    const r = await apiClient.get<import('../types').PositionTrade[]>(`/positions/${id}/trades`);
+    return r.data;
+  },
+
+  getDailyTrades: async (date: string): Promise<import('../types').PositionTrade[]> => {
+    const r = await apiClient.get<import('../types').PositionTrade[]>('/positions/trades/daily', { params: { date } });
+    return r.data;
+  },
+
+  getMonthlyStats: async (year: number, month: number): Promise<import('../types').PositionDailyStats[]> => {
+    const r = await apiClient.get<import('../types').PositionDailyStats[]>('/positions/stats/monthly', { params: { year, month } });
+    return r.data;
+  },
+
+  deletePosition: async (id: string): Promise<void> => {
+    await apiClient.delete(`/positions/${id}`);
+  },
+};
+
+export const brokerCredentialService = {
+  list: async (): Promise<BrokerCredential[]> => {
+    const response = await apiClient.get<BrokerCredential[]>('/broker-credentials');
+    return response.data;
+  },
+
+  save: async (broker: 'alpaca', apiKey: string, apiSecret: string): Promise<BrokerCredential> => {
+    const response = await apiClient.post<BrokerCredential>('/broker-credentials', { broker, apiKey, apiSecret });
+    return response.data;
+  },
+
+  remove: async (broker: 'alpaca'): Promise<void> => {
+    await apiClient.delete(`/broker-credentials/${broker}`);
+  },
+
+  getBalance: async (broker: 'alpaca', isPaper: boolean = true): Promise<BrokerAccountBalance> => {
+    const response = await apiClient.get<BrokerAccountBalance>(`/broker-credentials/${broker}/balance`, { params: { isPaper } });
+    return response.data;
   },
 };
 

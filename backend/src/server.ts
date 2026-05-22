@@ -2,6 +2,7 @@ import dns from 'node:dns';
 import http from 'node:http';
 import app from './app';
 import { pool } from './config';
+import { botService } from './services/bot.service';
 
 // Forzar que el sistema prefiera IPv4 globalmente en este proceso (Node 17+)
 if (typeof dns.setDefaultResultOrder === 'function') {
@@ -23,6 +24,8 @@ server.listen(PORT, async () => {
     console.log('✅ Conexión exitosa a PostgreSQL');
     console.log('   Fecha/hora actual:', result.rows[0].now);
     console.log('   Versión:', result.rows[0].version.split(',')[0]);
+
+    await botService.restoreRunningBots();
   } catch (err) {
     console.error('❌ Error de conexión a PostgreSQL:');
     if (err instanceof Error) {
