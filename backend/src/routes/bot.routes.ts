@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
-import { createBot, getUserBots, startBot, stopBot, getBotTrades, getBotMetrics, deleteBot, getBotMonthlyStats, getBotDailyTrades } from '../controllers/bot.controller';
+import { createBot, getUserBots, startBot, stopBot, pauseBot, closePosition, getMarketStatus, getBotTrades, getBotMetrics, deleteBot, getBotMonthlyStats, getBotDailyTrades } from '../controllers/bot.controller';
 
 const router = Router();
 
@@ -11,6 +11,9 @@ router.get('/bots/trades/monthly', requireAuth, getBotMonthlyStats);
 router.get('/bots/trades/daily', requireAuth, getBotDailyTrades);
 router.post('/bots/:id/start', requireAuth, startBot);
 router.post('/bots/:id/stop', requireAuth, stopBot);
+router.post('/bots/:id/pause', requireAuth, pauseBot);
+router.post('/bots/:id/close-position', requireAuth, closePosition);
+router.get('/bots/:id/market-status', requireAuth, getMarketStatus);
 router.get('/bots/:id/trades', requireAuth, getBotTrades);
 router.get('/bots/:id/metrics', requireAuth, getBotMetrics);
 router.delete('/bots/:id', requireAuth, deleteBot);

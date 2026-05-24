@@ -345,7 +345,7 @@ export interface Bot {
   name: string;
   symbol: string;
   strategy: BotAlgorithm;
-  status: 'running' | 'stopped';
+  status: 'running' | 'paused' | 'stopped';
   brokerMode: BrokerMode;
   initialCapital: number;
   currentCapital: number;
@@ -353,7 +353,7 @@ export interface Bot {
   positionEntryPrice: number | null;
   currentPrice?: number;
   lastSignal?: 'BUY' | 'SELL' | 'HOLD';
-  params: Record<string, number>;
+  params: BotStrategyParams;
   createdAt: string;
   updatedAt: string;
 }
@@ -374,10 +374,13 @@ export interface BotMetrics {
   winningTrades: number;
   winRate: number;
   totalPnl: number;
+  unrealizedPnl: number;
+  effectiveCapital: number;
   pnlPct: number;
   totalCommissions: number;
   currentCapital: number;
   positionSize: number;
+  positionEntryPrice: number | null;
 }
 
 export interface CreateBotDTO {
@@ -400,6 +403,7 @@ export interface BotStrategyParams {
   rsiPeriod?: number;
   rsiOverbought?: number;
   rsiOversold?: number;
+  stopLossPct?: number;
   [key: string]: number | undefined;
 }
 
@@ -465,6 +469,21 @@ export const botService = {
 
   stopBot: async (id: string): Promise<Bot> => {
     const response = await apiClient.post<Bot>(`/bots/${id}/stop`);
+    return response.data;
+  },
+
+  pauseBot: async (id: string): Promise<Bot> => {
+    const response = await apiClient.post<Bot>(`/bots/${id}/pause`);
+    return response.data;
+  },
+
+  closePosition: async (id: string): Promise<Bot> => {
+    const response = await apiClient.post<Bot>(`/bots/${id}/close-position`);
+    return response.data;
+  },
+
+  getMarketStatus: async (id: string): Promise<{ open: boolean }> => {
+    const response = await apiClient.get<{ open: boolean }>(`/bots/${id}/market-status`);
     return response.data;
   },
 

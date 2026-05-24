@@ -4,6 +4,10 @@ import type { TradeSide } from '../models/bot';
 const PAPER_BASE = 'https://paper-api.alpaca.markets';
 const LIVE_BASE = 'https://api.alpaca.markets';
 
+function ts(): string {
+  return new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
 const POLL_INTERVAL_MS = 500;
 const POLL_MAX_ATTEMPTS = 20;
 
@@ -37,6 +41,22 @@ export class AlpacaAdapter {
     };
   }
 
+  async getAsset(symbol: string): Promise<{ tradable: boolean; active: boolean; name: string } | null> {
+    try {
+      const { data } = await axios.get(
+        `${this.baseUrl}/v2/assets/${encodeURIComponent(symbol)}`,
+        { headers: this.headers }
+      );
+      return {
+        tradable: data.tradable === true,
+        active: data.status === 'active',
+        name: data.name ?? symbol,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   async getAccount(): Promise<AlpacaAccountInfo> {
     const { data } = await axios.get(`${this.baseUrl}/v2/account`, { headers: this.headers });
     return {
@@ -54,7 +74,19 @@ export class AlpacaAdapter {
     return Number(data.bar.vw ?? data.bar.c);
   }
 
+  async isMarketOpen(): Promise<boolean> {
+    const { data } = await axios.get(`${this.baseUrl}/v2/clock`, { headers: this.headers });
+    return data.is_open === true;
+  }
+
+  async cancelAllOpenOrders(): Promise<void> {
+    await axios.delete(`${this.baseUrl}/v2/orders`, { headers: this.headers });
+  }
+
   async executeOrder(symbol: string, side: TradeSide, quantity: number): Promise<AlpacaOrderResult> {
+    const mode = this.baseUrl === PAPER_BASE ? 'PAPER' : 'LIVE';
+    console.log(`[${ts()}][Alpaca ${mode}] submitting ${side} order — symbol=${symbol} qty=${quantity}`);
+
     const { data: order } = await axios.post(
       `${this.baseUrl}/v2/orders`,
       {
@@ -67,11 +99,20 @@ export class AlpacaAdapter {
       { headers: this.headers }
     );
 
+    console.log(`[${ts()}][Alpaca ${mode}] order accepted — id=${order.id} status=${order.status}`);
+
     const filled = await this._pollUntilFilled(order.id);
-    return {
-      fillPrice: Number(filled.filled_avg_price),
-      filledQty: Number(filled.filled_qty),
-    };
+    const fillPrice = Number(filled.filled_avg_price);
+    const filledQty = Number(filled.filled_qty);
+    console.log(`[${ts()}][Alpaca ${mode}] order filled — id=${order.id} fillPrice=${fillPrice} filledQty=${filledQty}`);
+
+    return { fillPrice, filledQty };
+  }
+
+  private async _cancelOrder(orderId: string): Promise<void> {
+    try {
+      await axios.delete(`${this.baseUrl}/v2/orders/${orderId}`, { headers: this.headers });
+    } catch {}
   }
 
   private async _pollUntilFilled(orderId: string): Promise<any> {
@@ -83,6 +124,8 @@ export class AlpacaAdapter {
         throw new Error(`Alpaca order ${orderId} ended with status: ${data.status}`);
       }
     }
-    throw new Error(`Alpaca order ${orderId} not filled after ${POLL_MAX_ATTEMPTS} polls`);
+    // Cancelar la orden para no dejarla abierta indefinidamente en Alpaca
+    await this._cancelOrder(orderId);
+    throw new Error(`Alpaca order ${orderId} not filled after ${POLL_MAX_ATTEMPTS} polls — order cancelled`);
   }
 }

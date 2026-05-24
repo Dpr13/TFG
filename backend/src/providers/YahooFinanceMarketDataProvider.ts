@@ -178,10 +178,26 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
     try {
       const yahooSymbol = this.getYahooSymbol(symbol);
       const quote: any = await yahooFinance.quote(yahooSymbol);
-      return quote?.regularMarketPrice ?? null;
+      if (!quote) return null;
+
+      // Fuera de horario regular, Yahoo devuelve regularMarketPrice estático.
+      // Preferimos el precio más reciente disponible: post-market → pre-market → regular.
+      const price =
+        quote.postMarketPrice ??
+        quote.preMarketPrice ??
+        quote.regularMarketPrice ??
+        null;
+
+      const source =
+        quote.postMarketPrice != null ? 'post-market' :
+        quote.preMarketPrice  != null ? 'pre-market'  :
+        'regular';
+
+      console.log(`[YahooFinance] ${symbol} price=${price} source=${source}`);
+      return price;
     } catch (error) {
-       console.error(`Error fetching latest price for ${symbol}:`, error);
-       return null;
+      console.error(`Error fetching latest price for ${symbol}:`, error);
+      return null;
     }
   }
 

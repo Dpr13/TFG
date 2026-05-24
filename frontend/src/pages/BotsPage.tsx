@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Bot as BotIcon, Play, Square, Trash2, Plus, TrendingUp, TrendingDown, ChevronDown, ChevronUp, X, Sparkles } from 'lucide-react';
+import { Bot as BotIcon, Play, Square, Trash2, Plus, TrendingUp, TrendingDown, ChevronDown, ChevronUp, X, Sparkles, LogOut } from 'lucide-react';
 import { botService, autocompleteService, botStrategyService, brokerCredentialService } from '../services';
 import type { Bot, BotTrade, BotMetrics, CreateBotDTO, BotStrategy, BrokerMode, BrokerAccountBalance, BotAlgorithm } from '../services';
 import { useLanguage } from '../context/LanguageContext';
@@ -119,6 +119,7 @@ function SymbolAutocomplete({ value, onChange }: { value: string; onChange: (sym
 function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: (dto: CreateBotDTO) => Promise<void> }) {
   const { t } = useLanguage();
   const [form, setForm] = useState<CreateBotDTO>(DEFAULT_FORM);
+  const [stopLossPct, setStopLossPct] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedStrategies, setSavedStrategies] = useState<BotStrategy[]>([]);
@@ -161,10 +162,14 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
     e.preventDefault();
     if (!form.name.trim()) { setError(t.bots.nameRequired); return; }
     if (!form.symbol.trim()) { setError(t.bots.symbolRequired); return; }
+    const parsedStopLoss = stopLossPct ? Number(stopLossPct) : undefined;
+    const dto: CreateBotDTO = parsedStopLoss
+      ? { ...form, params: { ...form.params, stopLossPct: parsedStopLoss } }
+      : form;
     setLoading(true);
     setError(null);
     try {
-      await onCreate(form);
+      await onCreate(dto);
       onClose();
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || t.bots.createError);
@@ -235,6 +240,7 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
               >
                 <option value="momentum">{t.bots.momentumAlgo}</option>
                 <option value="mean-reversion">{t.bots.meanReversionAlgo}</option>
+                <option value="rsi">{t.bots.rsiAlgo}</option>
               </select>
             </div>
           )}
@@ -296,6 +302,21 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
             )}
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stop Loss (%)</label>
+            <input
+              type="number"
+              min={0.1}
+              max={50}
+              step={0.1}
+              value={stopLossPct}
+              onChange={e => setStopLossPct(e.target.value)}
+              placeholder="Ej: 5 (dejar vacío para desactivar)"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm"
+            />
+            <p className="mt-1 text-xs text-gray-400">Si el precio cae este % desde la entrada, el bot vende automáticamente.</p>
+          </div>
+
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
           <div className="flex gap-3 pt-1">
@@ -354,11 +375,12 @@ function BotDetail({ bot }: { bot: Bot }) {
       {metrics && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[
-            { label: t.bots.currentCapital, value: fmtCurrency(metrics.currentCapital) },
+            { label: t.bots.currentCapital, value: fmtCurrency(metrics.effectiveCapital) },
             { label: t.bots.totalPnl, value: <PnlBadge value={metrics.totalPnl} pct={metrics.pnlPct} /> },
+            ...(metrics.positionSize > 0 ? [{ label: t.bots.unrealizedPnl ?? 'No realizado', value: <PnlBadge value={metrics.unrealizedPnl} /> }] : []),
             { label: t.bots.winRate, value: `${fmt(metrics.winRate * 100)}%` },
             { label: t.bots.tradesLabel, value: `${metrics.totalTrades}` },
-            { label: 'Comisiones pagadas', value: fmtCurrency(metrics.totalCommissions) },
+            { label: t.bots.commissionsLabel ?? 'Comisiones', value: fmtCurrency(metrics.totalCommissions) },
           ].map(({ label, value }) => (
             <div key={label} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
@@ -423,37 +445,40 @@ function BotDetail({ bot }: { bot: Bot }) {
 
 // ─── Bot Card ─────────────────────────────────────────────────────────────────
 
-function BotCard({ bot, onStart, onStop, onDelete }: {
+function BotCard({ bot, onStart, onStop, onPause, onClosePosition, onDelete }: {
   bot: Bot;
   onStart: (id: string) => void;
   onStop: (id: string) => void;
+  onPause: (id: string) => void;
+  onClosePosition: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const running = bot.status === 'running';
-  const positionValue = bot.positionSize > 0 && bot.currentPrice != null && bot.currentPrice > 0
-    ? bot.positionSize * bot.currentPrice
+  const paused = bot.status === 'paused';
+  const active = running || paused;
+
+  const priceForValuation = (bot.currentPrice != null && bot.currentPrice > 0)
+    ? bot.currentPrice
+    : (bot.positionEntryPrice ?? 0);
+  const positionValue = bot.positionSize > 0 && priceForValuation > 0
+    ? bot.positionSize * priceForValuation
     : 0;
   const totalValue = bot.currentCapital + positionValue;
   const pnl = totalValue - bot.initialCapital;
 
-  const handleToggle = async () => {
-    setActionLoading(true);
-    try {
-      if (running) await onStop(bot.id);
-      else await onStart(bot.id);
-    } finally {
-      setActionLoading(false);
-    }
+  const handle = async (action: string, fn: () => Promise<void>) => {
+    setActionLoading(action);
+    try { await fn(); } finally { setActionLoading(null); }
   };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
       <div className="flex items-center gap-4 p-4">
-        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${running ? 'bg-green-500 animate-pulse' : 'bg-gray-300 dark:bg-gray-600'}`} />
+        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${running ? 'bg-green-500 animate-pulse' : paused ? 'bg-yellow-400' : 'bg-gray-300 dark:bg-gray-600'}`} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -522,20 +547,48 @@ function BotCard({ bot, onStart, onStop, onDelete }: {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            onClick={handleToggle}
-            disabled={actionLoading}
-            title={running ? t.bots.stopTitle : t.bots.startTitle}
-            className={`p-2 rounded-xl transition-colors disabled:opacity-50 ${running
-              ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40'
-              : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40'
-            }`}
-          >
-            {running ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          </button>
+          {bot.positionSize > 0 && (
+            <button
+              onClick={() => handle('close', () => onClosePosition(bot.id))}
+              disabled={actionLoading !== null}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors disabled:opacity-50"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Cerrar pos.
+            </button>
+          )}
+          {paused && (
+            <button
+              onClick={() => handle('start', () => onStart(bot.id))}
+              disabled={actionLoading !== null}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors disabled:opacity-50"
+            >
+              <Play className="w-3.5 h-3.5" />
+              Reanudar
+            </button>
+          )}
+          {active ? (
+            <button
+              onClick={() => handle('stop', () => onStop(bot.id))}
+              disabled={actionLoading !== null}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-50"
+            >
+              <Square className="w-3.5 h-3.5" />
+              Detener
+            </button>
+          ) : (
+            <button
+              onClick={() => handle('start', () => onStart(bot.id))}
+              disabled={actionLoading !== null}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors disabled:opacity-50"
+            >
+              <Play className="w-3.5 h-3.5" />
+              Iniciar
+            </button>
+          )}
           <button
             onClick={() => onDelete(bot.id)}
-            disabled={running}
+            disabled={active || actionLoading !== null}
             title={t.bots.deleteTitle}
             className="p-2 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-30"
           >
@@ -600,13 +653,38 @@ export default function BotsPage() {
     setBots(prev => prev.map(b => b.id === id ? bot : b));
   };
 
+  const handlePause = async (id: string) => {
+    const bot = await botService.pauseBot(id);
+    setBots(prev => prev.map(b => b.id === id ? bot : b));
+  };
+
+  const handleClosePosition = async (id: string) => {
+    const bot = bots.find(b => b.id === id);
+    if (!bot) return;
+
+    if (bot.brokerMode !== 'simulated') {
+      const { open } = await botService.getMarketStatus(id);
+      if (!open) {
+        alert('El mercado está cerrado en este momento.\nNo es posible cerrar la posición fuera del horario de mercado (L–V, 9:30–16:00 ET).');
+        return;
+      }
+      const msg = bot.brokerMode === 'alpaca_live'
+        ? `⚠ ALPACA LIVE — Se enviará una orden de venta a mercado con dinero real.\n\n¿Confirmar cierre de posición?`
+        : `Se enviará una orden de venta a Alpaca Paper.\n\n¿Confirmar cierre de posición?`;
+      if (!confirm(msg)) return;
+    }
+
+    const updated = await botService.closePosition(id);
+    setBots(prev => prev.map(b => b.id === id ? updated : b));
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm(t.bots.deleteConfirm)) return;
     await botService.deleteBot(id);
     setBots(prev => prev.filter(b => b.id !== id));
   };
 
-  const runningCount = bots.filter(b => b.status === 'running').length;
+  const runningCount = bots.filter(b => b.status === 'running' || b.status === 'paused').length;
   const activeLabel = (runningCount === 1 ? t.bots.activeCount : t.bots.activeCountPlural)
     .replace('{n}', String(runningCount));
 
@@ -661,6 +739,8 @@ export default function BotsPage() {
               bot={bot}
               onStart={handleStart}
               onStop={handleStop}
+              onPause={handlePause}
+              onClosePosition={handleClosePosition}
               onDelete={handleDelete}
             />
           ))}
