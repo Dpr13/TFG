@@ -4,7 +4,11 @@ import { newsService } from '../../services';
 import { NewsArticle } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 
-export default function Sidebar() {
+interface SidebarProps {
+  collapsed: boolean;
+}
+
+export default function Sidebar({ collapsed }: SidebarProps) {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'mercados' | 'activo'>('mercados');
   const [news, setNews] = useState<NewsArticle[]>([]);
@@ -72,7 +76,9 @@ export default function Sidebar() {
   }, [activeTab]);
 
   return (
-    <aside className="hidden md:block w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed h-[calc(100vh-65px)] flex flex-col z-40">
+    <aside
+      className={`w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed top-[65px] left-0 h-[calc(100vh-65px)] flex flex-col z-40 transition-transform duration-300 ease-in-out ${collapsed ? '-translate-x-full pointer-events-none' : 'translate-x-0 pointer-events-auto'}`}
+    >
       <div className="p-4 border-b border-gray-100 dark:border-gray-700/50">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">

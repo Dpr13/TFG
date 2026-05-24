@@ -5,12 +5,12 @@ import {
   ShieldCheck, ShieldAlert, BarChart2, Activity,
   Star, Clock, Info, ChevronDown, ChevronUp, PieChart, DollarSign, TrendingUp as GrowthIcon, Shield, Hourglass,
 } from 'lucide-react';
-import { riskService, assetService } from '@services/index';
+import { riskService, assetService, marketService } from '@services/index';
 import { useWatchlist } from '@hooks/useWatchlist';
 import { useLanguage } from '../context/LanguageContext';
 import { formatPercentage, formatCompactNumber, formatCurrency, formatDateSimple } from '@utils/format';
 import AnalysisSummaryCard, { AnalysisVariant } from '@components/AnalysisSummaryCard';
-import type { RiskMetrics, FinancialData, FundamentalAnalysis } from '../types';
+import type { RiskMetrics, FinancialData, FundamentalAnalysis, BuffettIndicatorResult } from '../types';
 import TechnicalAnalysisPanel from '../components/TechnicalAnalysisPanel';
 import SymbolAutocomplete from '../components/SymbolAutocomplete';
 
@@ -181,6 +181,9 @@ export default function RiskAnalysisPage() {
   const [riskData, setRiskData] = useState<RiskMetrics | null>(null);
   const [financialData, setFinancialData] = useState<FinancialData | null>(null);
   const [fundamentalAnalysis, setFundamentalAnalysis] = useState<FundamentalAnalysis | null>(null);
+  const [buffett, setBuffett] = useState<BuffettIndicatorResult | null>(null);
+  const [buffettLoading, setBuffettLoading] = useState(false);
+  const [buffettSupported, setBuffettSupported] = useState(false);
   const [fundsLoading, setFundsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'QUANTS' | 'FUNDS' | 'TECH'>('TECH');
   const [searchParams, _setSearchParams] = useSearchParams();
@@ -246,7 +249,38 @@ export default function RiskAnalysisPage() {
       }
 
       setRiskData(riskRes.value);
-      setFinancialData(finRes.status === 'fulfilled' ? finRes.value : null);
+      const fin = finRes.status === 'fulfilled' ? finRes.value : null;
+      setFinancialData(fin);
+      setBuffett(null);
+      setBuffettLoading(false);
+      setBuffettSupported(false);
+
+      // Fetch Buffett indicator (market-level context) in the background.
+      // Supported: US equities (USD + US exchanges).
+      if (fin && !('circulatingSupply' in fin)) {
+        const symUpper = s.toUpperCase();
+        const ex = (fin as any).exchange as string | null | undefined;
+        const currency = (fin as any).financialCurrency as string | null | undefined;
+        const quoteType = (fin as any).quoteType as string | null | undefined;
+
+        // Heuristic: US-listed equity in USD.
+        // (We keep it permissive because Yahoo field shapes vary across quote types.)
+        const hasCountrySuffix = /\.[A-Z]{2,}$/.test(symUpper); // e.g. .MC, .L, .DE
+        const isUSExchange = typeof ex === 'string' && /nasdaq|nyse|amex|nyq|nms|ngm|nysearca|arca|new york/i.test(ex);
+        const isEquity = typeof quoteType === 'string' && quoteType.toUpperCase() === 'EQUITY';
+        const isUSD = typeof currency === 'string' && currency.toUpperCase() === 'USD';
+
+        const isUS = !hasCountrySuffix && isEquity && isUSD && isUSExchange;
+
+        if (isUS) {
+          setBuffettSupported(true);
+          setBuffettLoading(true);
+          marketService.getBuffettIndicator('US')
+            .then((r) => setBuffett(r))
+            .catch(() => setBuffett(null))
+            .finally(() => setBuffettLoading(false));
+        }
+      }
 
       // Fetch fundamental analysis in the background (don't block)
       setFundsLoading(true);
@@ -265,6 +299,9 @@ export default function RiskAnalysisPage() {
       setRiskData(null);
       setFinancialData(null);
       setFundamentalAnalysis(null);
+      setBuffett(null);
+      setBuffettLoading(false);
+      setBuffettSupported(false);
     } finally {
       setLoading(false);
     }
@@ -769,6 +806,12 @@ export default function RiskAnalysisPage() {
                               value={`${formatCurrency(financialData.fiftyTwoWeekLow)} - ${formatCurrency(financialData.fiftyTwoWeekHigh)}`}
                             />
                           )}
+                          {buffettSupported && (
+                            <MetricCard
+                              label={t.riskAnalysis.metrics.buffett.label}
+                              value={buffettLoading ? '...' : buffett?.indicator != null ? formatPercentage(buffett.indicator, 2) : 'N/A'}
+                            />
+                          )}
                         </>
                       );
                     })()}
@@ -780,9 +823,12 @@ export default function RiskAnalysisPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                         {Object.keys(t.riskAnalysis.metrics).filter(key => {
                           const f = financialData as any;
+                          if (key === 'buffett' && !buffettSupported) return false;
                           const val = key === 'week52Range' ? f.fiftyTwoWeekHigh :
                                       key === 'netMargin' ? f.profitMargin :
-                                      key === 'dividend' ? f.dividendYield : f[key];
+                                      key === 'dividend' ? f.dividendYield :
+                                      key === 'buffett' ? buffett?.indicator :
+                                      f[key];
                           return val !== null && val !== undefined && val !== '' && val !== 'N/A';
                         }).map((key) => {
                           const item = (t.riskAnalysis.metrics as any)[key];
@@ -798,9 +844,12 @@ export default function RiskAnalysisPage() {
                       {/* Missing Metrics */}
                       {Object.keys(t.riskAnalysis.metrics).filter(key => {
                         const f = financialData as any;
+                        if (key === 'buffett' && !buffettSupported) return false;
                         const val = key === 'week52Range' ? f.fiftyTwoWeekHigh :
                                     key === 'netMargin' ? f.profitMargin :
-                                    key === 'dividend' ? f.dividendYield : f[key];
+                                    key === 'dividend' ? f.dividendYield :
+                                    key === 'buffett' ? buffett?.indicator :
+                                    f[key];
                         return val === null || val === undefined || val === '' || val === 'N/A';
                       }).length > 0 && (
                         <div className="pt-4 border-t border-gray-100 dark:border-gray-800/50">
@@ -810,9 +859,12 @@ export default function RiskAnalysisPage() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 opacity-60">
                             {Object.keys(t.riskAnalysis.metrics).filter(key => {
                               const f = financialData as any;
+                              if (key === 'buffett' && !buffettSupported) return false;
                               const val = key === 'week52Range' ? f.fiftyTwoWeekHigh :
                                           key === 'netMargin' ? f.profitMargin :
-                                          key === 'dividend' ? f.dividendYield : f[key];
+                                          key === 'dividend' ? f.dividendYield :
+                                          key === 'buffett' ? buffett?.indicator :
+                                          f[key];
                               return val === null || val === undefined || val === '' || val === 'N/A';
                             }).map((key) => {
                               const item = (t.riskAnalysis.metrics as any)[key];

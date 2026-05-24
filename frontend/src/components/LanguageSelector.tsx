@@ -54,6 +54,7 @@ export default function LanguageSelector({ variant = 'floating', onChange, class
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`${baseStyles} ${variants[variant]}`}
+        type="button"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
@@ -72,6 +73,7 @@ export default function LanguageSelector({ variant = 'floating', onChange, class
             {LANGUAGES.map((lang) => (
               <button
                 key={lang.code}
+                type="button"
                 onClick={() => handleSelect(lang.code)}
                 className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors
                   ${language === lang.code

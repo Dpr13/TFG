@@ -14,7 +14,8 @@ import type {
   UpdateStrategyDTO,
   StrategyPerformance,
   PsychoAnalysisSummary,
-  NewsArticle
+  NewsArticle,
+  BuffettIndicatorResult
 } from '../types';
 
 /**
@@ -91,6 +92,14 @@ export const recommendationService = {
     const response = await apiClient.post<import('../types/recommendation').RecommendationResult>('/recommendation/calculate', data, {
       timeout: 30000,
     });
+    return response.data;
+  },
+};
+
+export const marketService = {
+  // Obtener Índice de Buffett (market cap / GDP) para un país soportado
+  getBuffettIndicator: async (country: string = 'US'): Promise<BuffettIndicatorResult> => {
+    const response = await apiClient.get<BuffettIndicatorResult>(`/market/buffett?country=${encodeURIComponent(country)}`);
     return response.data;
   },
 };

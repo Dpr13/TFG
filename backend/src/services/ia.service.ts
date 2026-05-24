@@ -599,6 +599,14 @@ ${r.ticker} (${r.nombre}, ${r.tipo}):
   };
   const targetLang = languageNames[lang];
 
+  const labels: Record<Language, { general: string, quant: string, fund: string, tech: string }> = {
+    es: { general: 'Valoración general', quant: 'Análisis cuantitativo', fund: 'Análisis fundamental', tech: 'Análisis técnico' },
+    en: { general: 'General assessment', quant: 'Quantitative analysis', fund: 'Fundamental analysis', tech: 'Technical analysis' },
+    fr: { general: 'Évaluation générale', quant: 'Analyse quantitative', fund: 'Analyse fondamentale', tech: 'Analyse technique' },
+    de: { general: 'Allgemeine Bewertung', quant: 'Quantitative Analyse', fund: 'Fundamentalanalyse', tech: 'Technische Analyse' },
+  };
+  const l = labels[lang];
+
   const prompt = `You are an expert financial analyst. Compare the following financial assets and emit a clear verdict:
 
 COMPARISON: ${tickersStr} | Horizon: ${horizonte}
@@ -606,12 +614,14 @@ COMPARISON: ${tickersStr} | Horizon: ${horizonte}
 DATA:
 ${resumenActivos}
 
-Generate a structured verdict in ${targetLang} with exactly these three parts, without using bullet points or headers with #:
+Generate a structured verdict in ${targetLang} with exactly these four parts, without using headers with #:
 
-Part 1 (2-3 sentences): Which asset shows a better FUNDAMENTAL profile and why, citing specific metrics.
-Part 2 (2-3 sentences): Which asset shows a better TECHNICAL AND RISK profile in the analyzed horizon, with specific data.
-Part 3 (2-3 sentences): Global verdict — which asset seems more attractive considering all factors and for what type of investor (conservative, moderate, aggressive). If assets are of different types (stock vs crypto), mention that direct comparison has limitations.
+Part 1 (2-3 sentences): **${l.general}:** A global summary of the comparison, highlighting the main winner or the most attractive option for the current context.
+Part 2 (2-3 sentences): **${l.fund}:** Which asset shows a better fundamental profile (P/E, ROE, margins, etc.).
+Part 3 (2-3 sentences): **${l.tech}:** Which asset shows a better technical technical profile (trend, indicators, price action).
+Part 4 (2-3 sentences): **${l.quant}:** Which asset shows a better risk/quantitative profile (volatility, Sharpe ratio, Drawdowns).
 
+IMPORTANT: Each part MUST start with its label in bold (e.g., **${l.general}:**).
 Be direct and specific. Do not repeat raw numerical values — interpret them.`;
 
   try {

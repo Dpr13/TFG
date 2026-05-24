@@ -818,11 +818,22 @@ export default function ComparePage() {
 
               {veredicto && (
                 <div className="space-y-4">
-                  {veredicto.split('\n\n').filter(Boolean).map((paragraph, i) => (
-                    <p key={i} className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                      {paragraph}
-                    </p>
-                  ))}
+                  {veredicto.split('\n\n').filter(Boolean).map((paragraph, i) => {
+                    const match = paragraph.match(/^\*\*(.*?)\*\*(.*)/s);
+                    if (match) {
+                      return (
+                        <p key={i} className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                          <strong className="text-gray-900 dark:text-white">{match[1]}</strong>
+                          {match[2]}
+                        </p>
+                      );
+                    }
+                    return (
+                      <p key={i} className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {paragraph}
+                      </p>
+                    );
+                  })}
                   <p className="text-[11px] text-gray-400 dark:text-gray-500 pt-3 border-t border-gray-100 dark:border-gray-700 italic">
                     {t.ia.disclaimer}
                   </p>

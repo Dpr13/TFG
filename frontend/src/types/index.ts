@@ -297,6 +297,24 @@ export interface FundamentalAnalysis {
   analyzedAt: string;
 }
 
+export interface BuffettIndicatorResult {
+  country: string;
+  currency: 'USD';
+  indicator: number | null;
+  marketCap: number | null;
+  gdp: number | null;
+  gdpYear: number | null;
+  coverage: {
+    tickersTotal: number;
+    tickersUsed: number;
+  };
+  sources: {
+    marketCap: string;
+    gdp: string;
+  };
+  updatedAt: string;
+}
+
 // ── Technical Analysis ────────────────────────────────────────────────────
 
 export interface OHLCVCandle {

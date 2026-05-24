@@ -13,6 +13,7 @@ import iaRouter from './ia.routes';
 import comparisonRouter from './comparison.routes';
 import botRouter from './bot.routes';
 import botStrategyRouter from './bot_strategy.routes';
+import marketRouter from './market.routes';
 import positionRouter from './position.routes';
 import brokerCredentialRouter from './broker_credential.routes';
 
@@ -35,6 +36,7 @@ router.use('/', iaRouter);
 router.use('/', comparisonRouter);
 router.use('/', botRouter);
 router.use('/', botStrategyRouter);
+router.use('/', marketRouter);
 router.use('/', positionRouter);
 router.use('/', brokerCredentialRouter);
 
