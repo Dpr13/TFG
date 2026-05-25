@@ -1,4 +1,4 @@
-import { User, Mail, Bell, Moon, Shield, Lock, Save, X, Check, Globe, Link, Unlink, RefreshCw } from 'lucide-react';
+import { User, Mail, Moon, Shield, Lock, Save, X, Check, Globe, Link, Unlink, RefreshCw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -22,7 +22,6 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    notificationsEnabled: true,
     darkMode: false,
     language: 'es' as Language,
   });
@@ -53,7 +52,6 @@ export default function ProfilePage() {
       setFormData({
         name: user.name,
         email: user.email,
-        notificationsEnabled: user.notificationsEnabled,
         darkMode: user.darkMode,
         language: (user.language as Language) || 'es',
       });
@@ -131,7 +129,6 @@ export default function ProfilePage() {
       const updatedUser = await authService.updateProfile({
         name: formData.name,
         email: formData.email,
-        notificationsEnabled: formData.notificationsEnabled,
         darkMode: formData.darkMode,
         language: formData.language,
       });
@@ -317,36 +314,6 @@ export default function ProfilePage() {
                 {t.profile.preferences}
               </h4>
 
-              {/* Notificaciones */}
-              <div className="flex items-center justify-between py-3">
-                <div className="flex items-center">
-                  <Bell className="w-4 h-4 mr-2 text-gray-500" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {t.profile.notifications}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t.profile.notificationsDesc}
-                    </p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.notificationsEnabled}
-                    onChange={(e) => handleChange('notificationsEnabled', e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 
-                               peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer 
-                               dark:bg-gray-700 peer-checked:after:translate-x-full 
-                               peer-checked:after:border-white after:content-[''] after:absolute 
-                               after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 
-                               after:border after:rounded-full after:h-5 after:w-5 after:transition-all 
-                               dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
               {/* Modo Oscuro */}
               <div className="flex items-center justify-between py-3">
                 <div className="flex items-center">
@@ -406,7 +373,6 @@ export default function ProfilePage() {
                     setFormData({
                       name: user.name,
                       email: user.email,
-                      notificationsEnabled: user.notificationsEnabled,
                       darkMode: user.darkMode,
                       language: (user.language as Language) || 'es',
                     });
