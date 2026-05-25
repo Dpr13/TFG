@@ -931,7 +931,7 @@ psycho: {
   kpiTotalOps: 'Gesamte Trades',
   kpiBestDay: 'Bester Tag',
   kpiWorstDay: 'Schlechtester Tag',
-  kpiExpectedValue: 'Erwartungswert',
+  kpiExpectedValue: 'Ø Gewinn / Trade',
   kpiProfitFactor: 'Profit-Faktor',
   kpiDisciplineScore: 'Disziplin-Score',
   chartDayOfWeek: 'Rentabilität nach Wochentag',

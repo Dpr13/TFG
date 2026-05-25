@@ -3,6 +3,7 @@ import {
   GeneralStats,
   AssetStats,
   TemporalStats,
+  DirectionalStats,
   BehaviorStats,
   PsychoAnalysisSummary,
   RiskAlert,
@@ -35,6 +36,7 @@ export const psychoanalysisService = {
     const generalStats = calculateGeneralStats(operations);
     const assetStats = calculateAssetStats(operations);
     const temporalStats = calculateTemporalStats(operations);
+    const directionalStats = calculateDirectionalStats(operations);
     const baseBehaviorStats = calculateBehaviorStats(operations);
     const alerts = detectRiskAlerts(operations);
 
@@ -42,14 +44,17 @@ export const psychoanalysisService = {
     const impulsivityScore = calculateImpulsivityScore(baseBehaviorStats, alerts);
     const behaviorStats = { ...baseBehaviorStats, overtradingScore, impulsivityScore };
     const disciplineScore = calculateDisciplineScore(generalStats, behaviorStats, alerts);
+    const recommendations = generateRecommendations(generalStats, temporalStats, directionalStats, behaviorStats, assetStats, alerts);
 
     return {
       generalStats,
       assetStats,
       temporalStats,
+      directionalStats,
       behaviorStats,
       alerts,
       disciplineScore,
+      recommendations,
     };
   },
 };
@@ -81,6 +86,10 @@ function getEmptySummary(): PsychoAnalysisSummary {
       bestDayOfWeek: '',
       worstDayOfWeek: '',
     },
+    directionalStats: {
+      long:  { operations: 0, totalPnL: 0, winRate: 0, avgPnL: 0, avgPnLPct: 0 },
+      short: { operations: 0, totalPnL: 0, winRate: 0, avgPnL: 0, avgPnLPct: 0 },
+    },
     behaviorStats: {
       opsAfterWin: 0,
       opsAfterLoss: 0,
@@ -93,6 +102,7 @@ function getEmptySummary(): PsychoAnalysisSummary {
     },
     alerts: [],
     disciplineScore: 0,
+    recommendations: [],
   };
 }
 
@@ -156,15 +166,11 @@ function calculateGeneralStats(operations: Operation[]): GeneralStats {
   };
 }
 
-// EXPANSIÓN: Aquí iría análisis de volatilidad del activo
-// EXPANSIÓN: Aquí iría cálculo de Sharpe Ratio por activo
 function calculateAssetStats(operations: Operation[]): AssetStats[] {
   const assetMap = new Map<string, Operation[]>();
 
   operations.forEach(op => {
-    if (!assetMap.has(op.symbol)) {
-      assetMap.set(op.symbol, []);
-    }
+    if (!assetMap.has(op.symbol)) assetMap.set(op.symbol, []);
     assetMap.get(op.symbol)!.push(op);
   });
 
@@ -173,6 +179,11 @@ function calculateAssetStats(operations: Operation[]): AssetStats[] {
     const wins = ops.filter(op => op.pnl > 0).length;
     const totalPnL = ops.reduce((sum, op) => sum + op.pnl, 0);
     const avgPnL = totalPnL / ops.length;
+    const bestTrade = Math.max(...ops.map(op => op.pnl));
+    const worstTrade = Math.min(...ops.map(op => op.pnl));
+    const variance = ops.reduce((sum, op) => sum + (op.pnl - avgPnL) ** 2, 0) / ops.length;
+    const volatility = Math.sqrt(variance);
+    const sharpeRatio = volatility > 0 ? avgPnL / volatility : 0;
 
     stats.push({
       symbol,
@@ -180,23 +191,23 @@ function calculateAssetStats(operations: Operation[]): AssetStats[] {
       totalPnL,
       winRate: (wins / ops.length) * 100,
       avgPnL,
+      bestTrade,
+      worstTrade,
+      volatility,
+      sharpeRatio,
     });
   });
 
   return stats.sort((a, b) => b.totalPnL - a.totalPnL);
 }
 
-// EXPANSIÓN: Aquí iría análisis por hora del día
-// EXPANSIÓN: Aquí iría análisis por tipo de sesión (premarket, regular, afterhours)
 function calculateTemporalStats(operations: Operation[]): TemporalStats {
   const daysMap = new Map<number, Operation[]>();
   const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
   operations.forEach(op => {
     const dayNum = new Date(op.date).getDay();
-    if (!daysMap.has(dayNum)) {
-      daysMap.set(dayNum, []);
-    }
+    if (!daysMap.has(dayNum)) daysMap.set(dayNum, []);
     daysMap.get(dayNum)!.push(op);
   });
 
@@ -205,7 +216,6 @@ function calculateTemporalStats(operations: Operation[]): TemporalStats {
     const ops = daysMap.get(i) || [];
     const wins = ops.filter(op => op.pnl > 0).length;
     const totalPnL = ops.reduce((sum, op) => sum + op.pnl, 0);
-
     dayOfWeek.push({
       day: dayNames[i],
       operations: ops.length,
@@ -214,14 +224,32 @@ function calculateTemporalStats(operations: Operation[]): TemporalStats {
     });
   }
 
-  const sortedByPnL = [...dayOfWeek].sort((a, b) => b.totalPnL - a.totalPnL);
+  const daysWithOps = dayOfWeek.filter(d => d.operations > 0);
+  const sortedByPnL = [...daysWithOps].sort((a, b) => b.totalPnL - a.totalPnL);
   const bestDayOfWeek = sortedByPnL[0]?.day || '';
   const worstDayOfWeek = sortedByPnL[sortedByPnL.length - 1]?.day || '';
 
+  return { dayOfWeek, bestDayOfWeek, worstDayOfWeek };
+}
+
+function calculateDirectionalStats(operations: Operation[]): DirectionalStats {
+  const buildSide = (ops: Operation[]) => {
+    if (ops.length === 0) return { operations: 0, totalPnL: 0, winRate: 0, avgPnL: 0, avgPnLPct: 0 };
+    const wins = ops.filter(o => o.pnl > 0).length;
+    const totalPnL = ops.reduce((s, o) => s + o.pnl, 0);
+    const avgPnLPct = ops.reduce((s, o) => s + o.pnlPercentage, 0) / ops.length;
+    return {
+      operations: ops.length,
+      totalPnL,
+      winRate: (wins / ops.length) * 100,
+      avgPnL: totalPnL / ops.length,
+      avgPnLPct,
+    };
+  };
+
   return {
-    dayOfWeek,
-    bestDayOfWeek,
-    worstDayOfWeek,
+    long:  buildSide(operations.filter(o => o.type === 'long')),
+    short: buildSide(operations.filter(o => o.type === 'short')),
   };
 }
 
@@ -327,6 +355,80 @@ function calculateDisciplineScore(
   if (generalStats.winRate > 60) score += 10;
   else if (generalStats.winRate > 50) score += 5;
   return Math.max(0, Math.min(100, score));
+}
+
+function generateRecommendations(
+  generalStats: GeneralStats,
+  temporalStats: TemporalStats,
+  directionalStats: DirectionalStats,
+  behaviorStats: BehaviorStats,
+  assetStats: AssetStats[],
+  alerts: RiskAlert[]
+): string[] {
+  const recs: string[] = [];
+
+  if (generalStats.winRate < 40) {
+    recs.push(`Tu tasa de aciertos es del ${generalStats.winRate.toFixed(1)}%. Estás cerrando más del 60% de operaciones en pérdida — revisa tus criterios de entrada.`);
+  } else if (generalStats.winRate < 50) {
+    recs.push(`Tu tasa de aciertos (${generalStats.winRate.toFixed(1)}%) está por debajo del 50%. Asegúrate de que tus ganancias medias superen tus pérdidas medias para mantener rentabilidad.`);
+  }
+
+  if (behaviorStats.overtradingScore > 60) {
+    recs.push(`Tu índice de sobreoperación es elevado (${behaviorStats.overtradingScore}/100). Reduce el número de operaciones diarias y espera señales de mayor calidad.`);
+  }
+
+  if (behaviorStats.impulsivityScore > 60) {
+    recs.push(`Alta impulsividad detectada (${behaviorStats.impulsivityScore}/100). Considera establecer un descanso obligatorio tras dos pérdidas consecutivas antes de volver a operar.`);
+  }
+
+  if (alerts.some(a => a.type === 'revenge_trading')) {
+    recs.push('Se han detectado patrones de revenge trading. Establece un límite diario de pérdidas máximas y detén las operaciones al alcanzarlo.');
+  }
+
+  if (alerts.some(a => a.type === 'loss_spiral')) {
+    recs.push('Hay secuencias de pérdidas crecientes en tu historial. Cuando una pérdida supere el doble de tu media, es señal de parar por el día.');
+  }
+
+  const daysWithOps = temporalStats.dayOfWeek.filter(d => d.operations > 0);
+  if (daysWithOps.length > 1) {
+    if (temporalStats.worstDayOfWeek) {
+      recs.push(`Tus resultados son peores los ${temporalStats.worstDayOfWeek}. Considera operar con tamaños menores ese día o evitarlo directamente.`);
+    }
+    if (temporalStats.bestDayOfWeek && temporalStats.bestDayOfWeek !== temporalStats.worstDayOfWeek) {
+      recs.push(`Tu mejor día de la semana es ${temporalStats.bestDayOfWeek}. Concentra tus mejores ideas en ese día.`);
+    }
+  }
+
+  const { long, short } = directionalStats;
+  if (long.operations >= 3 && short.operations >= 3) {
+    if (long.winRate > short.winRate + 15) {
+      recs.push(`Tu win rate en largos (${long.winRate.toFixed(1)}%) supera al de cortos (${short.winRate.toFixed(1)}%). Considera reducir operativas en corto hasta mejorar ese ratio.`);
+    } else if (short.winRate > long.winRate + 15) {
+      recs.push(`Tu win rate en cortos (${short.winRate.toFixed(1)}%) supera al de largos (${long.winRate.toFixed(1)}%). Tienes un sesgo bajista — aprovéchalo conscientemente.`);
+    }
+    if (long.avgPnL > 0 && short.avgPnL < 0) {
+      recs.push(`En promedio pierdes dinero en operaciones en corto (${short.avgPnL.toFixed(2)}€ de media). Revisa tu criterio de entrada en corto.`);
+    } else if (short.avgPnL > 0 && long.avgPnL < 0) {
+      recs.push(`En promedio pierdes dinero en operaciones en largo (${long.avgPnL.toFixed(2)}€ de media). Revisa tu criterio de entrada en largo.`);
+    }
+  }
+
+  const qualifiedAssets = assetStats.filter(a => a.operations >= 3);
+  const bestSharpe = [...qualifiedAssets].sort((a, b) => b.sharpeRatio - a.sharpeRatio)[0];
+  if (bestSharpe && bestSharpe.sharpeRatio > 0.5) {
+    recs.push(`${bestSharpe.symbol} tiene el mejor Sharpe Ratio (${bestSharpe.sharpeRatio.toFixed(2)}), indicando buena rentabilidad ajustada al riesgo. Podría merecer más peso en tu operativa.`);
+  }
+
+  const highVolAsset = qualifiedAssets.find(a => a.volatility > Math.abs(a.avgPnL) * 3 && a.volatility > 0);
+  if (highVolAsset) {
+    recs.push(`${highVolAsset.symbol} muestra resultados muy inconsistentes (volatilidad: ${highVolAsset.volatility.toFixed(2)}). Considera reducir el tamaño de posición en este activo.`);
+  }
+
+  if (behaviorStats.recoverySuccessRate < 30 && behaviorStats.recoveryAttempts > 5) {
+    recs.push(`Solo recuperas el ${behaviorStats.recoverySuccessRate}% de tus operaciones inmediatamente tras una pérdida. Evita operar impulsivamente después de cerrar en negativo.`);
+  }
+
+  return recs;
 }
 
 function detectRiskAlerts(operations: Operation[]): RiskAlert[] {

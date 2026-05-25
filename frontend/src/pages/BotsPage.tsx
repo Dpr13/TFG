@@ -445,11 +445,10 @@ function BotDetail({ bot }: { bot: Bot }) {
 
 // ─── Bot Card ─────────────────────────────────────────────────────────────────
 
-function BotCard({ bot, onStart, onStop, onPause, onClosePosition, onDelete }: {
+function BotCard({ bot, onStart, onStop, onClosePosition, onDelete }: {
   bot: Bot;
   onStart: (id: string) => void;
   onStop: (id: string) => void;
-  onPause: (id: string) => void;
   onClosePosition: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
@@ -470,7 +469,7 @@ function BotCard({ bot, onStart, onStop, onPause, onClosePosition, onDelete }: {
   const totalValue = bot.currentCapital + positionValue;
   const pnl = totalValue - bot.initialCapital;
 
-  const handle = async (action: string, fn: () => Promise<void>) => {
+  const handle = async (action: string, fn: () => void | Promise<void>) => {
     setActionLoading(action);
     try { await fn(); } finally { setActionLoading(null); }
   };
@@ -739,7 +738,6 @@ export default function BotsPage() {
               bot={bot}
               onStart={handleStart}
               onStop={handleStop}
-              onPause={handlePause}
               onClosePosition={handleClosePosition}
               onDelete={handleDelete}
             />

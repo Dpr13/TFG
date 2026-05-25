@@ -932,7 +932,7 @@ const en: Translations = {
     kpiTotalOps: 'Total Operations',
     kpiBestDay: 'Best Day',
     kpiWorstDay: 'Worst Day',
-    kpiExpectedValue: 'Expected Value',
+    kpiExpectedValue: 'Avg. Gain / Trade',
     kpiProfitFactor: 'Profit Factor',
     kpiDisciplineScore: 'Discipline Score',
     chartDayOfWeek: 'Profitability by Day of the Week',

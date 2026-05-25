@@ -931,7 +931,7 @@ const es = {
     kpiTotalOps: 'Total Operaciones',
     kpiBestDay: 'Mejor Día',
     kpiWorstDay: 'Peor Día',
-    kpiExpectedValue: 'Valor Esperado',
+    kpiExpectedValue: 'Ganancia Media / Op.',
     kpiProfitFactor: 'Profit Factor',
     kpiDisciplineScore: 'Índice de Disciplina',
     chartDayOfWeek: 'Rentabilidad por Día de la Semana',

@@ -969,7 +969,7 @@ psycho: {
   kpiTotalOps: 'Total des opérations',
   kpiBestDay: 'Meilleure journée',
   kpiWorstDay: 'Pire journée',
-  kpiExpectedValue: 'Valeur espérée',
+  kpiExpectedValue: 'Gain moyen / trade',
   kpiProfitFactor: 'Profit Factor',
   kpiDisciplineScore: 'Score de discipline',
   chartDayOfWeek: 'Rentabilité par jour de la semaine',
