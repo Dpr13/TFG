@@ -652,10 +652,6 @@ export default function BotsPage() {
     setBots(prev => prev.map(b => b.id === id ? bot : b));
   };
 
-  const handlePause = async (id: string) => {
-    const bot = await botService.pauseBot(id);
-    setBots(prev => prev.map(b => b.id === id ? bot : b));
-  };
 
   const handleClosePosition = async (id: string) => {
     const bot = bots.find(b => b.id === id);
