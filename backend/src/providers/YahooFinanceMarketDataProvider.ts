@@ -180,18 +180,16 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
       const quote: any = await yahooFinance.quote(yahooSymbol);
       if (!quote) return null;
 
-      // Fuera de horario regular, Yahoo devuelve regularMarketPrice estático.
-      // Preferimos el precio más reciente disponible: post-market → pre-market → regular.
-      const price =
-        quote.postMarketPrice ??
-        quote.preMarketPrice ??
-        quote.regularMarketPrice ??
-        null;
+      const marketState: string = quote.marketState ?? 'REGULAR';
+      const isPost = marketState === 'POST' || marketState === 'POSTPOST';
+      const isPre  = marketState === 'PRE'  || marketState === 'PREPRE';
 
-      const source =
-        quote.postMarketPrice != null ? 'post-market' :
-        quote.preMarketPrice  != null ? 'pre-market'  :
-        'regular';
+      const price =
+        isPost ? (quote.postMarketPrice ?? quote.regularMarketPrice ?? null) :
+        isPre  ? (quote.preMarketPrice  ?? quote.regularMarketPrice ?? null) :
+                 (quote.regularMarketPrice ?? null);
+
+      const source = isPost ? 'post-market' : isPre ? 'pre-market' : 'regular';
 
       console.log(`[YahooFinance] ${symbol} price=${price} source=${source}`);
       return price;

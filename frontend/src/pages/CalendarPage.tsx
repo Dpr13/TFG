@@ -48,14 +48,14 @@ function CalendarGrid({ currentDate, statsMap, maxAbsPnL, onDayClick, weekdays, 
 
   return (
     <>
-      <div className="grid grid-cols-7 gap-2 mb-2">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
         {weekdays.map((day) => (
-          <div key={day} className="text-center font-semibold text-gray-600 dark:text-gray-400 py-2">
+          <div key={day} className="text-center font-semibold text-gray-600 dark:text-gray-400 py-2 text-xs sm:text-sm">
             {day}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {cells.map((day, index) => {
           if (day === null) return <div key={`empty-${index}`} className="aspect-square" />;
 
@@ -73,16 +73,16 @@ function CalendarGrid({ currentDate, statsMap, maxAbsPnL, onDayClick, weekdays, 
               key={day}
               onClick={() => onDayClick(day)}
               style={bgStyle}
-              className={`aspect-square p-2 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-primary-400 transition-all cursor-pointer ${!stats ? 'bg-gray-50 dark:bg-gray-700' : ''}`}
+              className={`aspect-square p-1 sm:p-2 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-primary-400 transition-all cursor-pointer overflow-hidden ${!stats ? 'bg-gray-50 dark:bg-gray-700' : ''}`}
             >
               <div className="h-full flex flex-col items-start justify-start">
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">{day}</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">{day}</span>
                 {stats && (
-                  <div className="mt-auto text-xs">
-                    <div className={isProfit ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-red-600 dark:text-red-400 font-semibold'}>
+                  <div className="mt-auto w-full">
+                    <div className={`text-[9px] sm:text-xs truncate ${isProfit ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-red-600 dark:text-red-400 font-semibold'}`}>
                       {stats.totalPnL >= 0 ? '+' : ''}{stats.totalPnL.toFixed(0)}€
                     </div>
-                    <div className="text-gray-500 dark:text-gray-400">
+                    <div className="hidden sm:block text-xs text-gray-500 dark:text-gray-400">
                       {countLabel(stats.count)}
                     </div>
                   </div>
@@ -267,9 +267,9 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-3 sm:p-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-6">
           {t.calendar.pageTitle}
         </h1>
 
@@ -291,12 +291,12 @@ export default function CalendarPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg w-fit">
+        <div className="flex gap-1 mb-6 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg w-full sm:w-fit">
           {(['manual', 'bots'] as CalendarTab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2 rounded-md text-sm font-semibold transition-colors ${
+              className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${
                 activeTab === tab
                   ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -307,13 +307,13 @@ export default function CalendarPage() {
           ))}
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3 sm:p-6 mb-6">
           {/* Month Navigation */}
           <div className="flex items-center justify-between mb-4">
             <button onClick={previousMonth} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
               <ChevronLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </button>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white capitalize">{monthName}</h2>
+            <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white capitalize">{monthName}</h2>
             <button onClick={nextMonth} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
               <ChevronRight className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </button>
@@ -371,18 +371,18 @@ export default function CalendarPage() {
 
         {/* Legend */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-3 sm:gap-6">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-green-100 border-2 border-green-400 rounded" />
-              <span className="text-gray-700 dark:text-gray-300">{t.calendar.legendProfit}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t.calendar.legendProfit}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-red-100 border-2 border-red-400 rounded" />
-              <span className="text-gray-700 dark:text-gray-300">{t.calendar.legendLoss}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t.calendar.legendLoss}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-gray-50 border-2 border-gray-200 rounded" />
-              <span className="text-gray-700 dark:text-gray-300">{t.calendar.legendNoOps}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-300">{t.calendar.legendNoOps}</span>
             </div>
           </div>
         </div>

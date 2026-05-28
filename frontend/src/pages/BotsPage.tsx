@@ -179,8 +179,9 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50">
+      <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md p-4 sm:p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <BotIcon className="w-5 h-5 text-primary-600" />
@@ -337,6 +338,7 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
           </div>
         </form>
       </div>
+      </div>
     </div>
   );
 }
@@ -476,76 +478,80 @@ function BotCard({ bot, onStart, onStop, onClosePosition, onDelete }: {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-      <div className="flex items-center gap-4 p-4">
-        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${running ? 'bg-green-500 animate-pulse' : paused ? 'bg-yellow-400' : 'bg-gray-300 dark:bg-gray-600'}`} />
+      <div className="flex flex-col sm:flex-row sm:items-center p-3 sm:p-4 gap-2 sm:gap-3">
+        {/* Info row: dot + text */}
+        <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+          <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-1.5 sm:mt-0 ${running ? 'bg-green-500 animate-pulse' : paused ? 'bg-yellow-400' : 'bg-gray-300 dark:bg-gray-600'}`} />
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-gray-900 dark:text-white truncate">{bot.name}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 font-medium">
-              {bot.symbol}
-            </span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-              {bot.strategy}
-            </span>
-            {bot.brokerMode === 'simulated' && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 font-medium">
-                SIMULADO
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-gray-900 dark:text-white truncate">{bot.name}</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 font-medium">
+                {bot.symbol}
               </span>
-            )}
-            {bot.brokerMode === 'alpaca_paper' && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">
-                ALPACA PAPER
+              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                {bot.strategy}
               </span>
-            )}
-            {bot.brokerMode === 'alpaca_live' && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 font-semibold">
-                ⚠ ALPACA LIVE
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
-            <span>{t.bots.valueLabel}: {fmtCurrency(totalValue)}</span>
-            {bot.positionSize > 0 && (
-              <span className="text-gray-400 dark:text-gray-500">
-                ({t.bots.cashLabel} {fmtCurrency(bot.currentCapital)})
-              </span>
-            )}
-            <PnlBadge value={pnl} pct={(pnl / bot.initialCapital) * 100} />
-          </div>
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            {bot.currentPrice != null && bot.currentPrice > 0 && (
-              <span className="inline-flex items-center gap-1 text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md font-mono">
-                <span className="text-gray-500 dark:text-gray-400">{t.bots.priceLabel} {bot.symbol}:</span>
-                <span className="text-gray-900 dark:text-white font-bold">${fmt(bot.currentPrice, 4)}</span>
-              </span>
-            )}
-            {running && bot.lastSignal && (
-              <span className={`inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-md ${
-                bot.lastSignal === 'BUY'  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
-                bot.lastSignal === 'SELL' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' :
-                                            'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-              }`}>
-                {bot.lastSignal}
-              </span>
-            )}
-            {bot.positionSize > 0 && bot.positionEntryPrice != null && bot.currentPrice != null && bot.currentPrice > 0 && (() => {
-              const unrealized = (bot.currentPrice - bot.positionEntryPrice) * bot.positionSize;
-              const positive = unrealized >= 0;
-              return (
-                <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md font-mono ${
-                  positive ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
-                           : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                }`}>
-                  <span className="opacity-70">{t.bots.entryLabel} ${fmt(bot.positionEntryPrice, 4)} →</span>
-                  <span className="font-bold">{positive ? '+' : ''}{fmt(unrealized, 2)}$</span>
+              {bot.brokerMode === 'simulated' && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 font-medium">
+                  SIMULADO
                 </span>
-              );
-            })()}
+              )}
+              {bot.brokerMode === 'alpaca_paper' && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">
+                  ALPACA PAPER
+                </span>
+              )}
+              {bot.brokerMode === 'alpaca_live' && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 font-semibold">
+                  ⚠ ALPACA LIVE
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
+              <span>{t.bots.valueLabel}: {fmtCurrency(totalValue)}</span>
+              {bot.positionSize > 0 && (
+                <span className="text-gray-400 dark:text-gray-500">
+                  ({t.bots.cashLabel} {fmtCurrency(bot.currentCapital)})
+                </span>
+              )}
+              <PnlBadge value={pnl} pct={(pnl / bot.initialCapital) * 100} />
+            </div>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              {bot.currentPrice != null && bot.currentPrice > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md font-mono">
+                  <span className="text-gray-500 dark:text-gray-400">{t.bots.priceLabel} {bot.symbol}:</span>
+                  <span className="text-gray-900 dark:text-white font-bold">${fmt(bot.currentPrice, 4)}</span>
+                </span>
+              )}
+              {running && bot.lastSignal && (
+                <span className={`inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-md ${
+                  bot.lastSignal === 'BUY'  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+                  bot.lastSignal === 'SELL' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' :
+                                              'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                }`}>
+                  {bot.lastSignal}
+                </span>
+              )}
+              {bot.positionSize > 0 && bot.positionEntryPrice != null && bot.currentPrice != null && bot.currentPrice > 0 && (() => {
+                const unrealized = (bot.currentPrice - bot.positionEntryPrice) * bot.positionSize;
+                const positive = unrealized >= 0;
+                return (
+                  <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md font-mono ${
+                    positive ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                             : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                  }`}>
+                    <span className="opacity-70">{t.bots.entryLabel} ${fmt(bot.positionEntryPrice, 4)} →</span>
+                    <span className="font-bold">{positive ? '+' : ''}{fmt(unrealized, 2)}$</span>
+                  </span>
+                );
+              })()}
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Actions row: below info on mobile, to the right on desktop */}
+        <div className="flex items-center gap-2 flex-shrink-0 pl-6 sm:pl-0 flex-wrap">
           {bot.positionSize > 0 && (
             <button
               onClick={() => handle('close', () => onClosePosition(bot.id))}
@@ -684,11 +690,11 @@ export default function BotsPage() {
     .replace('{n}', String(runningCount));
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-3 sm:p-6 max-w-4xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <BotIcon className="w-7 h-7 text-primary-600" />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 sm:gap-3">
+            <BotIcon className="w-6 h-6 sm:w-7 sm:h-7 text-primary-600" />
             {t.bots.pageTitle}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -697,7 +703,7 @@ export default function BotsPage() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm"
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           {t.bots.newBot}
