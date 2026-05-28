@@ -10,7 +10,8 @@
     "test:ismael": "mocha --timeout 30000 \"ismael/**/*.test.js\""
   },
   "dependencies": {
-    "selenium-webdriver": "^4.27.0"
+    "selenium-webdriver": "^4.27.0",
+    "dotenv": "^16.0.0"
   },
   "devDependencies": {
     "mocha": "^10.7.0"
