@@ -272,6 +272,14 @@ function BotStrategyForm({
 function StrategyGuide() {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
+  const [openCards, setOpenCards] = useState<Set<string>>(new Set());
+
+  const toggleCard = (id: string) =>
+    setOpenCards(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   const strategies = [
     {
@@ -329,41 +337,56 @@ function StrategyGuide() {
       </button>
       {open && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-6 pb-6">
-          {strategies.map(s => (
-            <div key={s.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-3">
-              <div>
-                <span className={`inline-block text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${s.badge}`}>
-                  {s.label}
-                </span>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{s.sub}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                  {t.strategies.guideWhatLabel}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{s.what}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                  {t.strategies.guideWhenLabel}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{s.when}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                  {t.strategies.guideParamsLabel}
-                </p>
-                <div className="space-y-1.5">
-                  {s.params.map(p => (
-                    <div key={p.name} className="text-xs">
-                      <span className="font-semibold text-gray-700 dark:text-gray-200">{p.name}:</span>{' '}
-                      <span className="text-gray-500 dark:text-gray-400">{p.effect}</span>
+          {strategies.map(s => {
+            const cardOpen = openCards.has(s.id);
+            return (
+              <div key={s.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => toggleCard(s.id)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/50 transition-colors text-left"
+                >
+                  <div>
+                    <span className={`inline-block text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${s.badge}`}>
+                      {s.label}
+                    </span>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{s.sub}</p>
+                  </div>
+                  {cardOpen
+                    ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
+                    : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />}
+                </button>
+                {cardOpen && (
+                  <div className="px-4 pb-4 space-y-3">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                        {t.strategies.guideWhatLabel}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{s.what}</p>
                     </div>
-                  ))}
-                </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                        {t.strategies.guideWhenLabel}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{s.when}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                        {t.strategies.guideParamsLabel}
+                      </p>
+                      <div className="space-y-1.5">
+                        {s.params.map(p => (
+                          <div key={p.name} className="text-xs">
+                            <span className="font-semibold text-gray-700 dark:text-gray-200">{p.name}:</span>{' '}
+                            <span className="text-gray-500 dark:text-gray-400">{p.effect}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

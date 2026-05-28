@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "test": "mocha --timeout 30000 tests/**/*.test.js",
-    "test:headed": "HEADLESS=false mocha --timeout 30000 tests/**/*.test.js"
+    "test:headed": "HEADLESS=false mocha --timeout 30000 tests/**/*.test.js",
+    "test:ismael": "mocha --timeout 30000 \"ismael/**/*.test.js\""
   },
   "dependencies": {
     "selenium-webdriver": "^4.27.0"

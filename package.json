@@ -3,7 +3,10 @@
     "test:e2e": "cd e2e && npm test",
     "test:e2e:headed": "cd e2e && npm run test:headed",
     "test:e2e:install": "cd e2e && npm install",
-    "test:backend": "cd backend && npm run test -- --run"
+    "test:backend": "cd backend && npm run test -- --run",
+    "test:backend:ismael": "cd backend && npx vitest --config vitest.ismael.config.ts --run",
+    "test:e2e:ismael": "cd e2e && npm run test:ismael",
+    "test:ismael": "npm run test:backend:ismael && npm run test:e2e:ismael"
   },
   "dependencies": {
     "cors": "^2.8.6"
