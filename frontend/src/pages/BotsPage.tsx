@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Bot as BotIcon, Play, Square, Trash2, Plus, TrendingUp, TrendingDown, ChevronDown, ChevronUp, X, Sparkles } from 'lucide-react';
+import { Bot as BotIcon, Play, Square, Trash2, Plus, TrendingUp, TrendingDown, ChevronDown, ChevronUp, X, Sparkles, LogOut } from 'lucide-react';
 import { botService, autocompleteService, botStrategyService, brokerCredentialService } from '../services';
 import type { Bot, BotTrade, BotMetrics, CreateBotDTO, BotStrategy, BrokerMode, BrokerAccountBalance, BotAlgorithm } from '../services';
 import { useLanguage } from '../context/LanguageContext';
@@ -119,6 +119,7 @@ function SymbolAutocomplete({ value, onChange }: { value: string; onChange: (sym
 function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: (dto: CreateBotDTO) => Promise<void> }) {
   const { t } = useLanguage();
   const [form, setForm] = useState<CreateBotDTO>(DEFAULT_FORM);
+  const [stopLossPct, setStopLossPct] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedStrategies, setSavedStrategies] = useState<BotStrategy[]>([]);
@@ -161,10 +162,14 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
     e.preventDefault();
     if (!form.name.trim()) { setError(t.bots.nameRequired); return; }
     if (!form.symbol.trim()) { setError(t.bots.symbolRequired); return; }
+    const parsedStopLoss = stopLossPct ? Number(stopLossPct) : undefined;
+    const dto: CreateBotDTO = parsedStopLoss
+      ? { ...form, params: { ...form.params, stopLossPct: parsedStopLoss } }
+      : form;
     setLoading(true);
     setError(null);
     try {
-      await onCreate(form);
+      await onCreate(dto);
       onClose();
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || t.bots.createError);
@@ -174,8 +179,9 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50">
+      <div className="flex min-h-full items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md p-4 sm:p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <BotIcon className="w-5 h-5 text-primary-600" />
@@ -235,6 +241,7 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
               >
                 <option value="momentum">{t.bots.momentumAlgo}</option>
                 <option value="mean-reversion">{t.bots.meanReversionAlgo}</option>
+                <option value="rsi">{t.bots.rsiAlgo}</option>
               </select>
             </div>
           )}
@@ -296,6 +303,21 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
             )}
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stop Loss (%)</label>
+            <input
+              type="number"
+              min={0.1}
+              max={50}
+              step={0.1}
+              value={stopLossPct}
+              onChange={e => setStopLossPct(e.target.value)}
+              placeholder="Ej: 5 (dejar vacío para desactivar)"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm"
+            />
+            <p className="mt-1 text-xs text-gray-400">Si el precio cae este % desde la entrada, el bot vende automáticamente.</p>
+          </div>
+
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
           <div className="flex gap-3 pt-1">
@@ -315,6 +337,7 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
             </button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   );
@@ -354,11 +377,12 @@ function BotDetail({ bot }: { bot: Bot }) {
       {metrics && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[
-            { label: t.bots.currentCapital, value: fmtCurrency(metrics.currentCapital) },
+            { label: t.bots.currentCapital, value: fmtCurrency(metrics.effectiveCapital) },
             { label: t.bots.totalPnl, value: <PnlBadge value={metrics.totalPnl} pct={metrics.pnlPct} /> },
+            ...(metrics.positionSize > 0 ? [{ label: t.bots.unrealizedPnl ?? 'No realizado', value: <PnlBadge value={metrics.unrealizedPnl} /> }] : []),
             { label: t.bots.winRate, value: `${fmt(metrics.winRate * 100)}%` },
             { label: t.bots.tradesLabel, value: `${metrics.totalTrades}` },
-            { label: 'Comisiones pagadas', value: fmtCurrency(metrics.totalCommissions) },
+            { label: t.bots.commissionsLabel ?? 'Comisiones', value: fmtCurrency(metrics.totalCommissions) },
           ].map(({ label, value }) => (
             <div key={label} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
@@ -423,119 +447,153 @@ function BotDetail({ bot }: { bot: Bot }) {
 
 // ─── Bot Card ─────────────────────────────────────────────────────────────────
 
-function BotCard({ bot, onStart, onStop, onDelete }: {
+function BotCard({ bot, onStart, onStop, onClosePosition, onDelete }: {
   bot: Bot;
   onStart: (id: string) => void;
   onStop: (id: string) => void;
+  onClosePosition: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const running = bot.status === 'running';
-  const positionValue = bot.positionSize > 0 && bot.currentPrice != null && bot.currentPrice > 0
-    ? bot.positionSize * bot.currentPrice
+  const paused = bot.status === 'paused';
+  const active = running || paused;
+
+  const priceForValuation = (bot.currentPrice != null && bot.currentPrice > 0)
+    ? bot.currentPrice
+    : (bot.positionEntryPrice ?? 0);
+  const positionValue = bot.positionSize > 0 && priceForValuation > 0
+    ? bot.positionSize * priceForValuation
     : 0;
   const totalValue = bot.currentCapital + positionValue;
   const pnl = totalValue - bot.initialCapital;
 
-  const handleToggle = async () => {
-    setActionLoading(true);
-    try {
-      if (running) await onStop(bot.id);
-      else await onStart(bot.id);
-    } finally {
-      setActionLoading(false);
-    }
+  const handle = async (action: string, fn: () => void | Promise<void>) => {
+    setActionLoading(action);
+    try { await fn(); } finally { setActionLoading(null); }
   };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-      <div className="flex items-center gap-4 p-4">
-        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${running ? 'bg-green-500 animate-pulse' : 'bg-gray-300 dark:bg-gray-600'}`} />
+      <div className="flex flex-col sm:flex-row sm:items-center p-3 sm:p-4 gap-2 sm:gap-3">
+        {/* Info row: dot + text */}
+        <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+          <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-1.5 sm:mt-0 ${running ? 'bg-green-500 animate-pulse' : paused ? 'bg-yellow-400' : 'bg-gray-300 dark:bg-gray-600'}`} />
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-gray-900 dark:text-white truncate">{bot.name}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 font-medium">
-              {bot.symbol}
-            </span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-              {bot.strategy}
-            </span>
-            {bot.brokerMode === 'simulated' && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 font-medium">
-                SIMULADO
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-gray-900 dark:text-white truncate">{bot.name}</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 font-medium">
+                {bot.symbol}
               </span>
-            )}
-            {bot.brokerMode === 'alpaca_paper' && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">
-                ALPACA PAPER
+              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                {bot.strategy}
               </span>
-            )}
-            {bot.brokerMode === 'alpaca_live' && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 font-semibold">
-                ⚠ ALPACA LIVE
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
-            <span>{t.bots.valueLabel}: {fmtCurrency(totalValue)}</span>
-            {bot.positionSize > 0 && (
-              <span className="text-gray-400 dark:text-gray-500">
-                ({t.bots.cashLabel} {fmtCurrency(bot.currentCapital)})
-              </span>
-            )}
-            <PnlBadge value={pnl} pct={(pnl / bot.initialCapital) * 100} />
-          </div>
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            {bot.currentPrice != null && bot.currentPrice > 0 && (
-              <span className="inline-flex items-center gap-1 text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md font-mono">
-                <span className="text-gray-500 dark:text-gray-400">{t.bots.priceLabel} {bot.symbol}:</span>
-                <span className="text-gray-900 dark:text-white font-bold">${fmt(bot.currentPrice, 4)}</span>
-              </span>
-            )}
-            {running && bot.lastSignal && (
-              <span className={`inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-md ${
-                bot.lastSignal === 'BUY'  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
-                bot.lastSignal === 'SELL' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' :
-                                            'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-              }`}>
-                {bot.lastSignal}
-              </span>
-            )}
-            {bot.positionSize > 0 && bot.positionEntryPrice != null && bot.currentPrice != null && bot.currentPrice > 0 && (() => {
-              const unrealized = (bot.currentPrice - bot.positionEntryPrice) * bot.positionSize;
-              const positive = unrealized >= 0;
-              return (
-                <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md font-mono ${
-                  positive ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
-                           : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                }`}>
-                  <span className="opacity-70">{t.bots.entryLabel} ${fmt(bot.positionEntryPrice, 4)} →</span>
-                  <span className="font-bold">{positive ? '+' : ''}{fmt(unrealized, 2)}$</span>
+              {bot.brokerMode === 'simulated' && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 font-medium">
+                  SIMULADO
                 </span>
-              );
-            })()}
+              )}
+              {bot.brokerMode === 'alpaca_paper' && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">
+                  ALPACA PAPER
+                </span>
+              )}
+              {bot.brokerMode === 'alpaca_live' && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 font-semibold">
+                  ⚠ ALPACA LIVE
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
+              <span>{t.bots.valueLabel}: {fmtCurrency(totalValue)}</span>
+              {bot.positionSize > 0 && (
+                <span className="text-gray-400 dark:text-gray-500">
+                  ({t.bots.cashLabel} {fmtCurrency(bot.currentCapital)})
+                </span>
+              )}
+              <PnlBadge value={pnl} pct={(pnl / bot.initialCapital) * 100} />
+            </div>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              {bot.currentPrice != null && bot.currentPrice > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md font-mono">
+                  <span className="text-gray-500 dark:text-gray-400">{t.bots.priceLabel} {bot.symbol}:</span>
+                  <span className="text-gray-900 dark:text-white font-bold">${fmt(bot.currentPrice, 4)}</span>
+                </span>
+              )}
+              {running && bot.lastSignal && (
+                <span className={`inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-md ${
+                  bot.lastSignal === 'BUY'  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+                  bot.lastSignal === 'SELL' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' :
+                                              'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                }`}>
+                  {bot.lastSignal}
+                </span>
+              )}
+              {bot.positionSize > 0 && bot.positionEntryPrice != null && bot.currentPrice != null && bot.currentPrice > 0 && (() => {
+                const unrealized = (bot.currentPrice - bot.positionEntryPrice) * bot.positionSize;
+                const positive = unrealized >= 0;
+                return (
+                  <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md font-mono ${
+                    positive ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                             : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                  }`}>
+                    <span className="opacity-70">{t.bots.entryLabel} ${fmt(bot.positionEntryPrice, 4)} →</span>
+                    <span className="font-bold">{positive ? '+' : ''}{fmt(unrealized, 2)}$</span>
+                  </span>
+                );
+              })()}
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            onClick={handleToggle}
-            disabled={actionLoading}
-            title={running ? t.bots.stopTitle : t.bots.startTitle}
-            className={`p-2 rounded-xl transition-colors disabled:opacity-50 ${running
-              ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40'
-              : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40'
-            }`}
-          >
-            {running ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          </button>
+        {/* Actions row: below info on mobile, to the right on desktop */}
+        <div className="flex items-center gap-2 flex-shrink-0 pl-6 sm:pl-0 flex-wrap">
+          {bot.positionSize > 0 && (
+            <button
+              onClick={() => handle('close', () => onClosePosition(bot.id))}
+              disabled={actionLoading !== null}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors disabled:opacity-50"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Cerrar pos.
+            </button>
+          )}
+          {paused && (
+            <button
+              onClick={() => handle('start', () => onStart(bot.id))}
+              disabled={actionLoading !== null}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors disabled:opacity-50"
+            >
+              <Play className="w-3.5 h-3.5" />
+              Reanudar
+            </button>
+          )}
+          {active ? (
+            <button
+              onClick={() => handle('stop', () => onStop(bot.id))}
+              disabled={actionLoading !== null}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-50"
+            >
+              <Square className="w-3.5 h-3.5" />
+              Detener
+            </button>
+          ) : (
+            <button
+              onClick={() => handle('start', () => onStart(bot.id))}
+              disabled={actionLoading !== null}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors disabled:opacity-50"
+            >
+              <Play className="w-3.5 h-3.5" />
+              Iniciar
+            </button>
+          )}
           <button
             onClick={() => onDelete(bot.id)}
-            disabled={running}
+            disabled={active || actionLoading !== null}
             title={t.bots.deleteTitle}
             className="p-2 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-30"
           >
@@ -600,22 +658,43 @@ export default function BotsPage() {
     setBots(prev => prev.map(b => b.id === id ? bot : b));
   };
 
+
+  const handleClosePosition = async (id: string) => {
+    const bot = bots.find(b => b.id === id);
+    if (!bot) return;
+
+    if (bot.brokerMode !== 'simulated') {
+      const { open } = await botService.getMarketStatus(id);
+      if (!open) {
+        alert('El mercado está cerrado en este momento.\nNo es posible cerrar la posición fuera del horario de mercado (L–V, 9:30–16:00 ET).');
+        return;
+      }
+      const msg = bot.brokerMode === 'alpaca_live'
+        ? `⚠ ALPACA LIVE — Se enviará una orden de venta a mercado con dinero real.\n\n¿Confirmar cierre de posición?`
+        : `Se enviará una orden de venta a Alpaca Paper.\n\n¿Confirmar cierre de posición?`;
+      if (!confirm(msg)) return;
+    }
+
+    const updated = await botService.closePosition(id);
+    setBots(prev => prev.map(b => b.id === id ? updated : b));
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm(t.bots.deleteConfirm)) return;
     await botService.deleteBot(id);
     setBots(prev => prev.filter(b => b.id !== id));
   };
 
-  const runningCount = bots.filter(b => b.status === 'running').length;
+  const runningCount = bots.filter(b => b.status === 'running' || b.status === 'paused').length;
   const activeLabel = (runningCount === 1 ? t.bots.activeCount : t.bots.activeCountPlural)
     .replace('{n}', String(runningCount));
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-3 sm:p-6 max-w-4xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <BotIcon className="w-7 h-7 text-primary-600" />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 sm:gap-3">
+            <BotIcon className="w-6 h-6 sm:w-7 sm:h-7 text-primary-600" />
             {t.bots.pageTitle}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -624,7 +703,7 @@ export default function BotsPage() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm"
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           {t.bots.newBot}
@@ -661,6 +740,7 @@ export default function BotsPage() {
               bot={bot}
               onStart={handleStart}
               onStop={handleStop}
+              onClosePosition={handleClosePosition}
               onDelete={handleDelete}
             />
           ))}

@@ -128,8 +128,8 @@ export default function OpenPositionsPanel({ positions, prices, onRefresh }: Pro
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
           <button onClick={() => setCollapsed(c => !c)} className="flex items-center gap-2">
             <span className="font-semibold text-gray-900 dark:text-white text-sm">Posiciones abiertas</span>
             <span className="text-xs px-1.5 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 font-semibold">
@@ -138,14 +138,16 @@ export default function OpenPositionsPanel({ positions, prices, onRefresh }: Pro
             {collapsed ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronUp className="w-4 h-4 text-gray-400" />}
           </button>
           {positions.length > 0 && (
-            <span className={`text-sm font-semibold ${totalUnrealized >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-              {totalUnrealized >= 0 ? '+' : ''}{fmtCurrency(totalUnrealized)} no realizado
+            <span className={`text-xs sm:text-sm font-semibold ${totalUnrealized >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              {totalUnrealized >= 0 ? '+' : ''}{fmtCurrency(totalUnrealized)}<span className="hidden sm:inline"> no realizado</span>
             </span>
           )}
         </div>
         <button onClick={() => setShowOpen(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-colors">
-          <Plus className="w-3.5 h-3.5" /> Nueva posición
+          <Plus className="w-3.5 h-3.5" />
+          <span className="sm:hidden">Nueva</span>
+          <span className="hidden sm:inline">Nueva posición</span>
         </button>
       </div>
 

@@ -1,5 +1,5 @@
-export type BotStrategy = 'momentum' | 'mean-reversion';
-export type BotStatus = 'running' | 'stopped';
+export type BotStrategy = 'momentum' | 'mean-reversion' | 'rsi';
+export type BotStatus = 'running' | 'paused' | 'stopped';
 export type TradeSide = 'BUY' | 'SELL';
 
 import type { BrokerMode } from './broker_credential';
@@ -31,6 +31,12 @@ export interface BotParams {
   // Mean-reversion params
   window?: number;
   k?: number;
+  // RSI params
+  rsiPeriod?: number;
+  rsiOverbought?: number;
+  rsiOversold?: number;
+  // Risk management
+  stopLossPct?: number;
 }
 
 export interface BotTrade {
@@ -57,9 +63,12 @@ export interface BotMetrics {
   totalTrades: number;
   winningTrades: number;
   winRate: number;
-  totalPnl: number;
+  totalPnl: number;       // PnL realizado (solo operaciones cerradas)
+  unrealizedPnl: number;  // PnL de la posición abierta al precio actual
+  effectiveCapital: number; // cash + valor de mercado de la posición abierta
   pnlPct: number;
   totalCommissions: number;
-  currentCapital: number;
+  currentCapital: number; // solo el cash disponible
   positionSize: number;
+  positionEntryPrice: number | null;
 }

@@ -2,6 +2,36 @@ import { Response } from 'express';
 import { botService } from '../services/bot.service';
 import type { AuthRequest } from '../middleware/auth.middleware';
 
+export const getMarketStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const status = await botService.getMarketStatus(req.params.id as string, req.userId!);
+    res.json(status);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Error al consultar el estado del mercado';
+    res.status(400).json({ error: msg });
+  }
+};
+
+export const pauseBot = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const bot = await botService.pauseBot(req.params.id as string, req.userId!);
+    res.json(bot);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Error al pausar el bot';
+    res.status(400).json({ error: msg });
+  }
+};
+
+export const closePosition = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const bot = await botService.closePosition(req.params.id as string, req.userId!);
+    res.json(bot);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Error al cerrar la posición';
+    res.status(400).json({ error: msg });
+  }
+};
+
 export const createBot = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { name, symbol, strategy, brokerMode, initialCapital, params } = req.body;
@@ -9,8 +39,8 @@ export const createBot = async (req: AuthRequest, res: Response): Promise<void> 
       res.status(400).json({ error: 'name, symbol y strategy son obligatorios' });
       return;
     }
-    if (!['momentum', 'mean-reversion'].includes(strategy)) {
-      res.status(400).json({ error: 'strategy debe ser momentum o mean-reversion' });
+    if (!['momentum', 'mean-reversion', 'rsi'].includes(strategy)) {
+      res.status(400).json({ error: 'strategy debe ser momentum, mean-reversion o rsi' });
       return;
     }
     if (brokerMode && !['simulated', 'alpaca_paper', 'alpaca_live'].includes(brokerMode)) {
