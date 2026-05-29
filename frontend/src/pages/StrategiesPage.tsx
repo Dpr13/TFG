@@ -9,6 +9,25 @@ import {
   ResponsiveContainer, BarChart, Bar, Legend,
 } from 'recharts';
 
+// ─── Expandable description ───────────────────────────────────────────────────
+
+function ExpandableDescription({ text, className }: { text: string; className?: string }) {
+  const { t } = useLanguage();
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div>
+      <p className={`${className ?? ''} ${expanded ? '' : 'line-clamp-2'}`}>{text}</p>
+      <button
+        type="button"
+        onClick={() => setExpanded(v => !v)}
+        className="text-xs text-primary-600 dark:text-primary-400 hover:underline mt-0.5"
+      >
+        {expanded ? t.strategies.seeLess : t.strategies.seeMore}
+      </button>
+    </div>
+  );
+}
+
 // ─── Static data (no i18n needed) ────────────────────────────────────────────
 
 const PARAM_RANGES: Record<string, { min: number; max: number; step: number; defaultValue: number }> = {
@@ -104,7 +123,7 @@ function BotStrategyForm({
   const algos = [
     { id: 'momentum',       label: t.strategies.algoMomentum, sub: t.strategies.algoMomentumSub, disabled: false },
     { id: 'mean-reversion', label: t.strategies.algoMeanRev,  sub: t.strategies.algoMeanRevSub,  disabled: false },
-    { id: 'rsi',            label: t.strategies.algoRsi,      sub: t.strategies.algoRsiSub,      disabled: true  },
+    { id: 'rsi',            label: t.strategies.algoRsi,      sub: t.strategies.algoRsiSub,      disabled: false },
   ] as const;
 
   return (
@@ -248,6 +267,132 @@ function BotStrategyForm({
   );
 }
 
+// ─── Strategy Guide ───────────────────────────────────────────────────────────
+
+function StrategyGuide() {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const [openCards, setOpenCards] = useState<Set<string>>(new Set());
+
+  const toggleCard = (id: string) =>
+    setOpenCards(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const strategies = [
+    {
+      id: 'momentum',
+      label: t.strategies.algoMomentum,
+      sub: t.strategies.algoMomentumSub,
+      badge: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+      what: t.strategies.guideMomWhat,
+      when: t.strategies.guideMomWhen,
+      params: [
+        { name: t.strategies.guideMomFastP,   effect: t.strategies.guideMomFastE   },
+        { name: t.strategies.guideMomSlowP,   effect: t.strategies.guideMomSlowE   },
+        { name: t.strategies.guideMomThreshP, effect: t.strategies.guideMomThreshE },
+      ],
+    },
+    {
+      id: 'mean-reversion',
+      label: t.strategies.algoMeanRev,
+      sub: t.strategies.algoMeanRevSub,
+      badge: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300',
+      what: t.strategies.guideMeanWhat,
+      when: t.strategies.guideMeanWhen,
+      params: [
+        { name: t.strategies.guideMeanWindowP, effect: t.strategies.guideMeanWindowE },
+        { name: t.strategies.guideMeanKP,      effect: t.strategies.guideMeanKE      },
+      ],
+    },
+    {
+      id: 'rsi',
+      label: t.strategies.algoRsi,
+      sub: t.strategies.algoRsiSub,
+      badge: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+      what: t.strategies.guideRsiWhat,
+      when: t.strategies.guideRsiWhen,
+      params: [
+        { name: t.strategies.guideRsiPeriodP, effect: t.strategies.guideRsiPeriodE },
+        { name: t.strategies.guideRsiOBP,     effect: t.strategies.guideRsiOBE     },
+        { name: t.strategies.guideRsiOSP,     effect: t.strategies.guideRsiOSE     },
+      ],
+    },
+  ];
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-indigo-500" />
+          <span className="font-semibold text-gray-900 dark:text-white text-sm">{t.strategies.guideTitle}</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">{t.strategies.guideSubtitle}</span>
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+      </button>
+      {open && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-6 pb-6">
+          {strategies.map(s => {
+            const cardOpen = openCards.has(s.id);
+            return (
+              <div key={s.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => toggleCard(s.id)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-600/50 transition-colors text-left"
+                >
+                  <div>
+                    <span className={`inline-block text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${s.badge}`}>
+                      {s.label}
+                    </span>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{s.sub}</p>
+                  </div>
+                  {cardOpen
+                    ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
+                    : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />}
+                </button>
+                {cardOpen && (
+                  <div className="px-4 pb-4 space-y-3">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                        {t.strategies.guideWhatLabel}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{s.what}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                        {t.strategies.guideWhenLabel}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{s.when}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                        {t.strategies.guideParamsLabel}
+                      </p>
+                      <div className="space-y-1.5">
+                        {s.params.map(p => (
+                          <div key={p.name} className="text-xs">
+                            <span className="font-semibold text-gray-700 dark:text-gray-200">{p.name}:</span>{' '}
+                            <span className="text-gray-500 dark:text-gray-400">{p.effect}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Tab: Estrategias para Bots ───────────────────────────────────────────────
 
 function BotStrategiesTab() {
@@ -257,6 +402,7 @@ function BotStrategiesTab() {
   const templates = [
     { algorithm: 'momentum' as BotAlgorithm, name: t.strategies.templateMomentumName, description: t.strategies.templateMomentumDesc, params: ALGO_DEFAULTS['momentum'] },
     { algorithm: 'mean-reversion' as BotAlgorithm, name: t.strategies.templateMeanRevName, description: t.strategies.templateMeanRevDesc, params: ALGO_DEFAULTS['mean-reversion'] },
+    { algorithm: 'rsi' as BotAlgorithm, name: t.strategies.templateRsiName, description: t.strategies.templateRsiDesc, params: ALGO_DEFAULTS['rsi'] },
   ];
 
   const [strategies, setStrategies] = useState<BotStrategy[]>([]);
@@ -303,6 +449,8 @@ function BotStrategiesTab() {
 
   return (
     <div className="space-y-6">
+      <StrategyGuide />
+
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <button
           onClick={() => setShowTemplates(v => !v)}
@@ -316,7 +464,7 @@ function BotStrategiesTab() {
           {showTemplates ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
         </button>
         {showTemplates && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-6 pb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-6 pb-6">
             {templates.map(tmpl => (
               <div key={tmpl.algorithm} className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
                 <div className="flex items-start justify-between mb-2">
@@ -402,7 +550,7 @@ function BotStrategiesTab() {
                       </span>
                     </div>
                     {s.description && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{s.description}</p>
+                      <ExpandableDescription text={s.description} className="text-xs text-gray-500 dark:text-gray-400 mt-1" />
                     )}
                     <div className="flex flex-wrap gap-2 mt-2">
                       {Object.entries(s.params).map(([k, v]) => (
@@ -578,7 +726,7 @@ function ManualStrategiesTab() {
                     <button onClick={() => handleDelete(strategy.id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
-                {strategy.description && <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{strategy.description}</p>}
+                {strategy.description && <ExpandableDescription text={strategy.description} className="text-sm text-gray-500 dark:text-gray-400 mb-3" />}
                 {performances[strategy.id] && (() => {
                   const p = performances[strategy.id];
                   const pfDisplay = p.profitFactor >= 9999 ? '∞' : p.profitFactor.toFixed(2);

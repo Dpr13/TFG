@@ -1,4 +1,5 @@
-import { TrendingUp, TrendingDown, X } from 'lucide-react';
+import { useState } from 'react';
+import { TrendingUp, TrendingDown, X, ChevronDown, ChevronUp } from 'lucide-react';
 import type { PositionTrade, PositionDailyStats } from '../types';
 
 interface Props {
@@ -12,11 +13,25 @@ function fmt(n: number, d = 2) { return n.toFixed(d); }
 function fmtCurrency(n: number) {
   return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'USD' }).format(n);
 }
+function fmtDateTime(iso: string) {
+  const [y, m, d] = iso.split('T')[0].split('-').map(Number);
+  const time = iso.includes('T') ? iso.split('T')[1].slice(0, 5) : null;
+  const date = new Date(y, m - 1, d).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  return time ? `${date} · ${time}` : date;
+}
 
 export default function DailyPositionTradesModal({ date, trades, stats, onClose }: Props) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
   const [y, m, d] = date.split('-').map(Number);
   const label = new Date(y, m - 1, d).toLocaleDateString('es-ES', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  const toggle = (id: string) => setExpandedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
   });
 
   const isProfit = (stats?.totalPnL ?? 0) > 0;
@@ -28,6 +43,7 @@ export default function DailyPositionTradesModal({ date, trades, stats, onClose 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-xl w-full max-h-[90vh] overflow-y-auto m-4">
+
         {/* Header */}
         <div className={`${headerBg} border-b border-gray-200 dark:border-gray-700 p-5`}>
           <div className="flex items-start justify-between">
@@ -62,10 +78,16 @@ export default function DailyPositionTradesModal({ date, trades, stats, onClose 
                 const isLong = tr.direction === 'long';
                 const dirColor = isLong ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
                 const dirBg    = isLong ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20';
+                const open     = expandedIds.has(tr.id);
 
                 return (
-                  <div key={tr.id} className={`p-4 rounded-xl border ${positive ? 'border-green-200 dark:border-green-800' : 'border-red-200 dark:border-red-800'} bg-white dark:bg-gray-800`}>
-                    <div className="flex items-start justify-between gap-3">
+                  <div key={tr.id} className={`rounded-xl border ${positive ? 'border-green-200 dark:border-green-800' : 'border-red-200 dark:border-red-800'} bg-white dark:bg-gray-800 overflow-hidden`}>
+
+                    {/* Card header — clickable row */}
+                    <button
+                      onClick={() => toggle(tr.id)}
+                      className="w-full p-4 flex items-start justify-between gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors text-left"
+                    >
                       <div className="flex items-center gap-2.5">
                         <div className={`p-1.5 rounded-lg ${dirBg}`}>
                           {isLong
@@ -80,21 +102,63 @@ export default function DailyPositionTradesModal({ date, trades, stats, onClose 
                             </span>
                           </div>
                           <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
-                            <div>Cantidad cerrada: <span className="font-medium text-gray-700 dark:text-gray-300">{fmt(tr.quantity, 4)} uds</span></div>
+                            <div>Cantidad: <span className="font-medium text-gray-700 dark:text-gray-300">{fmt(tr.quantity, 4)} uds</span></div>
                             <div>Precio de salida: <span className="font-medium text-gray-700 dark:text-gray-300">${fmt(tr.price, 4)}</span></div>
                           </div>
                         </div>
                       </div>
 
-                      {tr.pnl !== undefined && (
-                        <div className={`text-right text-sm font-semibold ${positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          <div>{positive ? '+' : ''}{fmtCurrency(tr.pnl)}</div>
-                          {tr.pnlPct !== undefined && (
-                            <div className="text-xs font-normal opacity-75">{positive ? '+' : ''}{fmt(tr.pnlPct)}%</div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {tr.pnl !== undefined && (
+                          <div className={`text-right text-sm font-semibold ${positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            <div>{positive ? '+' : ''}{fmtCurrency(tr.pnl)}</div>
+                            {tr.pnlPct !== undefined && (
+                              <div className="text-xs font-normal opacity-75">{positive ? '+' : ''}{fmt(tr.pnlPct)}%</div>
+                            )}
+                          </div>
+                        )}
+                        {open
+                          ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+                      </div>
+                    </button>
+
+                    {/* Details panel */}
+                    {open && (
+                      <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-700 pt-3">
+                        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                          <div>
+                            <dt className="text-gray-400 dark:text-gray-500">Fecha de cierre</dt>
+                            <dd className="font-medium text-gray-700 dark:text-gray-300 mt-0.5">{fmtDateTime(tr.executedAt)}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-gray-400 dark:text-gray-500">Dirección</dt>
+                            <dd className={`font-semibold mt-0.5 uppercase ${dirColor}`}>{tr.direction ?? '—'}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-gray-400 dark:text-gray-500">Cantidad cerrada</dt>
+                            <dd className="font-medium text-gray-700 dark:text-gray-300 mt-0.5">{fmt(tr.quantity, 4)} uds</dd>
+                          </div>
+                          <div>
+                            <dt className="text-gray-400 dark:text-gray-500">Precio de salida</dt>
+                            <dd className="font-medium text-gray-700 dark:text-gray-300 mt-0.5">${fmt(tr.price, 4)}</dd>
+                          </div>
+                          {tr.pnl !== undefined && (
+                            <div>
+                              <dt className="text-gray-400 dark:text-gray-500">PnL realizado</dt>
+                              <dd className={`font-semibold mt-0.5 ${positive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                {positive ? '+' : ''}{fmtCurrency(tr.pnl)}
+                                {tr.pnlPct !== undefined && <span className="font-normal opacity-75 ml-1">({positive ? '+' : ''}{fmt(tr.pnlPct)}%)</span>}
+                              </dd>
+                            </div>
                           )}
-                        </div>
-                      )}
-                    </div>
+                          <div>
+                            <dt className="text-gray-400 dark:text-gray-500">ID posición</dt>
+                            <dd className="font-mono text-gray-500 dark:text-gray-400 mt-0.5 truncate">{tr.positionId}</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    )}
                   </div>
                 );
               })}

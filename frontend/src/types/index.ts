@@ -209,6 +209,10 @@ export interface AssetStats {
   totalPnL: number;
   winRate: number;
   avgPnL: number;
+  bestTrade: number;
+  worstTrade: number;
+  volatility: number;
+  sharpeRatio: number;
 }
 
 export interface DayOfWeekStats {
@@ -222,6 +226,19 @@ export interface TemporalStats {
   dayOfWeek: DayOfWeekStats[];
   bestDayOfWeek: string;
   worstDayOfWeek: string;
+}
+
+export interface DirectionalSide {
+  operations: number;
+  totalPnL: number;
+  winRate: number;
+  avgPnL: number;
+  avgPnLPct: number;
+}
+
+export interface DirectionalStats {
+  long: DirectionalSide;
+  short: DirectionalSide;
 }
 
 export interface BehaviorStats {
@@ -245,9 +262,11 @@ export interface PsychoAnalysisSummary {
   generalStats: GeneralStats;
   assetStats: AssetStats[];
   temporalStats: TemporalStats;
+  directionalStats: DirectionalStats;
   behaviorStats: BehaviorStats;
   alerts: RiskAlert[];
   disciplineScore: number;
+  recommendations: string[];
 }
 export interface UpdateStrategyDTO {
   name?: string;
