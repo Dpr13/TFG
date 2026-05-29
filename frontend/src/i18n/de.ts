@@ -25,7 +25,7 @@ const de: Translations = {
     analyzedOn: 'Analysiert am',
     unlimited: 'Unbegrenzt',
     yearlyChange: 'Jährliche Veränderung',
-    detailedAnalysis: 'Detaillierte Analyse dieses Faktors für das Asset.',
+    detailedAnalysis: 'Detaillierte Analyse dieses Faktors für den Vermögenswert.',
     shortTermFactor: 'Relevanter Faktor kurzfristig.',
     midTermFactor: 'Relevanter Faktor mittelfristig.',
     longTermFactor: 'Bestimmender Faktor langfristig.',
@@ -69,9 +69,9 @@ const de: Translations = {
     feature2Title: 'Erweiterte Analyse',
     feature2Desc: 'Volatilität, Sharpe-Ratio, VaR, Drawdown und mehr',
     feature3Title: 'Risikomanagement',
-    feature3Desc: 'Bewerte und vergleiche das Risiko beliebiger Assets',
+    feature3Desc: 'Bewerte und vergleiche das Risiko beliebiger Vermögenswerte',
     feature4Title: 'Personalisierte Verfolgung',
-    feature4Desc: 'Erstelle sofort deine Liste favorisierter Assets',
+    feature4Desc: 'Erstelle sofort deine Liste favorisierter Vermögenswerte',
   },
 
   // ── Register ──
@@ -180,7 +180,7 @@ nav: {
   technicalAnalysis: 'Technische Analyse',
   fundamentalAnalysis: 'Fundamentalanalyse',
   quantitativeAnalysis: 'Quantitative Analyse',
-  compareAssets: 'Assets vergleichen',
+  compareAssets: 'Vermögenswerte vergleichen',
   recommendation: 'Empfehlung',
   journaling: 'Journal',
   autoTrader: 'AutoTrader',
@@ -203,12 +203,12 @@ home: {
   marketSummary: 'Hier ist deine Marktübersicht für heute.',
   registeredOps: 'Registrierte Operationen',
   strategies: 'Strategien',
-  tracking: 'Tracking',
+  tracking: 'Beobachtung',
   weeklyActivity: 'Wöchentliche Aktivität',
   analyzeRisk: 'Risiko analysieren',
   analyzeRiskDesc: 'Bewerte das Risiko deiner Investitionen und treffe fundierte Entscheidungen',
-  viewAssets: 'Assets anzeigen',
-  followUp: 'Tracking',
+  viewAssets: 'Vermögenswerte anzeigen',
+  followUp: 'Beobachtung',
   manage: 'Verwalten',
   marketNews: 'Marktnachrichten',
   viewMore: 'Mehr anzeigen',
@@ -263,9 +263,9 @@ sidebar: {
   news: 'Nachrichten',
   reloadNews: 'Nachrichten neu laden',
   markets: 'Märkte',
-  asset: 'Asset',
+  asset: 'Vermögenswert',
   updatedAgo: 'Vor {n} Min. aktualisiert',
-  analyzeAssetForNews: 'Analysiere ein Asset, um zugehörige Nachrichten zu sehen.',
+  analyzeAssetForNews: 'Analysiere einen Vermögenswert, um zugehörige Nachrichten zu sehen.',
   noNewsAvailable: 'Derzeit keine Nachrichten verfügbar.',
   errorLoadingNews: 'Nachrichten konnten nicht geladen werden. Bitte versuche es erneut.',
   source: 'Quelle: Yahoo Finance',
@@ -294,13 +294,13 @@ footer: {
 
 // ── Assets Page ──
 assets: {
-  title: 'Finanzielle Assets',
-  subtitle: 'Erkunde und analysiere verschiedene verfügbare Assets',
+  title: 'Finanzielle Vermögenswerte',
+  subtitle: 'Erkunde und analysiere verschiedene verfügbare Vermögenswerte',
   searchPlaceholder: 'Suche nach Name oder Symbol (z. B.: AAPL, KO, NFLX)...',
   watchlist: 'Watchlist',
   recentSearches: 'Suchen',
   noWatchlistItems: 'Deine Watchlist ist leer.',
-  addFirst: 'Füge dein erstes Asset hinzu, indem du oben suchst.',
+  addFirst: 'Füge deinen ersten Vermögenswert hinzu, indem du oben suchst.',
   noRecentSearches: 'Keine kürzlichen Suchen.',
   type: 'Typ',
   stock: 'Aktie',
@@ -314,7 +314,7 @@ assets: {
     allTypes: 'Alle Typen',
   },
   search: 'Suchen',
-  noResults: 'Keine Assets gefunden, die Ihrer Suche entsprechen',
+  noResults: 'Keine Vermögenswerte gefunden, die Ihrer Suche entsprechen',
   trySpecific: 'Versuchen Sie, nach einem bestimmten Symbol (z. B.: AAPL, NFLX, META) zu suchen, indem Sie die Eingabetaste drücken oder auf die Schaltfläche "Suchen" klicken',
   options: {
     stock: 'Aktien',
@@ -410,20 +410,20 @@ calendar: {
 
 // ── Compare Page ──
 compare: {
-  title: 'Assets vergleichen',
-  subtitle: 'Vergleiche die Performance und das Risiko mehrerer Assets',
-  addAsset: 'Asset hinzufügen',
+  title: 'Vermögenswerte vergleichen',
+  subtitle: 'Vergleiche die Performance und das Risiko mehrerer Vermögenswerte',
+  addAsset: 'Vermögenswert hinzufügen',
   searchPlaceholder: 'Bsp.: {symbol}',
-  asset: 'Asset',
+  asset: 'Vermögenswert',
   remove: 'Entfernen',
   compare: 'Vergleichen',
-  noAssetsSelected: 'Wähle mindestens zwei Assets zum Vergleichen aus.',
+  noAssetsSelected: 'Wähle mindestens zwei Vermögenswerte zum Vergleichen aus.',
 },
 
   // ── Risk Analysis Page ──
 riskAnalysis: {
   title: 'Risikoanalyse',
-  description: 'Berechne fortgeschrittene Risikokennzahlen für jedes Finanzasset',
+  description: 'Berechne fortgeschrittene Risikokennzahlen für jeden Vermögenswert',
   period: 'Zeitraum:',
   interval: 'Intervall:',
   currentDataOnly: 'Aktuelle Daten — unabhängig vom gewählten Zeitraum',
@@ -438,21 +438,21 @@ riskAnalysis: {
   detailedTitleTechnical: 'Technische Risikoanalyse',
   detailedTitleFundamental: 'Fundamentale Risikoanalyse',
   detailedTitleQuantitative: 'Quantitative Risikoanalyse',
-  searchAsset: 'Asset zum Analysieren suchen...',
-  searchPlaceholder: 'Asset-Symbol (z. B.: AAPL, BTC-USD, MSFT)',
+  searchAsset: 'Vermögenswert zum Analysieren suchen...',
+  searchPlaceholder: 'Symbol (z. B.: AAPL, BTC-USD, MSFT)',
   selectPeriod: 'Zeitraum auswählen',
   analyze: 'Analysieren',
   analyzing: 'Wird analysiert...',
   riskLow: 'Niedrig',
   riskMedium: 'Mittel',
   riskHigh: 'Hoch',
-  noData: 'Fundamentaldaten für dieses Asset nicht verfügbar.',
+  noData: 'Fundamentaldaten für diesen Vermögenswert nicht verfügbar.',
   noDataAll: 'Gib ein Symbol ein, um das Risiko zu analysieren',
   tryWith: 'Versuche es mit',
   recent: 'Zuletzt:',
   popular: 'Beliebt:',
-  tracking: 'Tracking:',
-  missingMetrics: 'Kennzahlen für dieses Asset nicht verfügbar',
+  tracking: 'Beobachtung:',
+  missingMetrics: 'Kennzahlen für diesen Vermögenswert nicht verfügbar',
   volatility: {
     high: 'hohe Volatilität',
     moderate: 'mittlere Volatilität',
@@ -466,7 +466,7 @@ riskAnalysis: {
   metrics: {
     marketCap: {
       label: "Marktkapitalisierung",
-      desc: "Gesamtmarktwert des Assets. Bei Aktien: Preis × ausstehende Aktien. Bei Krypto: zeigt die relative Größe des Projekts."
+      desc: "Gesamtmarktwert des Vermögenswerts. Bei Aktien: Preis × ausstehende Aktien. Bei Krypto: zeigt die relative Größe des Projekts."
     },
     peRatio: {
       label: "KGV",
@@ -502,7 +502,7 @@ riskAnalysis: {
     },
     maxSupply: {
       label: "Maximales Angebot",
-      desc: "Maximale Emissionsgrenze. Ohne Limit kann das Asset langfristig inflationär sein."
+      desc: "Maximale Emissionsgrenze. Ohne Limit kann der Vermögenswert langfristig inflationär sein."
     },
     volume24h: {
       label: "24h-Volumen",
@@ -540,15 +540,15 @@ riskAnalysis: {
   sections: {
     helpWhat: 'Was wird in diesem Abschnitt analysiert',
     helpImportance: 'Warum es in diesem Zeitraum wichtig ist',
-    overview: { title: 'Überblick', desc: 'Kontext des Assets im gewählten Zeitraum.', short: 'Gibt sofortigen Preiskontext.', mid: 'Bewertet den mittelfristigen Trend.', long: 'Definiert den strategischen Rahmen des Assets.' },
+    overview: { title: 'Überblick', desc: 'Kontext des Vermögenswerts im gewählten Zeitraum.', short: 'Gibt sofortigen Preiskontext.', mid: 'Bewertet den mittelfristigen Trend.', long: 'Definiert den strategischen Rahmen des Vermögenswerts.' },
     valuation: { title: 'Bewertung', desc: 'Analysiert, ob der aktuelle Preis angemessen ist.', short: 'Wichtig für technische Erholungen.', mid: 'Entscheidend für Investitionszyklen.', long: 'Bestimmt den intrinsischen Wert.' },
     profitability: { title: 'Rentabilität', desc: 'Fähigkeit, Gewinne oder Netzwerkaktivität zu generieren.', short: 'Geringe Auswirkung kurzfristig.', mid: 'Zeigt die Gesundheit des Geschäfts.', long: 'Haupttreiber langfristiger Rendite.' },
-    stability: { title: 'Stabilität', desc: 'Analysiert Trend, Volatilität und spezifische Risiken.', short: 'Kritisch für tägliches Risikomanagement.', mid: 'Bestimmt Nachhaltigkeit von Bewegungen.', long: 'Sichert das Überleben des Assets.' },
+    stability: { title: 'Stabilität', desc: 'Analysiert Trend, Volatilität und spezifische Risiken.', short: 'Kritisch für tägliches Risikomanagement.', mid: 'Bestimmt Nachhaltigkeit von Bewegungen.', long: 'Sichert das Überleben des Vermögenswerts.' },
   },
   missingNotes: {
     CRYPTOCURRENCY: {
       peRatio: "Kryptowährungen erzeugen keine klassischen Unternehmensgewinne; ihr Wert basiert auf Spekulation oder Netzwerknutzen.",
-      eps: "Es gibt keine 'Gewinne pro Aktie' bei dezentralen Assets.",
+      eps: "Es gibt keine 'Gewinne pro Aktie' bei dezentralen Vermögenswerten.",
       beta: "Die Korrelation mit traditionellen Märkten variiert stark und macht das Beta oft unzuverlässig.",
       netMargin: "Es gibt keine Unternehmensstruktur zur Berechnung von Margen.",
       roe: "Es gibt kein Eigenkapital zur Berechnung der Effizienz.",
@@ -643,11 +643,11 @@ riskAnalysis: {
 
   // ── Comparison Page ──
 comparison: {
-  title: 'Asset-Risikovergleich',
-  subtitle: 'Vergleiche bis zu 3 Finanzassets anhand fundamentaler, technischer und quantitativer Dimensionen',
+  title: 'Risikovergleich von Vermögenswerten',
+  subtitle: 'Vergleiche bis zu 3 Vermögenswerte anhand fundamentaler, technischer und quantitativer Dimensionen',
   horizon: 'Zeithorizont:',
-  assetSlot: 'Asset {n}',
-  addAsset: 'Asset hinzufügen',
+  assetSlot: 'Vermögenswert {n}',
+  addAsset: 'Vermögenswert hinzufügen',
   compareButton: 'Vergleichen',
   comparingButton: 'Wird verglichen...',
   popular: 'Beliebt:',
@@ -656,7 +656,7 @@ comparison: {
   verdictTitle: 'KI-Bewertung',
   generateVerdict: 'KI-Bewertung generieren',
   generateVerdictDesc: 'Klicke auf „KI-Bewertung generieren“, um eine detaillierte Analyse durch künstliche Intelligenz zu erhalten.',
-  mixedTypeWarning: 'Du vergleichst unterschiedliche Asset-Typen. Einige Kennzahlen sind möglicherweise nicht direkt vergleichbar.',
+  mixedTypeWarning: 'Du vergleichst unterschiedliche Vermögenswert-Typen. Einige Kennzahlen sind möglicherweise nicht direkt vergleichbar.',
   metricsFavorable: 'günstige Kennzahlen',
   assetTypes: {
     EQUITY: 'Aktie',
@@ -669,7 +669,7 @@ comparison: {
     neutral: 'Neutral'
   },
   errors: {
-    minTwo: 'Mindestens 2 gültige Assets sind für den Vergleich erforderlich',
+    minTwo: 'Mindestens 2 gültige Vermögenswerte sind für den Vergleich erforderlich',
     verifyTickers: 'Bitte überprüfe die eingegebenen Ticker und versuche es erneut.'
   },
   tables: {
@@ -896,7 +896,7 @@ psycho: {
   subtitle: 'Analyse deines Verhaltens und deiner Trading-Muster',
   noData: 'Erfasse Trades, um eine Verhaltensanalyse zu erstellen.',
   generalStats: 'Allgemeine Statistiken',
-  assetPerformance: 'Asset-Performance',
+  assetPerformance: 'Performance nach Vermögenswert',
   temporalPatterns: 'Zeitliche Muster',
   behaviorAnalysis: 'Verhaltensanalyse',
   alerts: 'Risikoalarme',
@@ -937,7 +937,7 @@ psycho: {
   chartDayOfWeek: 'Rentabilität nach Wochentag',
   bestDay: 'Bester Tag',
   worstDay: 'Schlechtester Tag',
-  chartWinRateByAsset: 'Gewinnrate nach Asset',
+  chartWinRateByAsset: 'Gewinnrate nach Vermögenswert',
   streaks: 'Serien',
   longestWinStreak: 'Längste Gewinnserie',
   longestLossStreak: 'Längste Verlustserie',
@@ -947,11 +947,11 @@ psycho: {
   avgOps: 'Durchschnittliche Trades',
   opsAfterWin: 'Trades nach Gewinn',
   opsAfterLoss: 'Trades nach Verlust',
-  bestAssets: 'Beste Assets',
-  noPositiveAssets: 'Noch keine Assets mit positiver Rentabilität.',
+  bestAssets: 'Beste Vermögenswerte',
+  noPositiveAssets: 'Noch keine Vermögenswerte mit positiver Rentabilität.',
   opsWinRate: '{ops} Trades · {rate}% Gewinnrate',
-  attentionAssets: 'Assets mit Handlungsbedarf',
-  singleAsset: 'Nur ein Asset gehandelt, bereits in der Top-Liste enthalten.',
+  attentionAssets: 'Vermögenswerte mit Handlungsbedarf',
+  singleAsset: 'Nur ein Vermögenswert gehandelt, bereits in der Top-Liste enthalten.',
   alertsTitle: 'Verhaltenswarnungen erkannt',
   severityLabel: 'Schweregrad',
   severityHigh: 'Hoch',
@@ -961,7 +961,7 @@ psycho: {
   alertRevengeTrading: 'Revenge Trading',
   alertLossSpiral: 'Verlustspirale',
   insightsTitle: 'Verhaltens-Einblicke',
-  bestAssetInsight: 'Dein bestes Asset ist {symbol} mit €{amount}.',
+  bestAssetInsight: 'Dein bester Vermögenswert ist {symbol} mit €{amount}.',
   riskScores: 'Risiko-Scores',
   overtradingScore: 'Overtrading',
   impulsivityScore: 'Impulsivität',
@@ -994,7 +994,7 @@ news: {
 technicalAnalysis: {
   title: 'Technische Risikoanalyse',
   generating: 'Technische Analyse wird generiert...',
-  noData: 'Technische Daten für dieses Asset nicht verfügbar.',
+  noData: 'Technische Daten für diesen Vermögenswert nicht verfügbar.',
   disclaimer: 'Informationssignal automatisch generiert; keine Anlageberatung.',
   signalDisclaimer: 'Dieses Signal dient nur zu Informationszwecken und wird automatisch aus technischen Indikatoren generiert. Es stellt keine Finanzberatung oder Anlageempfehlung dar.',
   regenerateSummary: 'KI-Zusammenfassung neu generieren',
@@ -1005,7 +1005,7 @@ technicalAnalysis: {
   exportPNG: 'PNG exportieren',
   dataLimitWarning: 'Daten für das Intervall {interval} bei Yahoo Finance sind auf {days} historische Tage begrenzt.',
   historicalDataLimit: 'historische Tage',
-  analysisError: 'Fehler bei der Analyse des Assets',
+  analysisError: 'Fehler bei der Analyse des Vermögenswerts',
   summaryGenerationError: 'Zusammenfassung konnte nicht generiert werden.',
   serviceUnavailable: 'Der KI-Dienst ist derzeit nicht verfügbar.',
   signals: {
