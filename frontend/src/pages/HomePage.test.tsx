@@ -3,6 +3,17 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest';
 
 const t = {
+  nav: {
+    compareAssets: 'Comparar Activos',
+    recommendation: 'Recomendación',
+    riskAnalysis: 'Análisis de Riesgo',
+  },
+  compare: {
+    subtitle: 'Compara activos',
+  },
+  recommendation: {
+    subtitle: 'Calcula niveles de TP/SL',
+  },
   home: {
     goodMorning: 'Buenos días',
     goodAfternoon: 'Buenas tardes',
