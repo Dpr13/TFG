@@ -524,21 +524,26 @@ export default function ComparePage() {
       {/* Selection Panel */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 space-y-4">
         {/* Horizon selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">{t.comparison.horizon}</span>
-          {HORIZON_OPTIONS.map(h => (
-            <button
-              key={h.value}
-              onClick={() => setHorizonte(h.value)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                horizonte === h.value
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              {t.riskAnalysis.fundamental.ranges[h.value as keyof typeof t.riskAnalysis.fundamental.ranges]}
-            </button>
-          ))}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+            {t.comparison.horizon}
+          </span>
+
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            {HORIZON_OPTIONS.map(h => (
+              <button
+                key={h.value}
+                onClick={() => setHorizonte(h.value)}
+                className={`w-full sm:w-auto px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  horizonte === h.value
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {t.riskAnalysis.fundamental.ranges[h.value as keyof typeof t.riskAnalysis.fundamental.ranges]}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Asset Slots */}

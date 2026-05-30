@@ -39,7 +39,7 @@ export default function Layout({ children }: LayoutProps) {
           onClick={() => setIsSidebarCollapsed(v => !v)}
           aria-label={isSidebarCollapsed ? 'Mostrar panel lateral' : 'Ocultar panel lateral'}
           title={isSidebarCollapsed ? 'Mostrar panel' : 'Ocultar panel'}
-          className={`md:hidden fixed top-[calc(65px+(100vh-65px)/2)] left-0 -translate-y-1/2 h-24 w-4 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors transition-transform duration-300 ease-in-out z-50 rounded-r-lg ${isSidebarCollapsed ? 'translate-x-0' : 'translate-x-64'}`}
+          className={`md:hidden fixed top-[calc(65px+(100vh-65px)/2)] left-0 -translate-y-1/2 h-24 w-4 flex items-center justify-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors transition-transform duration-300 ease-in-out z-40 rounded-r-lg ${isSidebarCollapsed ? 'translate-x-0' : 'translate-x-64'}`}
         >
           {isSidebarCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         </button>

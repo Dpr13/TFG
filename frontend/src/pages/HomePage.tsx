@@ -129,22 +129,31 @@ export default function HomePage() {
     return t.home.agoDays.replace('{n}', String(days));
   }
 
-  function MiniBarChart() {
-    const bars = [60, 45, 50, 75, 65, 80, 55];
-    return (
-      <div className="flex items-end justify-between h-full gap-1 px-2">
-        {bars.map((height, i) => (
-          <div key={i} className="flex flex-col items-center gap-1 flex-1">
-            <div
-              className="w-full bg-blue-600 dark:bg-blue-500 rounded-t"
-              style={{ height: `${height}%` }}
-            />
-            <span className="text-[8px] text-gray-500 dark:text-gray-400">{t.home.days[i]}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
+  const weeklyOpsByDay = useMemo(() => {
+    const counts = Array.from({ length: 7 }, () => 0);
+    if (!operations?.length) return counts;
+
+    const now = new Date();
+    const weekday = now.getDay(); // 0=Sun..6=Sat
+    const diffToMonday = (weekday + 6) % 7;
+    const monday = new Date(now);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(now.getDate() - diffToMonday);
+    const nextMonday = new Date(monday);
+    nextMonday.setDate(monday.getDate() + 7);
+
+    for (const op of operations) {
+      const d = new Date(op.date);
+      if (Number.isNaN(d.getTime())) continue;
+      if (d < monday || d >= nextMonday) continue;
+      const idx = (d.getDay() + 6) % 7; // Monday=0 .. Sunday=6
+      counts[idx] += 1;
+    }
+
+    return counts;
+  }, [operations]);
+
+  const weeklyOpsMax = useMemo(() => Math.max(1, ...weeklyOpsByDay), [weeklyOpsByDay]);
 
   return (
     <div className="space-y-6 max-w-[1400px]">
@@ -160,7 +169,7 @@ export default function HomePage() {
       </div>
 
       {/* ── Grid Principal ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         
         {/* Fila 1: Mini Stats */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
@@ -231,73 +240,85 @@ export default function HomePage() {
           </div>
         </div>
 
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t.home.weeklyActivity}</p>
+            </div>
+            <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
+
+          <div className="h-12 flex items-end gap-1">
+            {weeklyOpsByDay.map((count, idx) => (
+              <div key={idx} className="flex-1 h-full flex flex-col items-center justify-end gap-1">
+                <div
+                  className="w-full rounded-sm bg-blue-200 dark:bg-blue-900/40"
+                  style={{ height: `${Math.max(10, (count / weeklyOpsMax) * 100)}%` }}
+                />
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 leading-none">
+                  {t.home.days?.[idx] ?? ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Fila 2: Card Grande + 2 Mini */}
-        <div className="lg:row-span-2 bg-gradient-to-br from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 rounded-lg shadow-lg p-6 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
+        <div className="lg:col-span-2 lg:row-span-2 bg-gradient-to-br from-blue-500/80 to-blue-600/80 dark:from-blue-600/50 dark:to-blue-700/50 rounded-lg shadow-md p-5 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12"></div>
           
           <div className="relative z-10">
-            <h3 className="text-xl font-bold mb-2">{t.home.analyzeRisk}</h3>
-            <p className="text-blue-100 text-sm mb-6">
+            <h3 className="text-xl font-bold mb-2">{t.nav.riskAnalysis}</h3>
+            <p className="text-blue-100/90 text-sm mb-5">
               {t.home.analyzeRiskDesc}
             </p>
             
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Link
+                to="/analisis"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-blue-700 
+                         hover:bg-blue-50 rounded-lg font-medium transition-all shadow-sm"
+              >
+                <TrendingUp className="w-4 h-4" />
+                {t.home.analyzeRisk}
+              </Link>
               <Link
                 to="/assets"
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-white/20 hover:bg-white/30 
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 
                          backdrop-blur-sm rounded-lg text-white font-medium transition-all
                          border border-white/30"
               >
                 <Briefcase className="w-4 h-4" />
                 {t.home.viewAssets}
               </Link>
-              <Link
-                to="/analisis"
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-white text-blue-700 
-                         hover:bg-blue-50 rounded-lg font-medium transition-all shadow-lg"
-              >
-                <TrendingUp className="w-4 h-4" />
-                {t.home.analyzeRisk}
-              </Link>
             </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t.home.tracking}</p>
-            <div className="w-12 h-12">
-              <MiniDonutChart value={watchlist.length} total={10} color="purple" />
-            </div>
+        <Link
+          to="/comparar"
+          className="bg-gradient-to-br from-blue-500/80 to-blue-600/80 dark:from-blue-600/50 dark:to-blue-700/50 rounded-lg shadow-md p-5 text-white relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12"></div>
+          <div className="relative z-10">
+            <h3 className="text-xl font-bold mb-2">{t.nav.compareAssets}</h3>
           </div>
-          <div className="space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Stocks</span>
-              <span className="font-semibold text-gray-900 dark:text-white">{watchlistStats.stock}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Crypto</span>
-              <span className="font-semibold text-gray-900 dark:text-white">{watchlistStats.crypto}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">{t.home.others}</span>
-              <span className="font-semibold text-gray-900 dark:text-white">{watchlistStats.forex}</span>
-            </div>
-          </div>
-        </div>
+        </Link>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t.home.weeklyActivity}</p>
-            <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <BarChart3 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            </div>
+        <Link
+          to="/recommendation"
+          className="bg-gradient-to-br from-blue-500/80 to-blue-600/80 dark:from-blue-600/50 dark:to-blue-700/50 rounded-lg shadow-md p-5 text-white relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12"></div>
+          <div className="relative z-10">
+            <h3 className="text-xl font-bold mb-2">{t.nav.recommendation}</h3>
           </div>
-          <div className="h-12">
-            <MiniBarChart />
-          </div>
-        </div>
+        </Link>
       </div>
 
       {/* ── Seguimiento ──────────────────────────────────────────────────── */}
