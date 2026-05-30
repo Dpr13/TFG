@@ -36,12 +36,10 @@ export interface AssetStats {
   totalPnL: number;
   winRate: number;
   avgPnL: number;
-  // EXPANSIÓN: volatility?: number; // Desviación estándar de PnL
-  // EXPANSIÓN: sharpeRatio?: number; // Rentabilidad ajustada por riesgo
-  // EXPANSIÓN: bestTrade?: number;
-  // EXPANSIÓN: worstTrade?: number;
-  // EXPANSIÓN: consecutiveWinsOnAsset?: number;
-  // EXPANSIÓN: isUsersFavorite?: boolean;
+  bestTrade: number;
+  worstTrade: number;
+  volatility: number;   // desviación estándar del PnL
+  sharpeRatio: number;  // avgPnL / volatility (0 si volatility = 0)
 }
 
 // Patrones temporales
@@ -51,14 +49,23 @@ export interface TemporalStats {
     operations: number;
     totalPnL: number;
     winRate: number;
-    // EXPANSIÓN: averageTradeDuration?: number;
-    // EXPANSIÓN: averageTradeSize?: number;
   }[];
   bestDayOfWeek: string;
   worstDayOfWeek: string;
-  // EXPANSIÓN: bestHourOfDay?: string;
-  // EXPANSIÓN: operationsPerHour?: HourlyStats[];
-  // EXPANSIÓN: bestSession?: 'premarket' | 'regular' | 'afterhours';
+}
+
+// Rendimiento por dirección (long vs short)
+export interface DirectionalSide {
+  operations: number;
+  totalPnL: number;
+  winRate: number;
+  avgPnL: number;
+  avgPnLPct: number;
+}
+
+export interface DirectionalStats {
+  long: DirectionalSide;
+  short: DirectionalSide;
 }
 
 // Análisis de comportamiento
@@ -85,9 +92,11 @@ export interface PsychoAnalysisSummary {
   generalStats: GeneralStats;
   assetStats: AssetStats[];
   temporalStats: TemporalStats;
+  directionalStats: DirectionalStats;
   behaviorStats: BehaviorStats;
   alerts: RiskAlert[];
   disciplineScore: number; // 0-100: disciplina global del operador
+  recommendations: string[];
 }
 
 // EXPANSIONES FUTURAS:

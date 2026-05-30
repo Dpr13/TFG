@@ -8,6 +8,10 @@ import type { BrokerMode } from '../models/broker_credential';
 
 const FEED_INTERVAL_MS = 15_000;
 
+function ts(): string {
+  return new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
 // ─── Paper Broker ────────────────────────────────────────────────────────────
 
 function paperFill(marketPrice: number, side: TradeSide): number {
@@ -42,10 +46,14 @@ class RealFeed {
     this.timer = setInterval(async () => {
       try {
         const fetched = await this.priceFetcher(this.symbol).catch(() => null);
-        if (fetched !== null) this.lastPrice = fetched;
+        if (fetched !== null) {
+          this.lastPrice = fetched;
+        } else {
+          console.warn(`[${ts()}][RealFeed ${this.symbol}] price fetch returned null — reusing last price ${this.lastPrice}`);
+        }
         await this.onTick({ symbol: this.symbol, price: this.lastPrice, timestamp: new Date().toISOString() });
       } catch (err) {
-        console.error(`[RealFeed ${this.symbol}] tick error:`, (err as Error).message);
+        console.error(`[${ts()}][RealFeed ${this.symbol}] tick error:`, (err as Error).message);
       }
     }, FEED_INTERVAL_MS);
   }
@@ -86,6 +94,21 @@ function meanReversionSignal(prices: number[], params: BotParams): Signal {
   return 'HOLD';
 }
 
+function rsiSignal(prices: number[], params: BotParams): Signal {
+  const period = params.rsiPeriod ?? 14;
+  const overbought = params.rsiOverbought ?? 70;
+  const oversold   = params.rsiOversold  ?? 30;
+  if (prices.length < period + 1) return 'HOLD';
+  const changes = prices.slice(-(period + 1)).map((p, i, arr) => i === 0 ? 0 : p - arr[i - 1]).slice(1);
+  const avgGain = changes.map(c => Math.max(c, 0)).reduce((a, b) => a + b, 0) / period;
+  const avgLoss = changes.map(c => Math.max(-c, 0)).reduce((a, b) => a + b, 0) / period;
+  if (avgLoss === 0) return avgGain > 0 ? 'SELL' : 'HOLD';
+  const rsi = 100 - 100 / (1 + avgGain / avgLoss);
+  if (rsi < oversold)   return 'BUY';
+  if (rsi > overbought) return 'SELL';
+  return 'HOLD';
+}
+
 // ─── Agent runtime ────────────────────────────────────────────────────────────
 
 interface AgentRuntime {
@@ -102,6 +125,11 @@ class BotService {
   private readonly agents = new Map<string, AgentRuntime>();
 
   async createBot(userId: string, dto: { name: string; symbol: string; strategy: string; brokerMode?: BrokerMode; initialCapital?: number; params?: BotParams }): Promise<Bot> {
+    const stopLoss = dto.params?.stopLossPct;
+    if (stopLoss !== undefined && (stopLoss <= 0 || stopLoss > 100)) {
+      throw new Error('El stop loss debe estar entre 0.1% y 100%');
+    }
+
     const brokerMode = dto.brokerMode ?? 'simulated';
 
     if (brokerMode === 'alpaca_paper' || brokerMode === 'alpaca_live') {
@@ -111,11 +139,20 @@ class BotService {
       }
 
       const isPaper = brokerMode === 'alpaca_paper';
+      const alpacaAdapter = await brokerCredentialService.getAlpacaAdapter(userId, isPaper);
+
       const balance = await brokerCredentialService.getBalance(userId, 'alpaca', isPaper);
       const capital = dto.initialCapital ?? 10000;
       if (capital > balance.buyingPower) {
         throw new Error(
           `El capital inicial (${capital}) supera el buying power disponible en tu cuenta Alpaca ${isPaper ? 'paper' : 'live'} (${balance.buyingPower.toFixed(2)})`
+        );
+      }
+
+      const asset = await alpacaAdapter.getAsset(dto.symbol);
+      if (!asset || !asset.active || !asset.tradable) {
+        throw new Error(
+          `El símbolo "${dto.symbol}" no está disponible o no es operable en Alpaca. Usa un ticker de acciones US o crypto soportado (ej: TSLA, BTC/USD).`
         );
       }
     }
@@ -161,14 +198,19 @@ class BotService {
     const botId = bot.id;
     const needed = Math.max(bot.params.slowWindow ?? 20, bot.params.window ?? 20);
     const priceHistory = await this._seedHistory(bot.symbol, needed, seedPrice);
+    const maxHistory = needed * 3; // evita crecimiento ilimitado del array
 
     const priceFetcher = (s: string) => this.provider.getLatestPrice(s).catch(() => null);
 
     const feed = new RealFeed(bot.symbol, priceFetcher, async (tick) => {
       priceHistory.push(tick.price);
+      if (priceHistory.length > maxHistory) priceHistory.shift();
+
       const signal = bot.strategy === 'momentum'
         ? momentumSignal(priceHistory, bot.params)
-        : meanReversionSignal(priceHistory, bot.params);
+        : bot.strategy === 'rsi'
+          ? rsiSignal(priceHistory, bot.params)
+          : meanReversionSignal(priceHistory, bot.params);
 
       const runtime = this.agents.get(botId);
       if (runtime) {
@@ -176,14 +218,32 @@ class BotService {
         runtime.lastSignal = signal;
       }
 
+      console.log(`[${ts()}][Bot ${bot.name}] tick | price=${tick.price} | signal=${signal} | history=${priceHistory.length}`);
+
       const currentBot = await this.repo.findById(botId);
-      if (!currentBot || currentBot.status !== 'running') return;
+      if (!currentBot || (currentBot.status !== 'running' && currentBot.status !== 'paused')) {
+        console.log(`[${ts()}][Bot ${bot.name}] skipping — bot is stopped`);
+        return;
+      }
 
       const hasPosition = currentBot.positionSize > 0;
 
+      if (currentBot.status === 'paused') return;
+
+      if (hasPosition && currentBot.positionEntryPrice !== null && currentBot.params.stopLossPct) {
+        const dropPct = (currentBot.positionEntryPrice - tick.price) / currentBot.positionEntryPrice * 100;
+        if (dropPct >= currentBot.params.stopLossPct) {
+          console.log(`[${ts()}][Bot ${bot.name}] STOP LOSS triggered (−${dropPct.toFixed(2)}%) at ${tick.price}`);
+          await this._executeSell(currentBot, tick.price, alpacaAdapter);
+          return;
+        }
+      }
+
       if (signal === 'BUY' && !hasPosition) {
+        console.log(`[${ts()}][Bot ${bot.name}] executing BUY at ${tick.price}`);
         await this._executeBuy(currentBot, tick.price, alpacaAdapter);
       } else if (signal === 'SELL' && hasPosition && currentBot.positionEntryPrice !== null) {
+        console.log(`[${ts()}][Bot ${bot.name}] executing SELL at ${tick.price}`);
         await this._executeSell(currentBot, tick.price, alpacaAdapter);
       }
     }, seedPrice);
@@ -197,6 +257,11 @@ class BotService {
     let quantity: number;
 
     if (alpacaAdapter) {
+      const open = await alpacaAdapter.isMarketOpen();
+      if (!open) {
+        console.log(`[${ts()}][Bot ${bot.name}] BUY skipped — Alpaca market is closed`);
+        return;
+      }
       const capitalForTrade = bot.currentCapital * 0.95;
       const estimatedQty = Number((capitalForTrade / marketPrice).toFixed(6));
       const result = await alpacaAdapter.executeOrder(bot.symbol, 'BUY', estimatedQty);
@@ -218,11 +283,19 @@ class BotService {
     });
   }
 
-  private async _executeSell(bot: Bot, marketPrice: number, alpacaAdapter?: AlpacaAdapter): Promise<void> {
+  private async _executeSell(bot: Bot, marketPrice: number, alpacaAdapter?: AlpacaAdapter, skipMarketCheck = false): Promise<void> {
     let fillPrice: number;
     let filledQty: number;
 
     if (alpacaAdapter) {
+      const open = await alpacaAdapter.isMarketOpen();
+      if (!open) {
+        if (skipMarketCheck) {
+          throw new Error('El mercado de Alpaca está cerrado. Vuelve a intentarlo cuando el mercado esté abierto (lunes a viernes, 9:30–16:00 ET).');
+        }
+        console.log(`[${ts()}][Bot ${bot.name}] SELL skipped — Alpaca market is closed`);
+        return;
+      }
       const result = await alpacaAdapter.executeOrder(bot.symbol, 'SELL', bot.positionSize);
       fillPrice = result.fillPrice;
       filledQty = result.filledQty;
@@ -248,6 +321,11 @@ class BotService {
     const bot = await this.getBot(botId, userId);
     if (bot.status === 'running') return bot;
 
+    // Paused bot already has an active feed — just resume trading
+    if (bot.status === 'paused' && this.agents.has(botId)) {
+      return this.repo.setStatus(botId, 'running');
+    }
+
     const seedPrice = await this.provider.getLatestPrice(bot.symbol).catch(() => null)
       ?? bot.positionEntryPrice
       ?? 100;
@@ -262,8 +340,57 @@ class BotService {
     return this.repo.setStatus(botId, 'running');
   }
 
+  async pauseBot(botId: string, userId: string): Promise<Bot> {
+    const bot = await this.getBot(botId, userId);
+    if (bot.status === 'paused') return bot;
+
+    if (!this.agents.has(botId)) {
+      const seedPrice = await this.provider.getLatestPrice(bot.symbol).catch(() => null)
+        ?? bot.positionEntryPrice
+        ?? 100;
+      let alpacaAdapter: AlpacaAdapter | undefined;
+      if (bot.brokerMode === 'alpaca_paper' || bot.brokerMode === 'alpaca_live') {
+        const isPaper = bot.brokerMode === 'alpaca_paper';
+        alpacaAdapter = await brokerCredentialService.getAlpacaAdapter(userId, isPaper);
+      }
+      await this._launchAgent(bot, seedPrice, alpacaAdapter);
+    }
+
+    return this.repo.setStatus(botId, 'paused');
+  }
+
+  async getMarketStatus(botId: string, userId: string): Promise<{ open: boolean }> {
+    const bot = await this.getBot(botId, userId);
+    if (bot.brokerMode === 'simulated') return { open: true };
+    const isPaper = bot.brokerMode === 'alpaca_paper';
+    const alpacaAdapter = await brokerCredentialService.getAlpacaAdapter(userId, isPaper);
+    const open = await alpacaAdapter.isMarketOpen();
+    return { open };
+  }
+
+  async closePosition(botId: string, userId: string): Promise<Bot> {
+    const bot = await this.getBot(botId, userId);
+    if (bot.positionSize === 0 || bot.positionEntryPrice === null) {
+      throw new Error('El bot no tiene ninguna posición abierta');
+    }
+
+    const runtime = this.agents.get(botId);
+    const marketPrice = runtime?.lastPrice
+      ?? await this.provider.getLatestPrice(bot.symbol).catch(() => null)
+      ?? bot.positionEntryPrice;
+
+    let alpacaAdapter = runtime?.alpacaAdapter;
+    if (!alpacaAdapter && (bot.brokerMode === 'alpaca_paper' || bot.brokerMode === 'alpaca_live')) {
+      const isPaper = bot.brokerMode === 'alpaca_paper';
+      alpacaAdapter = await brokerCredentialService.getAlpacaAdapter(userId, isPaper);
+    }
+
+    await this._executeSell(bot, marketPrice, alpacaAdapter, true);
+    return this.getBot(botId, userId);
+  }
+
   async restoreRunningBots(): Promise<void> {
-    const runningBots = await this.repo.findAllRunning();
+    const runningBots = await this.repo.findAllActive();
     await Promise.all(runningBots.map(async (bot) => {
       if (this.agents.has(bot.id)) return;
       const seedPrice = await this.provider.getLatestPrice(bot.symbol).catch(() => null)
@@ -278,7 +405,7 @@ class BotService {
       await this._launchAgent(bot, seedPrice);
     }));
     if (runningBots.length > 0) {
-      console.log(`[BotService] ${runningBots.length} bot(s) restaurado(s) tras reinicio`);
+      console.log(`[${ts()}][BotService] ${runningBots.length} bot(s) restaurado(s) tras reinicio`);
     }
   }
 
@@ -313,15 +440,32 @@ class BotService {
     const winningTrades = sells.filter(t => (t.pnl ?? 0) > 0).length;
     const totalPnl = sells.reduce((acc, t) => acc + (t.pnl ?? 0), 0);
     const totalCommissions = trades.reduce((acc, t) => acc + t.commission, 0);
+
+    // Precio actual: del agente en memoria si está corriendo, si no el precio de entrada
+    const runtime = this.agents.get(botId);
+    const currentPrice = runtime?.lastPrice ?? bot.positionEntryPrice ?? 0;
+
+    // PnL no realizado de la posición abierta
+    const unrealizedPnl = bot.positionSize > 0 && bot.positionEntryPrice !== null
+      ? (currentPrice - bot.positionEntryPrice) * bot.positionSize
+      : 0;
+
+    // Capital efectivo = efectivo disponible + valor de mercado de la posición abierta
+    const positionMarketValue = bot.positionSize * currentPrice;
+    const effectiveCapital = bot.currentCapital + positionMarketValue;
+
     return {
       totalTrades: trades.length,
       winningTrades,
       winRate: sells.length > 0 ? winningTrades / sells.length : 0,
       totalPnl,
-      pnlPct: (totalPnl / bot.initialCapital) * 100,
+      unrealizedPnl,
+      effectiveCapital,
+      pnlPct: ((effectiveCapital - bot.initialCapital) / bot.initialCapital) * 100,
       totalCommissions,
       currentCapital: bot.currentCapital,
       positionSize: bot.positionSize,
+      positionEntryPrice: bot.positionEntryPrice,
     };
   }
 }

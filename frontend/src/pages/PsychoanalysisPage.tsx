@@ -94,7 +94,7 @@ export default function PsychoanalysisPage() {
     );
   }
 
-  const { generalStats, assetStats, temporalStats, behaviorStats, alerts, disciplineScore } = data;
+  const { generalStats, assetStats, temporalStats, directionalStats, behaviorStats, alerts, disciplineScore, recommendations } = data;
 
   const topAssets = assetStats.filter((a) => a.totalPnL > 0).slice(0, 5);
   const topSymbols = new Set(topAssets.map((a) => a.symbol));
@@ -288,26 +288,22 @@ export default function PsychoanalysisPage() {
         </div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <BarChart2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
               {t.psycho.chartDayOfWeek}
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={260}>
               <BarChart data={temporalStats.dayOfWeek}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
+                <XAxis dataKey="day" tick={{ fontSize: 12 }} />
                 <YAxis />
-                <Tooltip
-                  formatter={(value) =>
-                    typeof value === 'number' ? `€${value.toFixed(2)}` : value
-                  }
-                />
+                <Tooltip formatter={(value) => typeof value === 'number' ? `€${value.toFixed(2)}` : value} />
                 <Bar dataKey="totalPnL" fill="#10b981" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-            <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
+            <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 flex gap-6">
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 <strong>{t.psycho.bestDay}:</strong> {temporalStats.bestDayOfWeek}
               </p>
@@ -319,23 +315,51 @@ export default function PsychoanalysisPage() {
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Target className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              {t.psycho.chartWinRateByAsset}
+              <Activity className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              Long vs Short
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={assetStats.slice(0, 6)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="symbol" />
-                <YAxis />
-                <Tooltip
-                  formatter={(value) =>
-                    typeof value === 'number' ? `${value.toFixed(1)}%` : value
-                  }
-                />
-                <Bar dataKey="winRate" fill="#3b82f6" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="grid grid-cols-2 gap-4 h-[260px] content-center">
+              {(['long', 'short'] as const).map((dir) => {
+                const side = directionalStats[dir];
+                const isLong = dir === 'long';
+                const accentBg = isLong
+                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800';
+                const accentText = isLong
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400';
+                return (
+                  <div key={dir} className={`rounded-lg border p-4 space-y-3 ${accentBg}`}>
+                    <div className="flex items-center gap-2">
+                      {isLong ? <TrendingUp className={`w-5 h-5 ${accentText}`} /> : <TrendingDown className={`w-5 h-5 ${accentText}`} />}
+                      <span className={`font-bold text-lg capitalize ${accentText}`}>{isLong ? 'Long' : 'Short'}</span>
+                    </div>
+                    <DirectionalRow label="Operaciones" value={side.operations.toString()} />
+                    <DirectionalRow label="PnL total" value={`€${side.totalPnL.toFixed(2)}`} valueClass={side.totalPnL >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
+                    <DirectionalRow label="Win rate" value={`${side.winRate.toFixed(1)}%`} valueClass={side.winRate >= 50 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
+                    <DirectionalRow label="PnL medio" value={`€${side.avgPnL.toFixed(2)}`} valueClass={side.avgPnL >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
+                    <DirectionalRow label="Rto. medio" value={`${side.avgPnLPct.toFixed(2)}%`} valueClass={side.avgPnLPct >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
+                  </div>
+                );
+              })}
+            </div>
           </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Target className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            {t.psycho.chartWinRateByAsset}
+          </h2>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={assetStats.slice(0, 8)}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="symbol" />
+              <YAxis />
+              <Tooltip formatter={(value) => typeof value === 'number' ? `${value.toFixed(1)}%` : value} />
+              <Bar dataKey="winRate" fill="#3b82f6" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Behavior Section */}
@@ -440,21 +464,27 @@ export default function PsychoanalysisPage() {
               ) : topAssets.map((asset, idx) => (
                 <div
                   key={asset.symbol}
-                  className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                  className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
                 >
-                  <div>
+                  <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold text-gray-900 dark:text-white">
                       {idx + 1}. {asset.symbol}
                     </span>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t.psycho.opsWinRate
-                        .replace('{ops}', asset.operations.toString())
-                        .replace('{rate}', asset.winRate.toFixed(1))}
-                    </p>
+                    <span className={`font-bold ${asset.totalPnL > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      €{asset.totalPnL.toFixed(2)}
+                    </span>
                   </div>
-                  <span className={`font-bold ${asset.totalPnL > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    €{asset.totalPnL.toFixed(2)}
-                  </span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    {t.psycho.opsWinRate
+                      .replace('{ops}', asset.operations.toString())
+                      .replace('{rate}', asset.winRate.toFixed(1))}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <AssetPill label="Mejor" value={`€${asset.bestTrade.toFixed(2)}`} color="green" />
+                    <AssetPill label="Peor" value={`€${asset.worstTrade.toFixed(2)}`} color="red" />
+                    <AssetPill label="Volat." value={asset.volatility.toFixed(2)} color="neutral" />
+                    <AssetPill label="Sharpe" value={asset.sharpeRatio.toFixed(2)} color={asset.sharpeRatio >= 1 ? 'green' : asset.sharpeRatio >= 0 ? 'neutral' : 'red'} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -473,21 +503,27 @@ export default function PsychoanalysisPage() {
               ) : worstAssets.map((asset, idx) => (
                 <div
                   key={asset.symbol}
-                  className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                  className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
                 >
-                  <div>
+                  <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold text-gray-900 dark:text-white">
                       {idx + 1}. {asset.symbol}
                     </span>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t.psycho.opsWinRate
-                        .replace('{ops}', asset.operations.toString())
-                        .replace('{rate}', asset.winRate.toFixed(1))}
-                    </p>
+                    <span className={`font-bold ${asset.totalPnL > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      €{asset.totalPnL.toFixed(2)}
+                    </span>
                   </div>
-                  <span className={`font-bold ${asset.totalPnL > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    €{asset.totalPnL.toFixed(2)}
-                  </span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    {t.psycho.opsWinRate
+                      .replace('{ops}', asset.operations.toString())
+                      .replace('{rate}', asset.winRate.toFixed(1))}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <AssetPill label="Mejor" value={`€${asset.bestTrade.toFixed(2)}`} color="green" />
+                    <AssetPill label="Peor" value={`€${asset.worstTrade.toFixed(2)}`} color="red" />
+                    <AssetPill label="Volat." value={asset.volatility.toFixed(2)} color="neutral" />
+                    <AssetPill label="Sharpe" value={asset.sharpeRatio.toFixed(2)} color={asset.sharpeRatio >= 1 ? 'green' : asset.sharpeRatio >= 0 ? 'neutral' : 'red'} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -525,7 +561,7 @@ export default function PsychoanalysisPage() {
         )}
 
         {/* Insights */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-800">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-800 mb-6">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <Lightbulb className="w-4 h-4 text-blue-500 dark:text-blue-400" />
             {t.psycho.insightsTitle}
@@ -555,6 +591,29 @@ export default function PsychoanalysisPage() {
             )}
           </div>
         </div>
+
+        {/* Recommendations */}
+        {recommendations && recommendations.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <Lightbulb className="w-4 h-4 text-yellow-500" />
+              Recomendaciones personalizadas
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {recommendations.map((rec, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
+                >
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-200 dark:bg-amber-700 text-amber-800 dark:text-amber-100 text-xs font-bold flex items-center justify-center mt-0.5">
+                    {idx + 1}
+                  </span>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{rec}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
@@ -609,6 +668,41 @@ function KPICard({ title, value, color, icon, secondary = false }: KPICardProps)
 interface ScoreBarProps {
   value: number;
   label: string;
+}
+
+interface DirectionalRowProps {
+  label: string;
+  value: string;
+  valueClass?: string;
+}
+
+function DirectionalRow({ label, value, valueClass = 'text-gray-900 dark:text-white' }: DirectionalRowProps) {
+  return (
+    <div className="flex justify-between items-center text-sm">
+      <span className="text-gray-500 dark:text-gray-400">{label}</span>
+      <span className={`font-semibold tabular-nums ${valueClass}`}>{value}</span>
+    </div>
+  );
+}
+
+interface AssetPillProps {
+  label: string;
+  value: string;
+  color: 'green' | 'red' | 'neutral';
+}
+
+function AssetPill({ label, value, color }: AssetPillProps) {
+  const styles: Record<string, string> = {
+    green: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+    red: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+    neutral: 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300',
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${styles[color]}`}>
+      <span className="opacity-70">{label}</span>
+      <span>{value}</span>
+    </span>
+  );
 }
 
 function ScoreBar({ value, label }: ScoreBarProps) {
