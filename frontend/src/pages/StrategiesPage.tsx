@@ -209,7 +209,7 @@ function BotStrategyForm({
                   min={meta.min}
                   max={meta.max}
                   step={meta.step}
-                  value={val}
+                  value={val as number}
                   onChange={e => setForm(f => ({ ...f, params: { ...f.params, [key]: parseFloat(e.target.value) } }))}
                   className="w-full accent-primary-600"
                 />
@@ -593,9 +593,7 @@ function BotStrategiesTab() {
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                         s.algorithm === 'momentum'
                           ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
-                          : s.algorithm === 'rsi'
-                            ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'
-                            : 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300'
+                          : 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300'
                       }`}>
                         {s.algorithm}
                       </span>

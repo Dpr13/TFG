@@ -11,7 +11,7 @@ interface Props {
 }
 
 export default function ClosePositionModal({ position, onClose, onClosed }: Props) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const today = new Date().toISOString().slice(0, 10);
   const [quantity, setQuantity] = useState(String(position.quantityOpen));
   const [price, setPrice] = useState('');
@@ -19,9 +19,6 @@ export default function ClosePositionModal({ position, onClose, onClosed }: Prop
   const [fetchingPrice, setFetchingPrice] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const fmtCurrency = (n: number) =>
-    new Intl.NumberFormat(language, { style: 'currency', currency: 'USD' }).format(n);
 
   useEffect(() => {
     quoteService.getPrice(position.symbol)

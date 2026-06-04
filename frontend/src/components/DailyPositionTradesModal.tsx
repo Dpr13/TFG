@@ -141,7 +141,7 @@ export default function DailyPositionTradesModal({ date, trades, stats, onClose 
                             <dd className="font-medium text-gray-700 dark:text-gray-300 mt-0.5">{fmt(tr.quantity, 4)} {t.calendar.units}</dd>
                           </div>
                           <div>
-                            <dt className="text-gray-400 dark:text-gray-500">{t.positions.exitPriceField ?? t.positions.exitPriceLabel}</dt>
+                            <dt className="text-gray-400 dark:text-gray-500">{t.positions.exitPriceLabel}</dt>
                             <dd className="font-medium text-gray-700 dark:text-gray-300 mt-0.5">${fmt(tr.price, 4)}</dd>
                           </div>
                           {tr.pnl !== undefined && (
