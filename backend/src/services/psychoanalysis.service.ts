@@ -27,24 +27,28 @@ import {
 // - Gamificación y badges por mejora de comportamiento
 // ============================================================================
 
+const ADAPTIVE_MIN_OPS = 30;
+
 export const psychoanalysisService = {
   async analyzeOperations(operations: Operation[]): Promise<PsychoAnalysisSummary> {
     if (operations.length === 0) {
       return getEmptySummary();
     }
 
+    const analysisMode: 'static' | 'adaptive' = operations.length >= ADAPTIVE_MIN_OPS ? 'adaptive' : 'static';
+
     const generalStats = calculateGeneralStats(operations);
     const assetStats = calculateAssetStats(operations);
     const temporalStats = calculateTemporalStats(operations);
     const directionalStats = calculateDirectionalStats(operations);
     const baseBehaviorStats = calculateBehaviorStats(operations);
-    const alerts = detectRiskAlerts(operations);
+    const alerts = detectRiskAlerts(operations, analysisMode);
 
-    const overtradingScore = calculateOvertradingScore(operations);
+    const overtradingScore = calculateOvertradingScore(operations, analysisMode);
     const impulsivityScore = calculateImpulsivityScore(baseBehaviorStats, alerts);
     const behaviorStats = { ...baseBehaviorStats, overtradingScore, impulsivityScore };
     const disciplineScore = calculateDisciplineScore(generalStats, behaviorStats, alerts);
-    const recommendations = generateRecommendations(generalStats, temporalStats, directionalStats, behaviorStats, assetStats, alerts);
+    const recommendations = generateRecommendations();
 
     return {
       generalStats,
@@ -55,6 +59,7 @@ export const psychoanalysisService = {
       alerts,
       disciplineScore,
       recommendations,
+      analysisMode,
     };
   },
 };
@@ -103,6 +108,7 @@ function getEmptySummary(): PsychoAnalysisSummary {
     alerts: [],
     disciplineScore: 0,
     recommendations: [],
+    analysisMode: 'static',
   };
 }
 
@@ -203,7 +209,7 @@ function calculateAssetStats(operations: Operation[]): AssetStats[] {
 
 function calculateTemporalStats(operations: Operation[]): TemporalStats {
   const daysMap = new Map<number, Operation[]>();
-  const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
   operations.forEach(op => {
     const dayNum = new Date(op.date).getDay();
@@ -307,22 +313,24 @@ function calculateBehaviorStats(
   };
 }
 
-function buildOpsByDay(operations: Operation[]): { opsByDay: Map<string, number>; threshold: number } {
+function buildOpsByDay(operations: Operation[], minThreshold = 8): { opsByDay: Map<string, number>; threshold: number } {
   const opsByDay = new Map<string, number>();
   operations.forEach(op => opsByDay.set(op.date, (opsByDay.get(op.date) || 0) + 1));
   const dayCount = opsByDay.size || 1;
   const avgDayOps = operations.length / dayCount;
-  const threshold = Math.max(8, Math.round(avgDayOps * 3));
+  const threshold = Math.max(minThreshold, Math.round(avgDayOps * 3));
   return { opsByDay, threshold };
 }
 
-function calculateOvertradingScore(operations: Operation[]): number {
+function calculateOvertradingScore(operations: Operation[], mode: 'static' | 'adaptive' = 'static'): number {
   if (operations.length === 0) return 0;
-  const { opsByDay, threshold } = buildOpsByDay(operations);
+  const minThreshold = mode === 'adaptive' ? 3 : 8;
+  const { opsByDay, threshold } = buildOpsByDay(operations, minThreshold);
   const dayCount = opsByDay.size || 1;
   const overtradingDays = [...opsByDay.values()].filter(count => count >= threshold).length;
   return Math.min(100, Math.round((overtradingDays / dayCount) * 300));
 }
+
 
 function calculateImpulsivityScore(
   behaviorStats: Omit<BehaviorStats, 'overtradingScore' | 'impulsivityScore'>,
@@ -357,86 +365,18 @@ function calculateDisciplineScore(
   return Math.max(0, Math.min(100, score));
 }
 
-function generateRecommendations(
-  generalStats: GeneralStats,
-  temporalStats: TemporalStats,
-  directionalStats: DirectionalStats,
-  behaviorStats: BehaviorStats,
-  assetStats: AssetStats[],
-  alerts: RiskAlert[]
-): string[] {
-  const recs: string[] = [];
-
-  if (generalStats.winRate < 40) {
-    recs.push(`Tu tasa de aciertos es del ${generalStats.winRate.toFixed(1)}%. Estás cerrando más del 60% de operaciones en pérdida — revisa tus criterios de entrada.`);
-  } else if (generalStats.winRate < 50) {
-    recs.push(`Tu tasa de aciertos (${generalStats.winRate.toFixed(1)}%) está por debajo del 50%. Asegúrate de que tus ganancias medias superen tus pérdidas medias para mantener rentabilidad.`);
-  }
-
-  if (behaviorStats.overtradingScore > 60) {
-    recs.push(`Tu índice de sobreoperación es elevado (${behaviorStats.overtradingScore}/100). Reduce el número de operaciones diarias y espera señales de mayor calidad.`);
-  }
-
-  if (behaviorStats.impulsivityScore > 60) {
-    recs.push(`Alta impulsividad detectada (${behaviorStats.impulsivityScore}/100). Considera establecer un descanso obligatorio tras dos pérdidas consecutivas antes de volver a operar.`);
-  }
-
-  if (alerts.some(a => a.type === 'revenge_trading')) {
-    recs.push('Se han detectado patrones de revenge trading. Establece un límite diario de pérdidas máximas y detén las operaciones al alcanzarlo.');
-  }
-
-  if (alerts.some(a => a.type === 'loss_spiral')) {
-    recs.push('Hay secuencias de pérdidas crecientes en tu historial. Cuando una pérdida supere el doble de tu media, es señal de parar por el día.');
-  }
-
-  const daysWithOps = temporalStats.dayOfWeek.filter(d => d.operations > 0);
-  if (daysWithOps.length > 1) {
-    if (temporalStats.worstDayOfWeek) {
-      recs.push(`Tus resultados son peores los ${temporalStats.worstDayOfWeek}. Considera operar con tamaños menores ese día o evitarlo directamente.`);
-    }
-    if (temporalStats.bestDayOfWeek && temporalStats.bestDayOfWeek !== temporalStats.worstDayOfWeek) {
-      recs.push(`Tu mejor día de la semana es ${temporalStats.bestDayOfWeek}. Concentra tus mejores ideas en ese día.`);
-    }
-  }
-
-  const { long, short } = directionalStats;
-  if (long.operations >= 3 && short.operations >= 3) {
-    if (long.winRate > short.winRate + 15) {
-      recs.push(`Tu win rate en largos (${long.winRate.toFixed(1)}%) supera al de cortos (${short.winRate.toFixed(1)}%). Considera reducir operativas en corto hasta mejorar ese ratio.`);
-    } else if (short.winRate > long.winRate + 15) {
-      recs.push(`Tu win rate en cortos (${short.winRate.toFixed(1)}%) supera al de largos (${long.winRate.toFixed(1)}%). Tienes un sesgo bajista — aprovéchalo conscientemente.`);
-    }
-    if (long.avgPnL > 0 && short.avgPnL < 0) {
-      recs.push(`En promedio pierdes dinero en operaciones en corto (${short.avgPnL.toFixed(2)}€ de media). Revisa tu criterio de entrada en corto.`);
-    } else if (short.avgPnL > 0 && long.avgPnL < 0) {
-      recs.push(`En promedio pierdes dinero en operaciones en largo (${long.avgPnL.toFixed(2)}€ de media). Revisa tu criterio de entrada en largo.`);
-    }
-  }
-
-  const qualifiedAssets = assetStats.filter(a => a.operations >= 3);
-  const bestSharpe = [...qualifiedAssets].sort((a, b) => b.sharpeRatio - a.sharpeRatio)[0];
-  if (bestSharpe && bestSharpe.sharpeRatio > 0.5) {
-    recs.push(`${bestSharpe.symbol} tiene el mejor Sharpe Ratio (${bestSharpe.sharpeRatio.toFixed(2)}), indicando buena rentabilidad ajustada al riesgo. Podría merecer más peso en tu operativa.`);
-  }
-
-  const highVolAsset = qualifiedAssets.find(a => a.volatility > Math.abs(a.avgPnL) * 3 && a.volatility > 0);
-  if (highVolAsset) {
-    recs.push(`${highVolAsset.symbol} muestra resultados muy inconsistentes (volatilidad: ${highVolAsset.volatility.toFixed(2)}). Considera reducir el tamaño de posición en este activo.`);
-  }
-
-  if (behaviorStats.recoverySuccessRate < 30 && behaviorStats.recoveryAttempts > 5) {
-    recs.push(`Solo recuperas el ${behaviorStats.recoverySuccessRate}% de tus operaciones inmediatamente tras una pérdida. Evita operar impulsivamente después de cerrar en negativo.`);
-  }
-
-  return recs;
+// Las recomendaciones se generan en el frontend para soportar i18n
+function generateRecommendations(): string[] {
+  return [];
 }
 
-function detectRiskAlerts(operations: Operation[]): RiskAlert[] {
+function detectRiskAlerts(operations: Operation[], mode: 'static' | 'adaptive'): RiskAlert[] {
   const alerts: RiskAlert[] = [];
-  const sorted = [...operations].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = [...operations].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
-  // --- Over-trading: días con volumen anormalmente alto ---
-  const { opsByDay, threshold } = buildOpsByDay(operations);
+  // --- Overtrading: días con volumen anormalmente alto respecto a la media ---
+  const minThreshold = mode === 'adaptive' ? 3 : 8;
+  const { opsByDay, threshold } = buildOpsByDay(operations, minThreshold);
   const overtradingDays = [...opsByDay.entries()].filter(([, count]) => count >= threshold);
   const dayCount = opsByDay.size || 1;
   const avgDayOps = operations.length / dayCount;
@@ -446,55 +386,71 @@ function detectRiskAlerts(operations: Operation[]): RiskAlert[] {
     alerts.push({
       type: 'overtrading',
       severity: overtradingDays.length >= 3 ? 'high' : overtradingDays.length >= 2 ? 'medium' : 'low',
-      message: `Se detectaron ${overtradingDays.length} día(s) con volumen de operaciones anormalmente alto (máximo: ${maxDayOps} ops en un día, media: ${avgDayOps.toFixed(1)}).`,
+      messageParams: { days: overtradingDays.length, max: maxDayOps, avg: avgDayOps.toFixed(1) },
     });
   }
 
-  // --- Revenge trading: pico de operaciones tras 3+ pérdidas consecutivas ---
-  let consecutiveLosses = 0;
-  let revengeDetected = false;
-
-  for (let i = 0; i < sorted.length - 1; i++) {
-    if (sorted[i].pnl < 0) {
-      consecutiveLosses++;
-    } else {
-      consecutiveLosses = 0;
-    }
-
-    if (consecutiveLosses >= 3) {
-      const nextOps = sorted.slice(i + 1, i + 4);
-      const nextDates = new Set(nextOps.map(op => op.date));
-      if (nextOps.length >= 3 && nextDates.size === 1) {
-        revengeDetected = true;
-        break;
-      }
-    }
+  // --- Revenge trading: más operaciones de lo habitual después de una pérdida en el mismo día ---
+  // Agrupa las ops por día respetando el orden cronológico (createdAt)
+  const opsByDayMap = new Map<string, Operation[]>();
+  for (const op of sorted) {
+    if (!opsByDayMap.has(op.date)) opsByDayMap.set(op.date, []);
+    opsByDayMap.get(op.date)!.push(op);
   }
 
-  if (revengeDetected) {
+  let revengeDays = 0;
+  for (const dayOps of opsByDayMap.values()) {
+    const firstLossIdx = dayOps.findIndex(op => op.pnl < 0);
+    if (firstLossIdx === -1) continue; // día sin pérdidas, no aplica
+    const postLossOps = dayOps.length - firstLossIdx - 1;
+    // Si las ops abiertas tras la primera pérdida superan la media diaria, es sospechoso
+    if (postLossOps > avgDayOps) revengeDays++;
+  }
+
+  if (revengeDays > 0) {
     alerts.push({
       type: 'revenge_trading',
-      severity: 'high',
-      message: 'Se detectó posible revenge trading: aumento brusco de operaciones tras una racha de 3 o más pérdidas consecutivas.',
+      severity: revengeDays >= 4 ? 'high' : revengeDays >= 2 ? 'medium' : 'low',
+      messageParams: { days: revengeDays },
     });
   }
 
-  // --- Loss spiral: pérdidas consecutivas de magnitud creciente ---
-  let spiralCount = 0;
-  for (let i = 2; i < sorted.length; i++) {
-    const a = sorted[i - 2].pnl;
-    const b = sorted[i - 1].pnl;
-    const c = sorted[i].pnl;
-    if (a < 0 && b < 0 && c < 0 && Math.abs(b) > Math.abs(a) && Math.abs(c) > Math.abs(b)) {
-      spiralCount++;
+  // --- Loss spiral: rachas de pérdidas consecutivas inusualmente largas ---
+  // Recoge la longitud de cada racha de pérdidas consecutivas
+  const lossStreaks: number[] = [];
+  let currentStreak = 0;
+  for (const op of sorted) {
+    if (op.pnl < 0) {
+      currentStreak++;
+    } else {
+      if (currentStreak > 0) lossStreaks.push(currentStreak);
+      currentStreak = 0;
     }
   }
+  if (currentStreak > 0) lossStreaks.push(currentStreak);
 
-  if (spiralCount >= 2) {
+  const longestStreak = lossStreaks.length > 0 ? Math.max(...lossStreaks) : 0;
+  let spiralSeverity: 'low' | 'medium' | 'high' | null = null;
+
+  if (mode === 'adaptive' && lossStreaks.length >= 5) {
+    // Umbral = percentil 85 de las rachas históricas del trader
+    const sortedStreaks = [...lossStreaks].sort((a, b) => a - b);
+    const p85 = sortedStreaks[Math.floor(sortedStreaks.length * 0.85)];
+    if (longestStreak > Math.round(p85 * 2))   spiralSeverity = 'high';
+    else if (longestStreak > Math.round(p85 * 1.5)) spiralSeverity = 'medium';
+    else if (longestStreak > p85)               spiralSeverity = 'low';
+  } else {
+    // Umbrales estáticos cuando no hay suficiente historial
+    if (longestStreak >= 7)      spiralSeverity = 'high';
+    else if (longestStreak >= 5) spiralSeverity = 'medium';
+    else if (longestStreak >= 3) spiralSeverity = 'low';
+  }
+
+  if (spiralSeverity) {
     alerts.push({
       type: 'loss_spiral',
-      severity: spiralCount >= 4 ? 'high' : 'medium',
-      message: `Se detectaron ${spiralCount} secuencias de pérdidas crecientes. Las pérdidas aumentan progresivamente en magnitud.`,
+      severity: spiralSeverity,
+      messageParams: { streak: longestStreak },
     });
   }
 

@@ -84,7 +84,7 @@ export interface BehaviorStats {
 export interface RiskAlert {
   type: 'overtrading' | 'revenge_trading' | 'loss_spiral';
   severity: 'low' | 'medium' | 'high';
-  message: string;
+  messageParams: Record<string, number | string>; // parámetros para que el frontend genere el mensaje en el idioma correcto
 }
 
 // Resumen general del psicoanálisis
@@ -97,6 +97,7 @@ export interface PsychoAnalysisSummary {
   alerts: RiskAlert[];
   disciplineScore: number; // 0-100: disciplina global del operador
   recommendations: string[];
+  analysisMode: 'static' | 'adaptive'; // 'static' con < 30 ops, 'adaptive' con >= 30
 }
 
 // EXPANSIONES FUTURAS:

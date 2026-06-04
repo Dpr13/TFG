@@ -191,18 +191,12 @@ describe('selectSignal — enrutamiento de estrategias', () => {
     expect(selectSignal('momentum', prices, { slowWindow: 20 })).toBe('HOLD');
   });
 
-  it('rsi: insuficientes datos → HOLD', () => {
-    const prices = Array(5).fill(100);
-    expect(selectSignal('rsi', prices, { rsiPeriod: 14 })).toBe('HOLD');
-  });
-
   it('meanReversion: insuficientes datos → HOLD', () => {
     const prices = Array(5).fill(100);
     expect(selectSignal('meanReversion', prices, { window: 20 })).toBe('HOLD');
   });
 
   it('momentum: MA rápida claramente superior → BUY', () => {
-    // 15 precios bajos (slow MA) + 5 precios altos (fast MA) → fast > slow
     const slow = Array(15).fill(100);
     const fast = Array(5).fill(130);
     const prices = [...slow, ...fast];
@@ -216,18 +210,7 @@ describe('selectSignal — enrutamiento de estrategias', () => {
     expect(selectSignal('momentum', prices, { fastWindow: 5, slowWindow: 20, thresholdPct: 0.001 })).toBe('SELL');
   });
 
-  it('rsi: todos los cambios positivos (RSI ~100) → SELL por sobrecompra', () => {
-    const rising = Array.from({ length: 15 }, (_, i) => 100 + i * 5);
-    expect(selectSignal('rsi', rising, { rsiPeriod: 14, rsiOverbought: 70, rsiOversold: 30 })).toBe('SELL');
-  });
-
-  it('rsi: todos los cambios negativos (RSI ~0) → BUY por sobreventa', () => {
-    const falling = Array.from({ length: 15 }, (_, i) => 200 - i * 10);
-    expect(selectSignal('rsi', falling, { rsiPeriod: 14, rsiOverbought: 70, rsiOversold: 30 })).toBe('BUY');
-  });
-
   it('meanReversion: precio muy por debajo de la media → BUY', () => {
-    // 19 precios estables en 100, último precio en 60 (muy bajo)
     const stable = Array(19).fill(100);
     const prices = [...stable, 60];
     expect(selectSignal('meanReversion', prices, { window: 20, k: 1 })).toBe('BUY');
@@ -237,5 +220,50 @@ describe('selectSignal — enrutamiento de estrategias', () => {
     const stable = Array(19).fill(100);
     const prices = [...stable, 140];
     expect(selectSignal('meanReversion', prices, { window: 20, k: 1 })).toBe('SELL');
+  });
+});
+
+// ─── Filtro RSI de confirmación ───────────────────────────────────────────────
+
+describe('selectSignal — filtro RSI', () => {
+  // Momentum BUY + RSI sobrecomprado → bloqueado a HOLD
+  it('bloquea BUY cuando el RSI confirma sobrecompra', () => {
+    const slow = Array(15).fill(100);
+    const fast = Array(5).fill(130); // momentum → BUY
+    const rising = [...slow, ...fast]; // RSI en subida → sobrecompra → SELL
+    expect(selectSignal('momentum', rising, {
+      fastWindow: 5, slowWindow: 20, thresholdPct: 0.001,
+      useRsi: true, rsiPeriod: 14, rsiOverbought: 70, rsiOversold: 30,
+    })).toBe('HOLD');
+  });
+
+  // Momentum SELL + RSI sobrevendido → bloqueado a HOLD
+  it('bloquea SELL cuando el RSI confirma sobreventa', () => {
+    const slow = Array(15).fill(100);
+    const fast = Array(5).fill(70); // momentum → SELL
+    const falling = [...slow, ...fast]; // RSI en caída → sobreventa → BUY
+    expect(selectSignal('momentum', falling, {
+      fastWindow: 5, slowWindow: 20, thresholdPct: 0.001,
+      useRsi: true, rsiPeriod: 14, rsiOverbought: 70, rsiOversold: 30,
+    })).toBe('HOLD');
+  });
+
+  // Sin filtro RSI, la señal pasa sin modificar
+  it('sin filtro RSI, la señal pasa directamente', () => {
+    const slow = Array(15).fill(100);
+    const fast = Array(5).fill(130);
+    const prices = [...slow, ...fast];
+    expect(selectSignal('momentum', prices, {
+      fastWindow: 5, slowWindow: 20, thresholdPct: 0.001,
+    })).toBe('BUY');
+  });
+
+  // HOLD principal no se toca aunque RSI esté activo
+  it('no modifica HOLD aunque el filtro RSI esté activo', () => {
+    const prices = Array(20).fill(100); // momentum → HOLD (medias iguales)
+    expect(selectSignal('momentum', prices, {
+      fastWindow: 5, slowWindow: 20, thresholdPct: 0.001,
+      useRsi: true, rsiPeriod: 14, rsiOverbought: 70, rsiOversold: 30,
+    })).toBe('HOLD');
   });
 });

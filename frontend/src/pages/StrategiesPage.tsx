@@ -44,8 +44,10 @@ const PARAM_RANGES: Record<string, { min: number; max: number; step: number; def
 const ALGO_DEFAULTS: Record<BotAlgorithm, BotStrategyParams> = {
   'momentum':       { fastWindow: 5, slowWindow: 20, thresholdPct: 0.001 },
   'mean-reversion': { window: 20, k: 2 },
-  'rsi':            { rsiPeriod: 14, rsiOverbought: 70, rsiOversold: 30 },
 };
+
+const RSI_PARAM_KEYS = ['rsiPeriod', 'rsiOverbought', 'rsiOversold'] as const;
+const RSI_FILTER_DEFAULTS: BotStrategyParams = { rsiPeriod: 14, rsiOverbought: 70, rsiOversold: 30 };
 
 const EMPTY_FORM: CreateBotStrategyDTO = {
   name: '',
@@ -87,8 +89,26 @@ function BotStrategyForm({
   const [error, setError] = useState<string | null>(null);
   const [showParamPicker, setShowParamPicker] = useState(false);
 
-  const activeParamKeys = Object.keys(form.params).filter(k => form.params[k] !== undefined);
-  const availableParamKeys = Object.keys(paramMeta).filter(k => form.params[k] === undefined);
+  const rsiEnabled = !!form.params.useRsi;
+
+  // RSI params are managed by the dedicated toggle section, not the generic picker
+  const activeParamKeys = Object.keys(form.params).filter(
+    k => form.params[k] !== undefined && typeof form.params[k] === 'number' && !(RSI_PARAM_KEYS as readonly string[]).includes(k)
+  );
+  const availableParamKeys = Object.keys(paramMeta).filter(
+    k => form.params[k] === undefined && !(RSI_PARAM_KEYS as readonly string[]).includes(k)
+  );
+
+  const toggleRsi = () => {
+    if (rsiEnabled) {
+      const next = { ...form.params };
+      delete next.useRsi;
+      RSI_PARAM_KEYS.forEach(k => delete next[k]);
+      setForm(f => ({ ...f, params: next }));
+    } else {
+      setForm(f => ({ ...f, params: { ...f.params, useRsi: true, ...RSI_FILTER_DEFAULTS } }));
+    }
+  };
 
   const handleAlgoChange = (algo: BotAlgorithm) => {
     setForm(f => ({ ...f, algorithm: algo, params: { ...ALGO_DEFAULTS[algo] } }));
@@ -121,9 +141,8 @@ function BotStrategyForm({
   };
 
   const algos = [
-    { id: 'momentum',       label: t.strategies.algoMomentum, sub: t.strategies.algoMomentumSub, disabled: false },
-    { id: 'mean-reversion', label: t.strategies.algoMeanRev,  sub: t.strategies.algoMeanRevSub,  disabled: false },
-    { id: 'rsi',            label: t.strategies.algoRsi,      sub: t.strategies.algoRsiSub,      disabled: false },
+    { id: 'momentum',       label: t.strategies.algoMomentum, sub: t.strategies.algoMomentumSub },
+    { id: 'mean-reversion', label: t.strategies.algoMeanRev,  sub: t.strategies.algoMeanRevSub  },
   ] as const;
 
   return (
@@ -141,19 +160,16 @@ function BotStrategyForm({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.strategies.algorithmLabel}</label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {algos.map(algo => (
             <button
               key={algo.id}
               type="button"
-              disabled={algo.disabled}
               onClick={() => handleAlgoChange(algo.id as BotAlgorithm)}
               className={`px-3 py-3 rounded-xl border-2 text-sm font-medium transition-all text-left ${
-                algo.disabled
-                  ? 'border-gray-100 dark:border-gray-700 text-gray-300 dark:text-gray-600 cursor-not-allowed'
-                  : form.algorithm === algo.id
-                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                    : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
+                form.algorithm === algo.id
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                  : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
               }`}
             >
               <div className="font-semibold">{algo.label}</div>
@@ -234,6 +250,59 @@ function BotStrategyForm({
         )}
       </div>
 
+      {/* RSI Confirmation Filter */}
+      <div className="rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden">
+        <button
+          type="button"
+          onClick={toggleRsi}
+          className={`w-full flex items-center justify-between px-4 py-3 text-sm font-semibold transition-colors ${
+            rsiEnabled
+              ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-b border-amber-200 dark:border-amber-700'
+              : 'bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+        >
+          <span>{t.strategies.rsiFilterTitle}</span>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${rsiEnabled ? 'bg-amber-200 dark:bg-amber-700 text-amber-800 dark:text-amber-200' : 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400'}`}>
+            {rsiEnabled ? 'ON' : 'OFF'}
+          </span>
+        </button>
+        {!rsiEnabled && (
+          <p className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{t.strategies.rsiFilterDesc}</p>
+        )}
+        {rsiEnabled && (
+          <div className="p-4 space-y-3">
+            <p className="text-xs text-amber-700 dark:text-amber-400 mb-3">{t.strategies.rsiFilterDesc}</p>
+            {RSI_PARAM_KEYS.map(key => {
+              const meta = paramMeta[key];
+              if (!meta) return null;
+              const val = (form.params[key] as number) ?? meta.defaultValue;
+              return (
+                <div key={key} className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{meta.label}</span>
+                    <span className="text-sm font-mono font-bold text-amber-600 dark:text-amber-400">{val}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{meta.description}</p>
+                  <input
+                    type="range"
+                    min={meta.min}
+                    max={meta.max}
+                    step={meta.step}
+                    value={val}
+                    onChange={e => setForm(f => ({ ...f, params: { ...f.params, [key]: parseFloat(e.target.value) } }))}
+                    className="w-full accent-amber-500"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    <span>{meta.min}</span>
+                    <span>{meta.max}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.strategies.descriptionOptional}</label>
         <textarea
@@ -272,14 +341,10 @@ function BotStrategyForm({
 function StrategyGuide() {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
-  const [openCards, setOpenCards] = useState<Set<string>>(new Set());
+  const [openCard, setOpenCard] = useState<string | null>(null);
 
   const toggleCard = (id: string) =>
-    setOpenCards(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+    setOpenCard(prev => (prev === id ? null : id));
 
   const strategies = [
     {
@@ -307,19 +372,6 @@ function StrategyGuide() {
         { name: t.strategies.guideMeanKP,      effect: t.strategies.guideMeanKE      },
       ],
     },
-    {
-      id: 'rsi',
-      label: t.strategies.algoRsi,
-      sub: t.strategies.algoRsiSub,
-      badge: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
-      what: t.strategies.guideRsiWhat,
-      when: t.strategies.guideRsiWhen,
-      params: [
-        { name: t.strategies.guideRsiPeriodP, effect: t.strategies.guideRsiPeriodE },
-        { name: t.strategies.guideRsiOBP,     effect: t.strategies.guideRsiOBE     },
-        { name: t.strategies.guideRsiOSP,     effect: t.strategies.guideRsiOSE     },
-      ],
-    },
   ];
 
   return (
@@ -336,9 +388,9 @@ function StrategyGuide() {
         {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
       </button>
       {open && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-6 pb-6">
+        <div className="flex flex-col gap-3 px-6 pb-6">
           {strategies.map(s => {
-            const cardOpen = openCards.has(s.id);
+            const cardOpen = openCard === s.id;
             return (
               <div key={s.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl overflow-hidden">
                 <button
@@ -402,7 +454,6 @@ function BotStrategiesTab() {
   const templates = [
     { algorithm: 'momentum' as BotAlgorithm, name: t.strategies.templateMomentumName, description: t.strategies.templateMomentumDesc, params: ALGO_DEFAULTS['momentum'] },
     { algorithm: 'mean-reversion' as BotAlgorithm, name: t.strategies.templateMeanRevName, description: t.strategies.templateMeanRevDesc, params: ALGO_DEFAULTS['mean-reversion'] },
-    { algorithm: 'rsi' as BotAlgorithm, name: t.strategies.templateRsiName, description: t.strategies.templateRsiDesc, params: ALGO_DEFAULTS['rsi'] },
   ];
 
   const [strategies, setStrategies] = useState<BotStrategy[]>([]);
@@ -464,7 +515,7 @@ function BotStrategiesTab() {
           {showTemplates ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
         </button>
         {showTemplates && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-6 pb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-6 pb-6">
             {templates.map(tmpl => (
               <div key={tmpl.algorithm} className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
                 <div className="flex items-start justify-between mb-2">

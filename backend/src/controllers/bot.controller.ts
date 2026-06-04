@@ -39,8 +39,8 @@ export const createBot = async (req: AuthRequest, res: Response): Promise<void> 
       res.status(400).json({ error: 'name, symbol y strategy son obligatorios' });
       return;
     }
-    if (!['momentum', 'mean-reversion', 'rsi'].includes(strategy)) {
-      res.status(400).json({ error: 'strategy debe ser momentum, mean-reversion o rsi' });
+    if (!['momentum', 'mean-reversion'].includes(strategy)) {
+      res.status(400).json({ error: 'strategy debe ser momentum o mean-reversion' });
       return;
     }
     if (brokerMode && !['simulated', 'alpaca_paper', 'alpaca_live'].includes(brokerMode)) {

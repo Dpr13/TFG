@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { positionService, quoteService } from '../services';
 import type { Position } from '../types';
+import { useLanguage } from '../context/LanguageContext';
 
 interface Props {
   position: Position;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function ClosePositionModal({ position, onClose, onClosed }: Props) {
+  const { t, language } = useLanguage();
   const today = new Date().toISOString().slice(0, 10);
   const [quantity, setQuantity] = useState(String(position.quantityOpen));
   const [price, setPrice] = useState('');
@@ -17,6 +19,9 @@ export default function ClosePositionModal({ position, onClose, onClosed }: Prop
   const [fetchingPrice, setFetchingPrice] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const fmtCurrency = (n: number) =>
+    new Intl.NumberFormat(language, { style: 'currency', currency: 'USD' }).format(n);
 
   useEffect(() => {
     quoteService.getPrice(position.symbol)
@@ -37,7 +42,7 @@ export default function ClosePositionModal({ position, onClose, onClosed }: Prop
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (qty <= 0 || qty > position.quantityOpen) {
-      setError(`La cantidad debe estar entre 0 y ${position.quantityOpen}`);
+      setError(t.positions.quantityError.replace('{max}', String(position.quantityOpen)));
       return;
     }
     setLoading(true);
@@ -47,7 +52,7 @@ export default function ClosePositionModal({ position, onClose, onClosed }: Prop
       onClosed();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cerrar la posición');
+      setError(err instanceof Error ? err.message : t.positions.errorClose);
     } finally {
       setLoading(false);
     }
@@ -60,58 +65,56 @@ export default function ClosePositionModal({ position, onClose, onClosed }: Prop
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Cerrar posición</h2>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t.positions.closeTitle}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Position summary */}
         <div className="mb-4 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-sm space-y-1">
           <div className="flex justify-between">
-            <span className="text-gray-500 dark:text-gray-400">Símbolo</span>
+            <span className="text-gray-500 dark:text-gray-400">{t.positions.symbolField}</span>
             <span className="font-bold text-gray-900 dark:text-white">{position.symbol}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500 dark:text-gray-400">Dirección</span>
+            <span className="text-gray-500 dark:text-gray-400">{t.positions.directionField}</span>
             <span className={`font-semibold uppercase ${dirColor}`}>{position.direction}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500 dark:text-gray-400">Precio de entrada</span>
+            <span className="text-gray-500 dark:text-gray-400">{t.positions.entryPriceField}</span>
             <span className="font-semibold text-gray-900 dark:text-white">${position.avgEntryPrice.toFixed(4)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500 dark:text-gray-400">Disponible</span>
-            <span className="font-semibold text-gray-900 dark:text-white">{position.quantityOpen} uds</span>
+            <span className="text-gray-500 dark:text-gray-400">{t.positions.availableField}</span>
+            <span className="font-semibold text-gray-900 dark:text-white">{position.quantityOpen} {t.calendar.units}</span>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Cantidad a cerrar</label>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t.positions.closeQuantityLabel}</label>
               <input type="number" min="0" max={position.quantityOpen} step="any" value={quantity} onChange={e => setQuantity(e.target.value)} className={inputCls} required />
-              <p className="mt-0.5 text-xs text-gray-400">Máx: {position.quantityOpen}</p>
+              <p className="mt-0.5 text-xs text-gray-400">{t.positions.maxLabel} {position.quantityOpen}</p>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
-                Precio de salida
+                {t.positions.exitPriceLabel}
                 {fetchingPrice && <Loader2 className="w-3 h-3 animate-spin text-primary-500" />}
               </label>
               <input type="number" min="0" step="any" value={price} onChange={e => setPrice(e.target.value)} className={inputCls} placeholder="0.00" required />
             </div>
           </div>
 
-          {/* Estimated PnL */}
           {estimatedPnl !== null && (
             <div className={`p-3 rounded-xl text-sm font-semibold text-center ${estimatedPnl >= 0 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'}`}>
               PnL estimado: {estimatedPnl >= 0 ? '+' : ''}{estimatedPnl.toFixed(2)} $
-              {isPartial && <span className="ml-2 text-xs font-normal opacity-75">(cierre parcial)</span>}
+              {isPartial && <span className="ml-2 text-xs font-normal opacity-75">{t.positions.partialClose}</span>}
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Fecha de cierre</label>
+            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t.positions.closeDateLabel}</label>
             <input type="date" value={executedAt} onChange={e => setExecutedAt(e.target.value)} className={inputCls} required />
           </div>
 
@@ -119,11 +122,11 @@ export default function ClosePositionModal({ position, onClose, onClosed }: Prop
 
           <div className="flex gap-3">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-              Cancelar
+              {t.calendar.cancel}
             </button>
             <button type="submit" disabled={loading}
               className="flex-1 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold transition-colors disabled:opacity-50">
-              {loading ? 'Cerrando...' : isPartial ? 'Cierre parcial' : 'Cerrar posición'}
+              {loading ? t.positions.closing : isPartial ? t.positions.partialCloseBtn : t.positions.closeBtn}
             </button>
           </div>
         </form>

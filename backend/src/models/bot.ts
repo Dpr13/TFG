@@ -1,4 +1,4 @@
-export type BotStrategy = 'momentum' | 'mean-reversion' | 'rsi';
+export type BotStrategy = 'momentum' | 'mean-reversion';
 export type BotStatus = 'running' | 'paused' | 'stopped';
 export type TradeSide = 'BUY' | 'SELL';
 
@@ -31,7 +31,8 @@ export interface BotParams {
   // Mean-reversion params
   window?: number;
   k?: number;
-  // RSI params
+  // RSI confirmation filter (applies to any strategy)
+  useRsi?: boolean;
   rsiPeriod?: number;
   rsiOverbought?: number;
   rsiOversold?: number;

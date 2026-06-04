@@ -206,11 +206,17 @@ class BotService {
       priceHistory.push(tick.price);
       if (priceHistory.length > maxHistory) priceHistory.shift();
 
-      const signal = bot.strategy === 'momentum'
+      const mainSignal = bot.strategy === 'momentum'
         ? momentumSignal(priceHistory, bot.params)
-        : bot.strategy === 'rsi'
-          ? rsiSignal(priceHistory, bot.params)
-          : meanReversionSignal(priceHistory, bot.params);
+        : meanReversionSignal(priceHistory, bot.params);
+
+      // RSI confirmation filter: blocks conflicting main signals
+      let signal = mainSignal;
+      if (bot.params.useRsi && mainSignal !== 'HOLD') {
+        const rsiResult = rsiSignal(priceHistory, bot.params);
+        if (mainSignal === 'BUY'  && rsiResult === 'SELL') signal = 'HOLD';
+        if (mainSignal === 'SELL' && rsiResult === 'BUY')  signal = 'HOLD';
+      }
 
       const runtime = this.agents.get(botId);
       if (runtime) {

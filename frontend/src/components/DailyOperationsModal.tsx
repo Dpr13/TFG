@@ -3,6 +3,7 @@ import type { Operation, CreateOperationDTO, DailyStats, Strategy, Asset } from 
 import { operationService, strategyService, assetService } from '../services';
 import { ChevronUp, Trash2, Plus } from 'lucide-react';
 import { formatCurrency } from '../utils/format';
+import { useLanguage } from '../context/LanguageContext';
 
 // ============================================================================
 // DAILY OPERATIONS MODAL COMPONENT
@@ -41,6 +42,7 @@ export default function DailyOperationsModal({
   onOperationAdded,
   onOperationDeleted,
 }: DailyOperationsModalProps) {
+  const { t, language } = useLanguage();
   const [isEditMode, setIsEditMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,7 +148,7 @@ export default function DailyOperationsModal({
       // Validate symbol exists
       const symbolExists = await validateSymbol(formData.symbol);
       if (!symbolExists) {
-        setError(`El símbolo "${formData.symbol.toUpperCase()}" no existe. Por favor, selecciona un activo válido.`);
+        setError(t.calendar.invalidSymbol.replace('{symbol}', formData.symbol.toUpperCase()));
         setLoading(false);
         return;
       }
@@ -167,7 +169,7 @@ export default function DailyOperationsModal({
       setShowSuggestions(false);
       onOperationAdded();
     } catch (err) {
-      setError('Error al crear la operación');
+      setError(t.calendar.errorCreate);
       console.error(err);
     } finally {
       setLoading(false);
@@ -175,7 +177,7 @@ export default function DailyOperationsModal({
   };
 
   const handleDeleteOperation = async (operationId: string) => {
-    if (!window.confirm('¿Deseas eliminar esta operación?')) return;
+    if (!window.confirm(t.calendar.deleteConfirm)) return;
 
     setLoading(true);
     setError(null);
@@ -184,7 +186,7 @@ export default function DailyOperationsModal({
       await operationService.deleteOperation(operationId);
       onOperationDeleted();
     } catch (err) {
-      setError('Error al eliminar la operación');
+      setError(t.calendar.errorDelete);
       console.error(err);
     } finally {
       setLoading(false);
@@ -212,7 +214,7 @@ export default function DailyOperationsModal({
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                 {(() => {
                 const [y, m, d] = date.split('-').map(Number);
-                return new Date(y, m - 1, d).toLocaleDateString('es-ES', {
+                return new Date(y, m - 1, d).toLocaleDateString(language, {
                   weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
                 });
               })()}
@@ -223,7 +225,7 @@ export default function DailyOperationsModal({
                     PnL: {formatCurrency(stats.totalPnL, 'EUR')} ({stats.totalPnLPercentage.toFixed(2)}%)
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {stats.operationCount} operación(es)
+                    {t.calendar.opsCount.replace('{n}', String(stats.operationCount))}
                   </div>
                 </div>
               )}
@@ -248,7 +250,7 @@ export default function DailyOperationsModal({
           {/* Operations List */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Operaciones
+              {t.calendar.operationsListTitle}
             </h3>
             {operations.length === 0 ? (
               <p className="text-gray-500 dark:text-gray-400">No hay operaciones para este día</p>
@@ -276,16 +278,16 @@ export default function DailyOperationsModal({
                             {(op.type ?? 'long') === 'long' ? 'LONG' : 'SHORT'}
                           </span>
                           <span className="text-gray-600 dark:text-gray-400">
-                            {op.quantity} uds
+                            {op.quantity} {t.calendar.units}
                           </span>
                         </div>
                         <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                          <div>Entrada: {formatCurrency(op.buyPrice, 'EUR')}</div>
-                          <div>Salida: {formatCurrency(op.sellPrice, 'EUR')}</div>
+                          <div>{t.calendar.entryPrice}: {formatCurrency(op.buyPrice, 'EUR')}</div>
+                          <div>{t.calendar.exitPrice}: {formatCurrency(op.sellPrice, 'EUR')}</div>
                           {op.strategyId && (
                             <div className="mt-1">
                               <span className="inline-block px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-                                {strategies.find(s => s.id === op.strategyId)?.name || 'Estrategia'}
+                                {strategies.find(s => s.id === op.strategyId)?.name || t.calendar.strategyLabel}
                               </span>
                             </div>
                           )}
@@ -322,7 +324,7 @@ export default function DailyOperationsModal({
           {isEditMode && (
             <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Añadir Operación
+                {t.calendar.addOperationTitle}
               </h3>
               <form onSubmit={handleAddOperation} className="space-y-4">
                 {/* Long / Short toggle */}
@@ -349,7 +351,7 @@ export default function DailyOperationsModal({
                   <div className="relative" ref={symbolInputRef}>
                     <input
                       type="text"
-                      placeholder="Símbolo (ej: AAPL, TSLA)"
+                      placeholder={t.calendar.symbolPlaceholder}
                       value={formData.symbol}
                       onChange={(e) => handleSymbolChange(e.target.value)}
                       onFocus={() => formData.symbol && setShowSuggestions(true)}
@@ -386,7 +388,7 @@ export default function DailyOperationsModal({
                   {/* Quantity Input */}
                   <input
                     type="number"
-                    placeholder="Cantidad"
+                    placeholder={t.calendar.quantityPlaceholder}
                     value={formData.quantity}
                     onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                     className="px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
@@ -395,7 +397,7 @@ export default function DailyOperationsModal({
                   />
                   <input
                     type="number"
-                    placeholder="Precio de compra"
+                    placeholder={t.calendar.buyPricePlaceholder}
                     value={formData.buyPrice}
                     onChange={(e) => setFormData({ ...formData, buyPrice: e.target.value })}
                     className="px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
@@ -404,7 +406,7 @@ export default function DailyOperationsModal({
                   />
                   <input
                     type="number"
-                    placeholder="Precio de venta"
+                    placeholder={t.calendar.sellPricePlaceholder}
                     value={formData.sellPrice}
                     onChange={(e) => setFormData({ ...formData, sellPrice: e.target.value })}
                     className="px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
@@ -418,7 +420,7 @@ export default function DailyOperationsModal({
                     onChange={(e) => setFormData({ ...formData, strategyId: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                   >
-                    <option value="">Sin estrategia</option>
+                    <option value="">{t.calendar.noStrategy}</option>
                     {strategies.map((strategy) => (
                       <option key={strategy.id} value={strategy.id}>
                         {strategy.name}
@@ -427,7 +429,7 @@ export default function DailyOperationsModal({
                   </select>
                 </div>
                 <textarea
-                  placeholder="Notas (opcional)"
+                  placeholder={t.calendar.notesPlaceholder}
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
@@ -439,14 +441,14 @@ export default function DailyOperationsModal({
                     disabled={loading}
                     className="flex-1 bg-primary-600 text-white py-2 rounded-lg hover:bg-primary-700 disabled:opacity-50"
                   >
-                    {loading ? 'Guardando...' : 'Guardar'}
+                    {loading ? t.calendar.saving : t.calendar.save}
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsEditMode(false)}
                     className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-200 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600"
                   >
-                    Cancelar
+                    {t.calendar.cancel}
                   </button>
                 </div>
               </form>
@@ -460,11 +462,11 @@ export default function DailyOperationsModal({
           >
             {isEditMode ? (
               <>
-                <ChevronUp className="w-5 h-5" /> Cerrar Edición
+                <ChevronUp className="w-5 h-5" /> {t.calendar.closeEdit}
               </>
             ) : (
               <>
-                <Plus className="w-5 h-5" /> Añadir Operación
+                <Plus className="w-5 h-5" /> {t.calendar.addOperationTitle}
               </>
             )}
           </button>
