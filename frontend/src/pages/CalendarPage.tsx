@@ -183,7 +183,7 @@ export default function CalendarPage() {
       const stats = await botService.getMonthlyStats(year, month, selectedBotId || undefined);
       setBotDailyStats(stats);
     } catch {
-      setError('Error al cargar datos de bots');
+      setError(t.calendar.errorLoadingBots);
     } finally {
       setBotLoading(false);
     }
@@ -302,7 +302,7 @@ export default function CalendarPage() {
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
-              {tab === 'manual' ? 'Operaciones manuales' : 'Bots'}
+              {tab === 'manual' ? t.calendar.tabManual : 'Bots'}
             </button>
           ))}
         </div>
@@ -330,12 +330,12 @@ export default function CalendarPage() {
                 onChange={(e) => setSelectedBotId(e.target.value)}
                 className="px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
-                <option value="">Todos los bots</option>
+                <option value="">{t.calendar.allBots}</option>
                 {bots.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
               {selectedBotId && (
                 <button onClick={() => setSelectedBotId('')} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline">
-                  Limpiar
+                  {t.calendar.clearFilter}
                 </button>
               )}
             </div>
@@ -343,7 +343,7 @@ export default function CalendarPage() {
 
           {activeTab === 'bots' && bots.length === 0 && (
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              No tienes bots creados. Crea uno desde la sección Bots para ver su actividad aquí.
+              {t.calendar.noBots}
             </p>
           )}
 

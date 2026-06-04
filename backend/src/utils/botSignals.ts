@@ -6,6 +6,8 @@ export interface BotSignalParams {
   thresholdPct?: number;
   window?: number;
   k?: number;
+  // RSI filter (confirmation layer, not a standalone strategy)
+  useRsi?: boolean;
   rsiPeriod?: number;
   rsiOverbought?: number;
   rsiOversold?: number;

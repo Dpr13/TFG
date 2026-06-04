@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { PsychoAnalysisSummary, Strategy } from '../types';
+import type { PsychoAnalysisSummary, RiskAlert, Strategy } from '../types';
 import { psychoanalysisService, strategyService } from '../services';
 import { useLanguage } from '../context/LanguageContext';
 import {
@@ -19,9 +19,6 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle,
-  BarChart2,
-  Flame,
-  RefreshCw,
   Activity,
   Star,
   Lightbulb,
@@ -29,6 +26,75 @@ import {
   DollarSign,
 } from 'lucide-react';
 import AnalysisSummaryCard, { AnalysisVariant } from '@components/AnalysisSummaryCard';
+
+type T = ReturnType<typeof useLanguage>['t'];
+
+function buildRecommendations(
+  generalStats: PsychoAnalysisSummary['generalStats'],
+  temporalStats: PsychoAnalysisSummary['temporalStats'],
+  directionalStats: PsychoAnalysisSummary['directionalStats'],
+  behaviorStats: PsychoAnalysisSummary['behaviorStats'],
+  assetStats: PsychoAnalysisSummary['assetStats'],
+  alerts: RiskAlert[],
+  t: T
+): string[] {
+  const rec = t.psycho.rec;
+  const day = (key: string) => (t.days as Record<string, string>)[key] ?? key;
+  const recs: string[] = [];
+
+  if (generalStats.winRate < 40) {
+    recs.push(rec.lowWinRate.replace('{rate}', generalStats.winRate.toFixed(1)));
+  } else if (generalStats.winRate < 50) {
+    recs.push(rec.mediumWinRate.replace('{rate}', generalStats.winRate.toFixed(1)));
+  }
+  if (behaviorStats.overtradingScore > 60) {
+    recs.push(rec.overtrading.replace('{score}', String(behaviorStats.overtradingScore)));
+  }
+  if (behaviorStats.impulsivityScore > 60) {
+    recs.push(rec.impulsivity.replace('{score}', String(behaviorStats.impulsivityScore)));
+  }
+  if (alerts.some(a => a.type === 'revenge_trading')) recs.push(rec.revengeTrading);
+  if (alerts.some(a => a.type === 'loss_spiral'))     recs.push(rec.lossSpiral);
+
+  const daysWithOps = temporalStats.dayOfWeek.filter(d => d.operations > 0);
+  if (daysWithOps.length > 1) {
+    if (temporalStats.worstDayOfWeek) {
+      recs.push(rec.worstDay.replace('{day}', day(temporalStats.worstDayOfWeek)));
+    }
+    if (temporalStats.bestDayOfWeek && temporalStats.bestDayOfWeek !== temporalStats.worstDayOfWeek) {
+      recs.push(rec.bestDay.replace('{day}', day(temporalStats.bestDayOfWeek)));
+    }
+  }
+
+  const { long, short } = directionalStats;
+  if (long.operations >= 3 && short.operations >= 3) {
+    if (long.winRate > short.winRate + 15) {
+      recs.push(rec.longBetterThanShort.replace('{long}', long.winRate.toFixed(1)).replace('{short}', short.winRate.toFixed(1)));
+    } else if (short.winRate > long.winRate + 15) {
+      recs.push(rec.shortBetterThanLong.replace('{short}', short.winRate.toFixed(1)).replace('{long}', long.winRate.toFixed(1)));
+    }
+    if (long.avgPnL > 0 && short.avgPnL < 0) {
+      recs.push(rec.losingShorts.replace('{avg}', short.avgPnL.toFixed(2)));
+    } else if (short.avgPnL > 0 && long.avgPnL < 0) {
+      recs.push(rec.losingLongs.replace('{avg}', long.avgPnL.toFixed(2)));
+    }
+  }
+
+  const qualified = assetStats.filter(a => a.operations >= 3);
+  const bestSharpe = [...qualified].sort((a, b) => b.sharpeRatio - a.sharpeRatio)[0];
+  if (bestSharpe && bestSharpe.sharpeRatio > 0.5) {
+    recs.push(rec.bestSharpe.replace('{symbol}', bestSharpe.symbol).replace('{sharpe}', bestSharpe.sharpeRatio.toFixed(2)));
+  }
+  const highVol = qualified.find(a => a.volatility > Math.abs(a.avgPnL) * 3 && a.volatility > 0);
+  if (highVol) {
+    recs.push(rec.highVolatility.replace('{symbol}', highVol.symbol).replace('{vol}', highVol.volatility.toFixed(2)));
+  }
+  if (behaviorStats.recoverySuccessRate < 30 && behaviorStats.recoveryAttempts > 5) {
+    recs.push(rec.lowRecovery.replace('{rate}', String(behaviorStats.recoverySuccessRate)));
+  }
+
+  return recs;
+}
 
 export default function PsychoanalysisPage() {
   const { t } = useLanguage();
@@ -94,13 +160,30 @@ export default function PsychoanalysisPage() {
     );
   }
 
-  const { generalStats, assetStats, temporalStats, directionalStats, behaviorStats, alerts, disciplineScore, recommendations } = data;
+  const { generalStats, assetStats, temporalStats, directionalStats, behaviorStats, alerts, disciplineScore, analysisMode } = data;
 
-  const topAssets = assetStats.filter((a) => a.totalPnL > 0).slice(0, 5);
-  const topSymbols = new Set(topAssets.map((a) => a.symbol));
-  const remaining = [...assetStats].reverse().filter((a) => !topSymbols.has(a.symbol));
-  const negativeAssets = remaining.filter((a) => a.totalPnL < 0).slice(0, 5);
-  const worstAssets = negativeAssets.length > 0 ? negativeAssets : remaining.slice(0, 5);
+  // Genera las recomendaciones en el frontend para soportar i18n
+  const recommendations = buildRecommendations(generalStats, temporalStats, directionalStats, behaviorStats, assetStats, alerts, t);
+
+  // Renderiza el mensaje de una alerta usando sus parámetros y las claves i18n
+  const getAlertMessage = (alert: (typeof alerts)[number]): string => {
+    const p = alert.messageParams;
+    const msgs = t.psycho.alertMsgs;
+    switch (alert.type) {
+      case 'overtrading':    return msgs.overtrading.replace('{days}', String(p.days)).replace('{max}', String(p.max)).replace('{avg}', String(p.avg));
+      case 'revenge_trading': return msgs.revengeTrading.replace('{days}', String(p.days));
+      case 'loss_spiral':    return msgs.lossSpiral.replace('{streak}', String(p.streak));
+    }
+  };
+
+  const worstAssets = [...assetStats]
+    .filter((a) => a.operations >= 3 && (a.totalPnL < 0 || a.sharpeRatio < 0.3))
+    .sort((a, b) => a.totalPnL - b.totalPnL)
+    .slice(0, 5);
+  const worstSymbols = new Set(worstAssets.map((a) => a.symbol));
+  const topAssets = assetStats
+    .filter((a) => a.totalPnL > 0 && !worstSymbols.has(a.symbol))
+    .slice(0, 5);
 
   let classification = t.psycho.excellentPsychology;
   let variant: AnalysisVariant = 'success';
@@ -185,6 +268,16 @@ export default function PsychoanalysisPage() {
             )}
           </div>
         </div>
+
+        {/* Static mode notice */}
+        {analysisMode === 'static' && (
+          <div className="mb-6 flex items-start gap-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-3">
+            <Activity className="w-4 h-4 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              {t.psycho.staticModeBanner.replace('{needed}', String(30 - generalStats.totalOperations))}
+            </p>
+          </div>
+        )}
 
         {/* Psychological Summary Card */}
         <div className="mb-8">
@@ -290,14 +383,13 @@ export default function PsychoanalysisPage() {
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <BarChart2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
               {t.psycho.chartDayOfWeek}
             </h2>
             <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={temporalStats.dayOfWeek}>
+              <BarChart data={temporalStats.dayOfWeek.filter(d => d.operations > 0)}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="day" tick={{ fontSize: 12 }} tickFormatter={(v) => (t.days as Record<string, string>)[v] ?? v} />
                 <YAxis />
                 <Tooltip formatter={(value) => typeof value === 'number' ? `€${value.toFixed(2)}` : value} />
                 <Bar dataKey="totalPnL" fill="#10b981" radius={[3, 3, 0, 0]} />
@@ -305,17 +397,16 @@ export default function PsychoanalysisPage() {
             </ResponsiveContainer>
             <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700 flex gap-6">
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                <strong>{t.psycho.bestDay}:</strong> {temporalStats.bestDayOfWeek}
+                <strong>{t.psycho.bestDay}:</strong> {(t.days as Record<string, string>)[temporalStats.bestDayOfWeek] ?? temporalStats.bestDayOfWeek}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                <strong>{t.psycho.worstDay}:</strong> {temporalStats.worstDayOfWeek}
+                <strong>{t.psycho.worstDay}:</strong> {(t.days as Record<string, string>)[temporalStats.worstDayOfWeek] ?? temporalStats.worstDayOfWeek}
               </p>
             </div>
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
               Long vs Short
             </h2>
             <div className="grid grid-cols-2 gap-4 h-[260px] content-center">
@@ -334,11 +425,11 @@ export default function PsychoanalysisPage() {
                       {isLong ? <TrendingUp className={`w-5 h-5 ${accentText}`} /> : <TrendingDown className={`w-5 h-5 ${accentText}`} />}
                       <span className={`font-bold text-lg capitalize ${accentText}`}>{isLong ? 'Long' : 'Short'}</span>
                     </div>
-                    <DirectionalRow label="Operaciones" value={side.operations.toString()} />
-                    <DirectionalRow label="PnL total" value={`€${side.totalPnL.toFixed(2)}`} valueClass={side.totalPnL >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
-                    <DirectionalRow label="Win rate" value={`${side.winRate.toFixed(1)}%`} valueClass={side.winRate >= 50 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
-                    <DirectionalRow label="PnL medio" value={`€${side.avgPnL.toFixed(2)}`} valueClass={side.avgPnL >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
-                    <DirectionalRow label="Rto. medio" value={`${side.avgPnLPct.toFixed(2)}%`} valueClass={side.avgPnLPct >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
+                    <DirectionalRow label={t.psycho.opsLabel} value={side.operations.toString()} />
+                    <DirectionalRow label={t.psycho.pnlTotal} value={`€${side.totalPnL.toFixed(2)}`} valueClass={side.totalPnL >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
+                    <DirectionalRow label={t.psycho.winRateLabel} value={`${side.winRate.toFixed(1)}%`} valueClass={side.winRate >= 50 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
+                    <DirectionalRow label={t.psycho.avgPnLLabel} value={`€${side.avgPnL.toFixed(2)}`} valueClass={side.avgPnL >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
+                    <DirectionalRow label={t.psycho.avgReturnLabel} value={`${side.avgPnLPct.toFixed(2)}%`} valueClass={side.avgPnLPct >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
                   </div>
                 );
               })}
@@ -347,8 +438,7 @@ export default function PsychoanalysisPage() {
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Target className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
             {t.psycho.chartWinRateByAsset}
           </h2>
           <ResponsiveContainer width="100%" height={260}>
@@ -366,8 +456,7 @@ export default function PsychoanalysisPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Streaks */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Flame className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
               {t.psycho.streaks}
             </h3>
             <div className="space-y-3">
@@ -388,8 +477,7 @@ export default function PsychoanalysisPage() {
 
           {/* Recovery */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <RefreshCw className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
               {t.psycho.recovery}
             </h3>
             <div className="space-y-3">
@@ -410,8 +498,7 @@ export default function PsychoanalysisPage() {
 
           {/* After Win / Loss */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
               {t.psycho.avgOps}
             </h3>
             <div className="space-y-3">
@@ -432,8 +519,7 @@ export default function PsychoanalysisPage() {
 
           {/* Risk Scores */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
               {t.psycho.riskScores}
             </h3>
             <div className="space-y-5">
@@ -480,9 +566,9 @@ export default function PsychoanalysisPage() {
                       .replace('{rate}', asset.winRate.toFixed(1))}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    <AssetPill label="Mejor" value={`€${asset.bestTrade.toFixed(2)}`} color="green" />
-                    <AssetPill label="Peor" value={`€${asset.worstTrade.toFixed(2)}`} color="red" />
-                    <AssetPill label="Volat." value={asset.volatility.toFixed(2)} color="neutral" />
+                    <AssetPill label={t.psycho.best} value={`€${asset.bestTrade.toFixed(2)}`} color="green" />
+                    <AssetPill label={t.psycho.worst} value={`€${asset.worstTrade.toFixed(2)}`} color="red" />
+                    <AssetPill label={t.psycho.volatilityLabel} value={asset.volatility.toFixed(2)} color="neutral" />
                     <AssetPill label="Sharpe" value={asset.sharpeRatio.toFixed(2)} color={asset.sharpeRatio >= 1 ? 'green' : asset.sharpeRatio >= 0 ? 'neutral' : 'red'} />
                   </div>
                 </div>
@@ -498,7 +584,7 @@ export default function PsychoanalysisPage() {
             <div className="space-y-2">
               {worstAssets.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                  {t.psycho.singleAsset}
+                  {t.psycho.allAssetsPositive}
                 </p>
               ) : worstAssets.map((asset, idx) => (
                 <div
@@ -519,9 +605,9 @@ export default function PsychoanalysisPage() {
                       .replace('{rate}', asset.winRate.toFixed(1))}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    <AssetPill label="Mejor" value={`€${asset.bestTrade.toFixed(2)}`} color="green" />
-                    <AssetPill label="Peor" value={`€${asset.worstTrade.toFixed(2)}`} color="red" />
-                    <AssetPill label="Volat." value={asset.volatility.toFixed(2)} color="neutral" />
+                    <AssetPill label={t.psycho.best} value={`€${asset.bestTrade.toFixed(2)}`} color="green" />
+                    <AssetPill label={t.psycho.worst} value={`€${asset.worstTrade.toFixed(2)}`} color="red" />
+                    <AssetPill label={t.psycho.volatilityLabel} value={asset.volatility.toFixed(2)} color="neutral" />
                     <AssetPill label="Sharpe" value={asset.sharpeRatio.toFixed(2)} color={asset.sharpeRatio >= 1 ? 'green' : asset.sharpeRatio >= 0 ? 'neutral' : 'red'} />
                   </div>
                 </div>
@@ -552,7 +638,7 @@ export default function PsychoanalysisPage() {
                         {t.psycho.severityLabel}: {severityLabel[alert.severity]}
                       </span>
                     </div>
-                    <p className="text-sm">{alert.message}</p>
+                    <p className="text-sm">{getAlertMessage(alert)}</p>
                   </div>
                 );
               })}
@@ -597,7 +683,7 @@ export default function PsychoanalysisPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <Lightbulb className="w-4 h-4 text-yellow-500" />
-              Recomendaciones personalizadas
+              {t.psycho.recommendationsTitle}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {recommendations.map((rec, idx) => (

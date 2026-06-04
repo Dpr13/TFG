@@ -5,7 +5,7 @@ import type { BrokerMode } from '../models/broker_credential';
 
 export type { Signal };
 
-export type BotStrategy = 'momentum' | 'meanReversion' | 'rsi';
+export type BotStrategy = 'momentum' | 'meanReversion';
 
 export function isStopLossTriggered(entryPrice: number, currentPrice: number, stopLossPct: number): boolean {
   const dropPct = (entryPrice - currentPrice) / entryPrice * 100;
@@ -37,9 +37,18 @@ export function paperFillPrice(marketPrice: number, side: 'BUY' | 'SELL'): numbe
 }
 
 export function selectSignal(strategy: BotStrategy, prices: number[], params: BotSignalParams): Signal {
-  if (strategy === 'momentum') return momentumSignal(prices, params);
-  if (strategy === 'rsi') return rsiSignal(prices, params);
-  return meanReversionSignal(prices, params);
+  const main = strategy === 'momentum'
+    ? momentumSignal(prices, params)
+    : meanReversionSignal(prices, params);
+
+  // RSI filter (Option A): blocks the main signal when RSI contradicts it
+  if (params.useRsi && main !== 'HOLD') {
+    const rsiResult = rsiSignal(prices, params);
+    if (main === 'BUY'  && rsiResult === 'SELL') return 'HOLD';
+    if (main === 'SELL' && rsiResult === 'BUY')  return 'HOLD';
+  }
+
+  return main;
 }
 
 export { calcCommission };

@@ -401,7 +401,7 @@ export interface CreateBotDTO {
   params?: BotStrategyParams;
 }
 
-export type BotAlgorithm = 'momentum' | 'mean-reversion' | 'rsi';
+export type BotAlgorithm = 'momentum' | 'mean-reversion';
 
 export interface BotStrategyParams {
   fastWindow?: number;
@@ -409,11 +409,13 @@ export interface BotStrategyParams {
   thresholdPct?: number;
   window?: number;
   k?: number;
+  // RSI confirmation filter (applies to any algorithm)
+  useRsi?: boolean;
   rsiPeriod?: number;
   rsiOverbought?: number;
   rsiOversold?: number;
   stopLossPct?: number;
-  [key: string]: number | undefined;
+  [key: string]: number | boolean | undefined;
 }
 
 export interface BotStrategy {

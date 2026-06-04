@@ -255,7 +255,7 @@ export interface BehaviorStats {
 export interface RiskAlert {
   type: 'overtrading' | 'revenge_trading' | 'loss_spiral';
   severity: 'low' | 'medium' | 'high';
-  message: string;
+  messageParams: Record<string, number | string>;
 }
 
 export interface PsychoAnalysisSummary {
@@ -267,6 +267,7 @@ export interface PsychoAnalysisSummary {
   alerts: RiskAlert[];
   disciplineScore: number;
   recommendations: string[];
+  analysisMode: 'static' | 'adaptive';
 }
 export interface UpdateStrategyDTO {
   name?: string;
