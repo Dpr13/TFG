@@ -52,4 +52,23 @@ describe('Login page', function () {
 
     assert.ok(await errorDiv.isDisplayed(), 'El error de validación debe ser visible');
   });
+
+  it('inicia sesión correctamente con credenciales válidas', async function () {
+    await driver.get(LOGIN_URL);
+
+    const emailInput = await driver.findElement(By.id('email'));
+    const passwordInput = await driver.findElement(By.id('password'));
+
+    await emailInput.sendKeys('alu0101541006@ull.edu.es');
+    await passwordInput.sendKeys('BBDDDAis_30');
+
+    const submitButton = await driver.findElement(By.css('button[type="submit"]'));
+    await submitButton.click();
+
+    // Esperar a ser redirigido (urlContains('/') siempre pasa porque '/login' también tiene '/')
+    await driver.wait(until.urlMatches(/^(?!.*\/login).+$/), 10000);
+    const currentUrl = await driver.getCurrentUrl();
+    assert.ok(!currentUrl.includes('/login'), 'Ya no debería estar en la página de login');
+  });
+
 });

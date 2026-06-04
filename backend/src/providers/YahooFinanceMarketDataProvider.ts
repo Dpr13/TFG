@@ -13,6 +13,25 @@ const yahooFinance: any = new (yahooFinanceDefault as any)({ suppressNotices: ['
 export class YahooFinanceMarketDataProvider implements MarketDataProvider {
   private readonly cryptoSymbols = ['BTC', 'ETH', 'BITCOIN', 'ETHEREUM'];
 
+  private readonly currencyCodes = new Set([
+    'USD', 'EUR', 'GBP', 'JPY', 'CHF', 'AUD', 'CAD', 'NZD',
+    'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF',
+    'MXN', 'BRL', 'ZAR', 'TRY',
+    'CNY', 'HKD', 'SGD', 'KRW', 'INR',
+  ]);
+
+  private isForex(symbol: string): boolean {
+    const s = symbol.toUpperCase().trim();
+    if (s.endsWith('=X')) return true;
+    if (/^[A-Z]{3}\/[A-Z]{3}$/.test(s)) return true;
+    if (/^[A-Z]{6}$/.test(s)) {
+      const base = s.slice(0, 3);
+      const quote = s.slice(3, 6);
+      return this.currencyCodes.has(base) && this.currencyCodes.has(quote);
+    }
+    return false;
+  }
+
   private isProviderUnavailableError(message: string): boolean {
     const msg = message.toLowerCase();
     return (
@@ -42,7 +61,18 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
    * Converts 'BTC' to 'BTC-USD', 'AAPL' stays as 'AAPL'
    */
   private getYahooSymbol(symbol: string): string {
-    const upperSymbol = symbol.toUpperCase();
+    const upperSymbol = symbol.toUpperCase().trim();
+
+    // Forex normalization
+    // - 'EUR/USD'  -> 'EURUSD=X'
+    // - 'EURUSD'   -> 'EURUSD=X' (only when both sides look like currency codes)
+    // - 'EURUSD=X' -> 'EURUSD=X'
+    if (this.isForex(upperSymbol)) {
+      if (upperSymbol.endsWith('=X')) return upperSymbol;
+      if (/^[A-Z]{3}\/[A-Z]{3}$/.test(upperSymbol)) return upperSymbol.replace('/', '') + '=X';
+      if (/^[A-Z]{6}$/.test(upperSymbol)) return upperSymbol + '=X';
+    }
+
     if (this.isCrypto(upperSymbol)) {
       if (upperSymbol === 'BITCOIN') return 'BTC-USD';
       if (upperSymbol === 'ETHEREUM') return 'ETH-USD';
@@ -213,12 +243,15 @@ export class YahooFinanceMarketDataProvider implements MarketDataProvider {
         return null;
       }
 
-      const upperSymbol = symbol.toUpperCase();
-      const isCryptoAsset = this.isCrypto(upperSymbol) || quote.quoteType === 'CRYPTOCURRENCY';
+      const upperInputSymbol = symbol.toUpperCase().trim();
+      const isCryptoAsset = this.isCrypto(upperInputSymbol) || quote.quoteType === 'CRYPTOCURRENCY';
+      const isForexAsset = this.isForex(upperInputSymbol) || this.isForex(yahooSymbol) || quote.quoteType === 'CURRENCY';
+
+      const canonicalSymbol = isForexAsset ? yahooSymbol.toUpperCase() : upperInputSymbol;
       const result: { symbol: string; name: string; type: 'stock' | 'crypto' | 'forex' } = {
-        symbol: upperSymbol,
-        name: quote.shortName || quote.longName || upperSymbol,
-        type: isCryptoAsset ? 'crypto' : 'stock',
+        symbol: canonicalSymbol,
+        name: quote.shortName || quote.longName || canonicalSymbol,
+        type: isCryptoAsset ? 'crypto' : isForexAsset ? 'forex' : 'stock',
       };
       
       console.log(`[YahooFinance] Symbol validated successfully: ${JSON.stringify(result)}`);
