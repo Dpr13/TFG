@@ -197,9 +197,9 @@ const es = {
 
   // ── Home Page ──
   home: {
-    goodMorning: 'Buenos días',
-    goodAfternoon: 'Buenas tardes',
-    goodEvening: 'Buenas noches',
+    goodMorning: '¡Buenos días, ',
+    goodAfternoon: '¡Buenas tardes, ',
+    goodEvening: '¡Buenas noches, ',
     marketSummary: 'Aquí tienes el resumen del mercado de hoy.',
     registeredOps: 'Operaciones registradas',
     strategies: 'Estrategias',
