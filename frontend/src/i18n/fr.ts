@@ -198,9 +198,9 @@ nav: {
 
 // ── Home Page ──
 home: {
-  goodMorning: 'Bonjour',
-  goodAfternoon: 'Bon après-midi',
-  goodEvening: 'Bonsoir',
+  goodMorning: 'Bonjour, ',
+  goodAfternoon: 'Bon après-midi, ',
+  goodEvening: 'Bonsoir, ',
   marketSummary: 'Voici votre résumé du marché pour aujourd\'hui.',
   registeredOps: 'Opérations enregistrées',
   strategies: 'Stratégies',

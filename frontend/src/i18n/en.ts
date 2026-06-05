@@ -198,9 +198,9 @@ const en: Translations = {
 
   // ── Home Page ──
   home: {
-    goodMorning: 'Good morning',
-    goodAfternoon: 'Good afternoon',
-    goodEvening: 'Good evening',
+    goodMorning: 'Good morning, ',
+    goodAfternoon: 'Good afternoon, ',
+    goodEvening: 'Good evening, ',
     marketSummary: "Here's your market summary for today.",
     registeredOps: 'Registered operations',
     strategies: 'Strategies',
