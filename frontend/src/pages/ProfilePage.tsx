@@ -536,10 +536,10 @@ export default function ProfilePage() {
         <div className="p-6">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
             <Link className="w-5 h-5 mr-2" />
-            Conectar Broker
+            {t.profile.brokerTitle}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-            Conecta tu cuenta de un broker externo para que tus bots puedan operar con dinero real o en cuenta demo.
+            {t.profile.brokerDesc}
           </p>
 
           {brokerSuccess && (
@@ -564,14 +564,14 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <p className="font-medium text-gray-900 dark:text-white">Alpaca</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Acciones y ETFs — paper y live trading</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t.profile.alpacaDesc}</p>
                 </div>
               </div>
               {alpacaConnected ? (
                 <div className="flex items-center gap-2">
                   <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
                     <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
-                    Conectado
+                    {t.profile.connected}
                   </span>
                   <button
                     onClick={handleDisconnectAlpaca}
@@ -579,7 +579,7 @@ export default function ProfilePage() {
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                   >
                     <Unlink className="w-3 h-3" />
-                    Desconectar
+                    {t.profile.disconnect}
                   </button>
                 </div>
               ) : (
@@ -588,7 +588,7 @@ export default function ProfilePage() {
                   className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                 >
                   <Link className="w-3 h-3" />
-                  Conectar
+                  {t.profile.connect}
                 </button>
               )}
             </div>
@@ -597,10 +597,10 @@ export default function ProfilePage() {
             {showAlpacaForm && !alpacaConnected && (
               <form onSubmit={handleSaveAlpaca} className="mt-4 space-y-3">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Las claves se guardan cifradas. Nunca se devuelven al navegador tras ser almacenadas.
+                  {t.profile.apiKeyNote}
                 </p>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">API Key</label>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t.profile.apiKey}</label>
                   <input
                     type="text"
                     value={alpacaApiKey}
@@ -611,7 +611,7 @@ export default function ProfilePage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">API Secret</label>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t.profile.apiSecret}</label>
                   <input
                     type="password"
                     value={alpacaApiSecret}
@@ -628,14 +628,14 @@ export default function ProfilePage() {
                     className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                     disabled={brokerLoading}
                   >
-                    Cancelar
+                    {t.common.cancel}
                   </button>
                   <button
                     type="submit"
                     disabled={brokerLoading || !alpacaApiKey.trim() || !alpacaApiSecret.trim()}
                     className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
-                    {brokerLoading ? 'Guardando…' : 'Guardar'}
+                    {brokerLoading ? t.profile.saving : t.profile.save}
                   </button>
                 </div>
               </form>
@@ -646,19 +646,19 @@ export default function ProfilePage() {
               <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Balance</span>
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{t.profile.balanceLabel}</span>
                     <div className="flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden text-xs">
                       <button
                         onClick={() => { setBalancePaper(true); setAlpacaBalance(null); }}
                         className={`px-2 py-0.5 transition-colors ${balancePaper ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
                       >
-                        Paper
+                        {t.profile.paper}
                       </button>
                       <button
                         onClick={() => { setBalancePaper(false); setAlpacaBalance(null); }}
                         className={`px-2 py-0.5 transition-colors ${!balancePaper ? 'bg-orange-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
                       >
-                        Live
+                        {t.profile.live}
                       </button>
                     </div>
                   </div>
@@ -668,21 +668,21 @@ export default function ProfilePage() {
                     className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3 h-3 ${balanceLoading ? 'animate-spin' : ''}`} />
-                    {alpacaBalance ? 'Actualizar' : 'Ver balance'}
+                    {alpacaBalance ? t.profile.refresh : t.profile.viewBalance}
                   </button>
                 </div>
                 {alpacaBalance && (
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 text-center">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Efectivo</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t.profile.cash}</p>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">${alpacaBalance.cash.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 text-center">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Buying Power</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t.profile.buyingPower}</p>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">${alpacaBalance.buyingPower.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 text-center">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Portfolio</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t.profile.portfolio}</p>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">${alpacaBalance.portfolioValue.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                   </div>

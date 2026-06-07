@@ -247,12 +247,12 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Modo de ejecución</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.bots.executionMode}</label>
             <div className="grid grid-cols-3 gap-2">
               {([
-                { value: 'simulated', label: 'Simulado', desc: 'Sin broker real', color: 'gray' },
-                { value: 'alpaca_paper', label: 'Alpaca Paper', desc: 'Demo Alpaca', color: 'blue' },
-                { value: 'alpaca_live', label: 'Alpaca Live', desc: '⚠ Dinero real', color: 'orange' },
+                { value: 'simulated', label: t.bots.modeSimulated, desc: t.bots.modeSimulatedDesc, color: 'gray' },
+                { value: 'alpaca_paper', label: t.bots.modeAlpacaPaper, desc: t.bots.modeAlpacaPaperDesc, color: 'blue' },
+                { value: 'alpaca_live', label: t.bots.modeAlpacaLive, desc: t.bots.modeAlpacaLiveDesc, color: 'orange' },
               ] as { value: BrokerMode; label: string; desc: string; color: string }[]).map(opt => {
                 const disabled = opt.value !== 'simulated' && !hasAlpaca;
                 const selected = form.brokerMode === opt.value;
@@ -278,7 +278,7 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
             </div>
             {!hasAlpaca && (
               <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
-                Conecta Alpaca en tu perfil para usar los modos paper y live.
+                {t.bots.alpacaNotConnected}
               </p>
             )}
           </div>
@@ -294,17 +294,17 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
               className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm"
             />
             {loadingBalance && (
-              <p className="mt-1 text-xs text-gray-400 animate-pulse">Obteniendo balance…</p>
+              <p className="mt-1 text-xs text-gray-400 animate-pulse">{t.bots.fetchingBalance}</p>
             )}
             {alpacaBalance && !loadingBalance && (
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Buying power disponible: <span className="font-semibold text-gray-900 dark:text-white">${alpacaBalance.buyingPower.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                {t.bots.buyingPowerAvailable} <span className="font-semibold text-gray-900 dark:text-white">${alpacaBalance.buyingPower.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stop Loss (%)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.bots.stopLossLabel}</label>
             <input
               type="number"
               min={0.1}
@@ -312,10 +312,10 @@ function CreateBotModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
               step={0.1}
               value={stopLossPct}
               onChange={e => setStopLossPct(e.target.value)}
-              placeholder="Ej: 5 (dejar vacío para desactivar)"
+              placeholder={t.bots.stopLossPlaceholder}
               className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none text-sm"
             />
-            <p className="mt-1 text-xs text-gray-400">Si el precio cae este % desde la entrada, el bot vende automáticamente.</p>
+            <p className="mt-1 text-xs text-gray-400">{t.bots.stopLossDesc}</p>
           </div>
 
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
