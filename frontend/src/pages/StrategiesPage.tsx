@@ -87,16 +87,10 @@ function BotStrategyForm({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showParamPicker, setShowParamPicker] = useState(false);
-
   const rsiEnabled = !!form.params.useRsi;
 
-  // RSI params are managed by the dedicated toggle section, not the generic picker
   const activeParamKeys = Object.keys(form.params).filter(
     k => form.params[k] !== undefined && typeof form.params[k] === 'number' && !(RSI_PARAM_KEYS as readonly string[]).includes(k)
-  );
-  const availableParamKeys = Object.keys(paramMeta).filter(
-    k => form.params[k] === undefined && !(RSI_PARAM_KEYS as readonly string[]).includes(k)
   );
 
   const toggleRsi = () => {
@@ -112,12 +106,6 @@ function BotStrategyForm({
 
   const handleAlgoChange = (algo: BotAlgorithm) => {
     setForm(f => ({ ...f, algorithm: algo, params: { ...ALGO_DEFAULTS[algo] } }));
-    setShowParamPicker(false);
-  };
-
-  const addParam = (key: string) => {
-    setForm(f => ({ ...f, params: { ...f.params, [key]: paramMeta[key].defaultValue } }));
-    setShowParamPicker(false);
   };
 
   const removeParam = (key: string) => {
@@ -222,32 +210,6 @@ function BotStrategyForm({
           })}
         </div>
 
-        {availableParamKeys.length > 0 && (
-          <div className="mt-3 relative">
-            <button
-              type="button"
-              onClick={() => setShowParamPicker(v => !v)}
-              className="flex items-center gap-1.5 text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium"
-            >
-              <Plus className="w-3.5 h-3.5" /> {t.strategies.addParam}
-            </button>
-            {showParamPicker && (
-              <div className="absolute z-10 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg p-2 flex flex-col gap-1 min-w-48">
-                {availableParamKeys.map(key => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => addParam(key)}
-                    className="text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                  >
-                    <span className="font-medium">{paramMeta[key].label}</span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">({paramMeta[key].defaultValue})</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* RSI Confirmation Filter */}
